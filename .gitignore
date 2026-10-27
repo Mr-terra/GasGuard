@@ -1,0 +1,10 @@
+build/
+*.o
+*.d
+*.elf
+*.hex
+*.gcda
+*.gcno
+__pycache__/
+.vscode/
+.claude/settings.local.json

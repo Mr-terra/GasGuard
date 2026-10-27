@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make:*)",
+      "Bash(python3 tools/*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(cppcheck:*)",
+      "Bash(clang-tidy:*)",
+      "Bash(lizard:*)",
+      "Bash(avr-size:*)",
+      "Bash(grep:*)"
+    ],
+    "deny": [
+      "Bash(avrdude:*)",
+      "Bash(git push:*)",
+      "Bash(git push --force:*)",
+      "Bash(rm -rf:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/hooks/guard.py\""
+          }
+        ]
+      }
+    ]
+  }
+}
