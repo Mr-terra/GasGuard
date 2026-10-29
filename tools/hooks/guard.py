@@ -15,8 +15,10 @@ FORBIDDEN_ALL = [
     (r"\bgoto\b", "R04: goto is forbidden"),
     (r"\b(s?printf|scanf)\s*\(", "R13: printf/scanf family is forbidden"),
 ]
-FORBIDDEN_LOGIC = [
+FORBIDDEN_NO_AVR = [
     (r"#\s*include\s*<avr/", "R20: app/ and services/ must not include AVR headers"),
+]
+FORBIDDEN_NO_FLOAT = [
     (r"\b(float|double)\b", "R14: no floating point outside hal/avr/"),
 ]
 
@@ -41,7 +43,9 @@ def main() -> int:
     norm = path.replace("\\", "/")
     rules = list(FORBIDDEN_ALL)
     if "/app/" in norm or "/services/" in norm:
-        rules += FORBIDDEN_LOGIC
+        rules += FORBIDDEN_NO_AVR
+    if "/app/" in norm or "/services/" in norm or "/drivers/" in norm:
+        rules += FORBIDDEN_NO_FLOAT
     problems = []
     for pattern, message in rules:
         for match in re.finditer(pattern, code):
