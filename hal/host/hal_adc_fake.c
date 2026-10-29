@@ -39,24 +39,26 @@ void hal_adc_fake_reset(void)
 
 gg_status_t hal_adc_fake_set_value(uint8_t channel, uint16_t raw)
 {
-    if (channel >= HAL_ADC_CHANNEL_COUNT) {
-        return GG_ERR_RANGE;
+    gg_status_t status = GG_OK;
+
+    if ((channel >= HAL_ADC_CHANNEL_COUNT) || (raw > HAL_ADC_RAW_MAX)) {
+        status = GG_ERR_RANGE;
+    } else {
+        s_adc_fake.raw[channel] = raw;
     }
-    if (raw > HAL_ADC_RAW_MAX) {
-        return GG_ERR_RANGE;
-    }
-    s_adc_fake.raw[channel] = raw;
-    return GG_OK;
+    return status;
 }
 
 gg_status_t hal_adc_read(uint8_t channel, uint16_t *out_raw)
 {
+    gg_status_t status = GG_OK;
+
     if (out_raw == NULL) {
-        return GG_ERR_NULL;
+        status = GG_ERR_NULL;
+    } else if (channel >= HAL_ADC_CHANNEL_COUNT) {
+        status = GG_ERR_RANGE;
+    } else {
+        *out_raw = s_adc_fake.raw[channel];
     }
-    if (channel >= HAL_ADC_CHANNEL_COUNT) {
-        return GG_ERR_RANGE;
-    }
-    *out_raw = s_adc_fake.raw[channel];
-    return GG_OK;
+    return status;
 }
