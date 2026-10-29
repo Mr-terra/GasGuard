@@ -14,7 +14,10 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-24.04
+    # Pinned to the Ubuntu release the project is validated on (WSL2 Ubuntu 22.04):
+    # cppcheck 2.7, clang-tidy 14, gcc 11, gcovr 5. Moving to a newer runner changes
+    # the analysers, so the same code can pass locally and fail in CI.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -23,7 +26,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential gcc-avr avr-libc binutils-avr \
             cppcheck clang-tidy gcovr python3-pip
-          pip install --break-system-packages lizard
+          sudo python3 -m pip install lizard
+
+      - name: Show tool versions
+        run: |
+          gcc --version | head -1
+          avr-gcc --version | head -1
+          cppcheck --version
+          clang-tidy --version | head -2
+          gcovr --version | head -1
+          lizard --version
 
       - name: make check
         run: make check
