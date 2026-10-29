@@ -43,3 +43,20 @@ static uint16_t read_counter(void) {
 **3. Relay.** The relay is energised when the system is healthy and released on fault or power loss (REQ-SAF-001). A failure that cuts the coil drive therefore moves the output to the alarm side without any software action. Software faults are covered separately: the state machine goes to FAULT and de-energises the relay explicitly (REQ-SAF-007).
 
 **Still open:** the "compilation chain" item of PLAN.md Day 1 is not ticked. It has not been covered by an `explain-module` session yet.
+
+## 2026-10-29 — `compilation chain` (Day 1 learning item)
+
+- **Score : partial at first, validated on the third attempt**
+
+| Question | First answer | Result |
+|---|---|---|
+| Why a `.h` must not contain code | `.h` holds declarations; did not know the consequence | Partial: a body copied into every `.c` gives "multiple definition" at link time |
+| Why the test compiles and how it links to the fake | HAL is an abstraction; fake treated as a data file | Partial: the header prototype is enough for the compiler; the linker finds the symbol in the file listed by the `Makefile` |
+| Who decides which implementation is used | Expected a runtime detection | Corrected: the make target chooses the source list (`LIB_SRCS` for `make test`, `AVR_SRCS` for `make avr`) |
+
+**Final restatement (validated):** the test compiles with the prototype from `hal_adc.h`; the linker resolves `hal_adc_read` against the file the make target provides, the fake on the PC or the AVR driver on the board. The choice is made at build time, not at run time.
+
+**Concepts to review**
+
+1. Linkage and `static` at the symbol level: check the output of `nm` on an object file (`T` global, `b`/`t` local).
+2. Include guards and the cost of definitions in headers (flash duplication, `multiple definition`).

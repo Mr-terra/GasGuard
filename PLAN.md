@@ -9,7 +9,7 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 - [x] Add Unity (git submodule or vendored in `third_party/unity`)
 - [x] `common/gg_types.h` (`gg_status_t`, units), HAL interfaces in `hal/*.h`, host fakes
 - [ ] GitHub Actions CI running `make check` on every push (workflow written; first run pending the push of `day-1`)
-- [ ] **Learn:** compilation chain (preprocessor → compiler → linker), headers vs sources, `static`
+- [x] **Learn:** compilation chain (preprocessor → compiler → linker), headers vs sources, `static`
 
 ## Day 2 — Core logic, host-tested
 - [ ] `services/filter` (moving average) — REQ-FUN-002
