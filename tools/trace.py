@@ -16,11 +16,11 @@ REQ_TAG = re.compile(r"@(req|verifies)\s+((?:REQ-[A-Z]{3}-\d{3}[\s,]*)+)")
 REQ_ID = re.compile(r"REQ-[A-Z]{3}-\d{3}")
 
 
-def collect_tags(folder: Path, kind: str) -> dict:
+def collect_tags(folder: Path, kind: str, pattern: str = "*.[ch]") -> dict:
     found: dict = {}
     if not folder.is_dir():
         return found
-    for file in sorted(folder.rglob("*.[ch]")):
+    for file in sorted(folder.rglob(pattern)):
         text = file.read_text(encoding="utf-8", errors="replace")
         for match in REQ_TAG.finditer(text):
             if match.group(1) != kind:
@@ -38,7 +38,9 @@ def main() -> int:
 
     spec = (ROOT / "docs" / "01-requirements.md").read_text(encoding="utf-8")
     reqs = REQ_DEF.findall(spec)
-    code = collect_tags(ROOT, "req")
+    # Only a .c file counts as implementation: a header declares an interface,
+    # it does not implement the requirement.
+    code = collect_tags(ROOT, "req", "*.c")
     tests = collect_tags(ROOT / "tests", "verifies")
 
     known = set(reqs)
