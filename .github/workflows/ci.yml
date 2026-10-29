@@ -1,0 +1,29 @@
+# Continuous integration: runs `make check` (see CLAUDE.md, "Branches and CI").
+# Runs on every push to main, and on demand on other branches:
+# either from the Actions tab (workflow_dispatch) or by pushing a tag ci-*.
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ['ci-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain and analysis tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc-avr avr-libc binutils-avr \
+            cppcheck clang-tidy gcovr python3-pip
+          pip install --break-system-packages lizard
+
+      - name: make check
+        run: make check
