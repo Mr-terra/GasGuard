@@ -22,7 +22,7 @@ static void test_hal_adc_fake_returns_configured_value(void)
 {
     uint16_t raw = 0u;
 
-    hal_adc_fake_set_value(2u, 512u);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(2u, 512u));
 
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_read(2u, &raw));
     TEST_ASSERT_EQUAL_UINT16(512u, raw);
