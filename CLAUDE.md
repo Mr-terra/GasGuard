@@ -55,7 +55,26 @@ Flashing is done **by the human** from Windows (`tools/flash.ps1`). Never run av
 ## Commit style
 
 Conventional commits, English: `feat(alarm): latch ALARM_2 until operator reset (REQ-ALM-004)`.
-One logical change per commit. Never commit with `make check` failing.
+One logical change per commit. Never commit with `make check` failing, except
+the red `test:` commit that TDD requires (see Branches below).
+Commit often: at each important step (tests written and red, test green, refactor,
+doc update, new module), not only at the end of a day. Small commits keep history
+readable and make it easy to revert a single step.
+don't mention anthropic or the adresse mail of the company in the commit.
+
+## Branches and CI
+
+- One branch per plan day, created from `main`: `day-1`, `day-2`… All work of
+  that day happens on it. Never commit on `main` directly.
+- Red commits are allowed on a day branch only for tests written before their
+  implementation (`test(...)` commits). The branch must be green before merge.
+- After the author validates the day: `git rebase main`, then merge with
+  fast-forward only (`git merge --ff-only`), so `main` stays linear.
+- Before the day ends, check that the merge is on `main` and that the CI passes.
+  If not, fix it on a new branch (`day-N-fix-<topic>`), never by rewriting `main`.
+- CI (`.github/workflows/ci.yml`) runs on push to `main`, and on demand on other
+  branches: `workflow_dispatch` or a tag matching `ci-*`. Use the on-demand run
+  sparingly.
 
 ## Teaching mode
 
