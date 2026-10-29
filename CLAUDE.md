@@ -76,6 +76,20 @@ don't mention anthropic or the adresse mail of the company in the commit.
   branches: `workflow_dispatch` or a tag matching `ci-*`. Use the on-demand run
   sparingly.
 
+## Documentation upkeep
+
+- At the end of every day and every milestone, update the documentation in the
+  same change set: `README.md`, `docs/`, `PLAN.md` status, and
+  `docs/traceability.md` (regenerate with `make trace`). Documentation never lags
+  behind the code.
+- The `README.md` must be professional and exhaustive: status per feature with
+  its plan day, architecture, safety design, hardware and wiring, build and
+  flash steps, every `make` target, the quality gates, the workflow, the roadmap
+  and known limitations. Describe only what really exists; mark planned items
+  as planned.
+- A change to a requirement, a deviation, a gate or a workflow rule updates its
+  document in the same commit.
+
 ## Teaching mode
 
 The author must be able to defend every line in a technical interview.
