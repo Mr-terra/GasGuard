@@ -21,6 +21,10 @@ def collect_tags(folder: Path, kind: str, pattern: str = "*.[ch]") -> dict:
     if not folder.is_dir():
         return found
     for file in sorted(folder.rglob(pattern)):
+        # Host fakes (hal/host/) are test doubles, not implementations: they never
+        # count as "implemented", only the real code does.
+        if kind == "req" and file.relative_to(ROOT).parts[:2] == ("hal", "host"):
+            continue
         text = file.read_text(encoding="utf-8", errors="replace")
         for match in REQ_TAG.finditer(text):
             if match.group(1) != kind:
