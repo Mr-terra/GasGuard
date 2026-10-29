@@ -8,6 +8,8 @@
  * @req REQ-FUN-001
  */
 #ifndef HAL_ADC_H
+// DEV-02: include guard, not an unused macro
+// cppcheck-suppress misra-c2012-2.5
 #define HAL_ADC_H
 
 #include <stdint.h>
@@ -29,6 +31,8 @@
  *         GG_ERR_RANGE if channel is out of range.
  * @req REQ-FUN-001
  */
+// DEV-04: one implementation per target, fake on PC
+// cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_adc_read(uint8_t channel, uint16_t *out_raw);
 
 #endif /* HAL_ADC_H */

@@ -9,6 +9,8 @@
  * @req REQ-FUN-003 REQ-NFR-002
  */
 #ifndef GG_TYPES_H
+// DEV-02: include guard, not an unused macro
+// cppcheck-suppress misra-c2012-2.5
 #define GG_TYPES_H
 
 #include <stdint.h>

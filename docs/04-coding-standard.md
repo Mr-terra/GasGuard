@@ -65,6 +65,9 @@ An unexpected internal state is never ignored: it calls
 | ID | Rule | Location | Justification |
 |---|---|---|---|
 | DEV-01 | R01 | `hal/avr/*` | avr-libc register macros use implementation types. |
+| DEV-02 | MISRA 2.5 (unused macro) | include guards in every `*.h` (`#define X_H`) | Include guards are used only by the preprocessor, not as values; cppcheck reports them as unused macros. Each guard carries an inline `cppcheck-suppress misra-c2012-2.5` line. |
+| DEV-03 | MISRA 8.6, cppcheck unusedFunction | Unity hooks `setUp`, `tearDown`, `main` in `tests/` | Unity calls these hooks and `main` by name from its runner, so they have external linkage and no caller in our code. Each one carries an inline suppression. |
+| DEV-04 | MISRA 8.7 | `hal/hal_adc.h`, `hal/host/hal_adc_fake.h` | The interface and the test control API are defined once on the PC (host fake) but have other definitions or callers on other targets or in tests. Inline suppressions on each prototype. |
 | *(add new deviations here — never silently)* | | | |
 
 ## 6. Tooling

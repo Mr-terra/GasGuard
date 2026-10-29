@@ -5,10 +5,15 @@
 #include <stdint.h>
 
 /* Called by Unity around every test; prototypes keep -Wmissing-prototypes quiet. */
+// DEV-03: Unity hooks, called by the framework; MISRA 8.6 and unusedFunction do not apply.
+// cppcheck-suppress misra-c2012-8.6
 void setUp(void);
+// cppcheck-suppress misra-c2012-8.6
 void tearDown(void);
 
+// cppcheck-suppress unusedFunction
 void setUp(void) {}
+// cppcheck-suppress unusedFunction
 void tearDown(void) {}
 
 /* @verifies REQ-NFR-002 */
@@ -35,6 +40,7 @@ static void test_gg_types_concentration_is_int16_tenths_of_lel(void)
     TEST_ASSERT_EQUAL_INT(600, GG_CONC_MAX);       /* 60 %LEL */
 }
 
+// cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
     UNITY_BEGIN();

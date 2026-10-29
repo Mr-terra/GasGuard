@@ -7,7 +7,10 @@
 #include <stdint.h>
 
 /* Called by Unity around every test; prototypes keep -Wmissing-prototypes quiet. */
+/* DEV-03: Unity hooks; MISRA 8.6 and unusedFunction do not apply. */
+// cppcheck-suppress misra-c2012-8.6
 void setUp(void);
+// cppcheck-suppress misra-c2012-8.6
 void tearDown(void);
 
 void setUp(void)
@@ -51,6 +54,7 @@ static void test_hal_adc_read_rejects_channel_out_of_range(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, hal_adc_read(HAL_ADC_CHANNEL_COUNT, &raw));
 }
 
+// cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
     UNITY_BEGIN();
