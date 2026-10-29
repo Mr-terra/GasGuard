@@ -20,3 +20,26 @@ session.
 
 1. `volatile` and atomicity: why `volatile` forces re-reading and why it does not make a multi-byte read atomic (`ATOMIC_BLOCK`, R15).
 2. Floating inputs and pull-down resistors: why an unplugged ADC input reads noise, and how the 100 kΩ pull-down turns it into a detectable 0 (REQ-SAF-002, HW-001).
+
+## 2026-10-29 — Revision: `volatile`, pull-down, relay (review of the session above)
+
+Model answers to check before the next session.
+
+**1. `volatile` and atomicity.** Without `volatile`, the compiler may keep `v_tick` in a register and never re-read memory, so a loop waiting for an ISR can spin forever. `volatile` forces a read at every access, which gives visibility. It does not make a multi-byte access atomic: a 16-bit value can still be read half-updated while an ISR writes it. Protect such reads with `ATOMIC_BLOCK` (R15).
+
+```c
+static volatile uint8_t v_tick;                  /* visible to the ISR and the loop */
+ISR(TIMER0_COMPA_vect) { v_tick++; }
+
+static uint16_t read_counter(void) {
+    uint16_t copy;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { copy = v_counter; }
+    return copy;
+}
+```
+
+**2. Floating input and pull-down.** An unplugged ADC input has a very high impedance, so its voltage is undefined: noise, drift, or a plausible value. The 100 kΩ pull-down ties the input to GND, so an open circuit reads about 0 LSB. That 0 is then detected as an open circuit (REQ-SAF-002, `raw <= 5`). The pull-down is on the signal line, not in the power path: the module is powered from the 5 V and GND wires, and the current through the resistor is about 50 µA.
+
+**3. Relay.** The relay is energised when the system is healthy and released on fault or power loss (REQ-SAF-001). A failure that cuts the coil drive therefore moves the output to the alarm side without any software action. Software faults are covered separately: the state machine goes to FAULT and de-energises the relay explicitly (REQ-SAF-007).
+
+**Still open:** the "compilation chain" item of PLAN.md Day 1 is not ticked. It has not been covered by an `explain-module` session yet.
