@@ -9,13 +9,11 @@ void setUp(void);
 // cppcheck-suppress misra-c2012-8.6
 void tearDown(void);
 
-// cppcheck-suppress unusedFunction
 void setUp(void)
 {
     hal_reset_cause_fake_reset();
 }
 
-// cppcheck-suppress unusedFunction
 void tearDown(void) {}
 
 /* @verifies REQ-SAF-006 */

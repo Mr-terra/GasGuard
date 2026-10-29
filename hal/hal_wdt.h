@@ -8,6 +8,8 @@
  * @req REQ-SAF-005
  */
 #ifndef HAL_WDT_H
+// DEV-02: include guard, not an unused macro
+// cppcheck-suppress misra-c2012-2.5
 #define HAL_WDT_H
 
 #include "common/gg_types.h"
@@ -17,6 +19,8 @@
  * @return GG_OK on success.
  * @req REQ-SAF-005
  */
+// DEV-04: HAL interface or test control API, one definition on the PC
+// cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_wdt_enable(void);
 
 /**
@@ -25,6 +29,8 @@ gg_status_t hal_wdt_enable(void);
  * @return GG_OK on success.
  * @req REQ-SAF-005
  */
+// DEV-04: HAL interface or test control API, one definition on the PC
+// cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_wdt_kick(void);
 
 #endif /* HAL_WDT_H */

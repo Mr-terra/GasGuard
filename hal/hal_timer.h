@@ -8,6 +8,8 @@
  * @req REQ-FUN-001 REQ-LOG-002
  */
 #ifndef HAL_TIMER_H
+// DEV-02: include guard, not an unused macro
+// cppcheck-suppress misra-c2012-2.5
 #define HAL_TIMER_H
 
 #include <stdint.h>
@@ -19,6 +21,8 @@
  * @return GG_OK on success, GG_ERR_HW if the timer cannot be configured.
  * @req REQ-FUN-001
  */
+// DEV-04: HAL interface or test control API, one definition on the PC
+// cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_timer_init(void);
 
 /**
@@ -31,6 +35,8 @@ gg_status_t hal_timer_init(void);
  * @return GG_OK on success, GG_ERR_NULL if out_ms is NULL.
  * @req REQ-LOG-002
  */
+// DEV-04: HAL interface or test control API, one definition on the PC
+// cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_timer_get_ms(uint32_t *out_ms);
 
 #endif /* HAL_TIMER_H */

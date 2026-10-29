@@ -12,13 +12,11 @@ void setUp(void);
 // cppcheck-suppress misra-c2012-8.6
 void tearDown(void);
 
-// cppcheck-suppress unusedFunction
 void setUp(void)
 {
     hal_uart_fake_reset();
 }
 
-// cppcheck-suppress unusedFunction
 void tearDown(void) {}
 
 /* @verifies REQ-LOG-004 */
@@ -42,7 +40,7 @@ static void test_hal_uart_write_is_captured_by_fake(void)
 /* @verifies REQ-LOG-004 */
 static void test_hal_uart_write_is_all_or_nothing_when_buffer_full(void)
 {
-    uint8_t big[20] = {0u};
+    static uint8_t big[20]; /* zero-initialised by the C runtime (MISRA 9.3) */
 
     TEST_ASSERT_EQUAL_INT(GG_ERR_TIMEOUT, hal_uart_write(big, 20u));
     TEST_ASSERT_EQUAL_UINT8(0u, hal_uart_fake_tx_count());

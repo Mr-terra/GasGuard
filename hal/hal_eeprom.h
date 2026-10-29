@@ -8,6 +8,8 @@
  * @req REQ-CFG-001 REQ-LOG-001
  */
 #ifndef HAL_EEPROM_H
+// DEV-02: include guard, not an unused macro
+// cppcheck-suppress misra-c2012-2.5
 #define HAL_EEPROM_H
 
 #include <stdint.h>
@@ -26,6 +28,8 @@
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE for a bad address or length.
  * @req REQ-CFG-001
  */
+// DEV-04: HAL interface or test control API, one definition on the PC
+// cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_eeprom_read(uint16_t addr, uint8_t *data, uint16_t len);
 
 /**
@@ -39,6 +43,8 @@ gg_status_t hal_eeprom_read(uint16_t addr, uint8_t *data, uint16_t len);
  * @return GG_OK, GG_ERR_NULL, GG_ERR_RANGE, or GG_ERR_HW if the write failed.
  * @req REQ-LOG-001
  */
+// DEV-04: HAL interface or test control API, one definition on the PC
+// cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_eeprom_write(uint16_t addr, const uint8_t *data, uint16_t len);
 
 #endif /* HAL_EEPROM_H */

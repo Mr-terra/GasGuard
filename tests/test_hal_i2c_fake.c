@@ -13,13 +13,11 @@ void setUp(void);
 // cppcheck-suppress misra-c2012-8.6
 void tearDown(void);
 
-// cppcheck-suppress unusedFunction
 void setUp(void)
 {
     hal_i2c_fake_reset();
 }
 
-// cppcheck-suppress unusedFunction
 void tearDown(void) {}
 
 /* @verifies REQ-HMI-001 */

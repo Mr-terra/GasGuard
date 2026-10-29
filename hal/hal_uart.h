@@ -8,6 +8,8 @@
  * @req REQ-LOG-004
  */
 #ifndef HAL_UART_H
+// DEV-02: include guard, not an unused macro
+// cppcheck-suppress misra-c2012-2.5
 #define HAL_UART_H
 
 #include <stdint.h>
@@ -19,6 +21,8 @@
  * @return GG_OK on success.
  * @req REQ-LOG-004
  */
+// DEV-04: HAL interface or test control API, one definition on the PC
+// cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_uart_init(void);
 
 /**
@@ -30,6 +34,8 @@ gg_status_t hal_uart_init(void);
  *         buffer is full (nothing queued), GG_ERR_NULL if data is NULL.
  * @req REQ-LOG-004
  */
+// DEV-04: HAL interface or test control API, one definition on the PC
+// cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_uart_write(const uint8_t *data, uint8_t len);
 
 /**
@@ -40,6 +46,8 @@ gg_status_t hal_uart_write(const uint8_t *data, uint8_t len);
  *         GG_ERR_NULL if out_byte is NULL.
  * @req REQ-LOG-004
  */
+// DEV-04: HAL interface or test control API, one definition on the PC
+// cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_uart_read_byte(uint8_t *out_byte);
 
 #endif /* HAL_UART_H */

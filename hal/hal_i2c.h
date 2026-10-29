@@ -8,6 +8,8 @@
  * @req REQ-HMI-001 REQ-HMI-002
  */
 #ifndef HAL_I2C_H
+// DEV-02: include guard, not an unused macro
+// cppcheck-suppress misra-c2012-2.5
 #define HAL_I2C_H
 
 #include <stdint.h>
@@ -19,6 +21,8 @@
  * @return GG_OK on success.
  * @req REQ-HMI-001
  */
+// DEV-04: HAL interface or test control API, one definition on the PC
+// cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_i2c_init(void);
 
 /**
@@ -31,6 +35,8 @@ gg_status_t hal_i2c_init(void);
  *         or GG_ERR_HW on a bus error.
  * @req REQ-HMI-002
  */
+// DEV-04: HAL interface or test control API, one definition on the PC
+// cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_i2c_write(uint8_t addr7, const uint8_t *data, uint8_t len);
 
 #endif /* HAL_I2C_H */
