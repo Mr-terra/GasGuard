@@ -128,8 +128,8 @@ in that loop has returned (REQ-SAF-005).
 
 | Resource | Budget |
 |---|---|
-| Flash | ≤ 25.6 KB (80 %) |
-| SRAM static | ≤ 1.2 KB (60 %), leaves ≥ 800 B for stack |
+| Flash | ≤ 26 214 B (80 % of 32 KB, REQ-NFR-005) |
+| SRAM static | ≤ 1 228 B (60 % of 2 KB, REQ-NFR-005), leaves ≥ 800 B for stack |
 | EEPROM | Config A @0x000 (64 B), Config B @0x040 (64 B), Log @0x100 (32 × 8 B) |
 
 ## 6. Key design decisions (ADR summary)

@@ -57,7 +57,7 @@ process is the point:
 |---|---|---|
 | Foundations | Fixed-width status codes and 0.1 %LEL concentration type | Done (Day 1) |
 | Foundations | Build, unit test, static analysis and memory budget gates | Done (Day 1) |
-| Foundations | Hardware interfaces (ADC, timer, GPIO, EEPROM, UART, I2C, watchdog, reset cause) | Interfaces done; drivers Day 3 |
+| Foundations | Hardware interfaces (ADC, timer, GPIO, EEPROM, UART, I2C, watchdog, reset cause), each with a PC fake and unit tests | Done (Day 1); AVR drivers Day 3 |
 | Sensing | Sample both gas channels every 100 ms, moving average over 8 samples | Day 2 |
 | Sensing | Linear calibration to %LEL, temperature compensation | Day 2 |
 | Diagnostics | Open/short circuit, stuck-sensor, bandgap, overrun and stack checks | Day 2–4 |

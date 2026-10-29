@@ -90,6 +90,23 @@ don't mention anthropic or the adresse mail of the company in the commit.
 - A change to a requirement, a deviation, a gate or a workflow rule updates its
   document in the same commit.
 
+## End-of-day review
+
+At the end of each day, before the day is handed over, write a review and then
+ask the author whether the proposed changes should be implemented. The review
+covers:
+
+1. **Done**: what the day delivered, with commit hashes and the REQs concerned.
+2. **Checks**: the result of `make check`, and the CI status if it was run.
+3. **Gaps against `PLAN.md`**: unchecked items, missing tests, missing docs.
+4. **Proposals**: concrete changes, each with its effort and its risk.
+5. **Decisions to confirm**: anything that changes a requirement, a deviation, or
+   the history of the branch.
+
+Do not implement the proposals before the author answers. Implement only what he
+approves. Items that need a push, a merge, or any action visible outside the
+local repository wait for an explicit go.
+
 ## Teaching mode
 
 The author must be able to defend every line in a technical interview.
