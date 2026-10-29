@@ -33,6 +33,7 @@ all: test
 
 # Each test file is linked with the host library code and Unity, then run.
 test: $(TEST_BINS)
+	@rm -f $(BUILD)/test/*.gcda # stale coverage counters from older runs
 	@for t in $(TEST_BINS); do echo "== $$t"; ./$$t || exit 1; done
 
 $(BUILD)/test/%: $(TEST_DIR)/%.c $(LIB_SRCS) $(UNITY_SRCS)
