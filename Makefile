@@ -7,7 +7,7 @@ AVR_CC    ?= avr-gcc
 PYTHON    ?= python3
 
 BUILD     := build
-SRC_DIR   := src
+MODULE_DIRS := common hal app services drivers
 TEST_DIR  := tests
 UNITY_DIR := third_party/unity
 
@@ -16,13 +16,13 @@ STD_FLAGS  := -std=c99
 WARN_FLAGS := -Wall -Wextra -Werror -Wpedantic -Wconversion -Wsign-conversion \
               -Wshadow -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes \
               -Wundef -Wswitch-enum
-INCLUDES   := -I$(SRC_DIR) -I$(UNITY_DIR)
+INCLUDES   := -I. -I$(UNITY_DIR)
 
 HOST_CFLAGS := $(STD_FLAGS) $(WARN_FLAGS) $(INCLUDES) -O0 -g \
                --coverage -fsanitize=address,undefined
 
 # Host code: everything under src/ except the AVR drivers and the firmware entry point.
-LIB_SRCS   := $(shell find $(SRC_DIR) -name '*.c' -not -path '$(SRC_DIR)/hal/avr/*' -not -name 'main.c' 2>/dev/null)
+LIB_SRCS   := $(shell find $(MODULE_DIRS) -name "*.c" -not -path "hal/avr/*" 2>/dev/null)
 UNITY_SRCS := $(UNITY_DIR)/unity.c
 TEST_SRCS  := $(wildcard $(TEST_DIR)/test_*.c)
 TEST_BINS  := $(patsubst $(TEST_DIR)/%.c,$(BUILD)/test/%,$(TEST_SRCS))

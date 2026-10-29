@@ -6,7 +6,7 @@ description: Write Unity unit or scenario tests for a GasGuard module, derived f
 # Write tests from requirements
 
 ## Steps
-1. Find the requirements the module implements (`grep -n '@req' src/<module>.c`,
+1. Find the requirements the module implements (`grep -rn '@req' <layer>/<module>.c`,
    or the REQ IDs given by the user) and read them in `docs/01-requirements.md`.
 2. For each requirement, list test cases in this order:
    - **Nominal** behaviour

@@ -12,8 +12,8 @@ A file list, a directory, or "the current diff" (`git diff --staged`, else `git 
 1. Read `docs/04-coding-standard.md` fully (rules and deviations register).
 2. Run the tools and collect raw findings:
    - `make lint`
-   - `grep -rnE '#include *<avr/' src/app src/services` (must be empty — R20)
-   - `grep -rnE '\b(malloc|calloc|realloc|free|goto|printf|float|double)\b' src --include=*.c --exclude-dir=avr`
+   - `grep -rnE '#include *<avr/' app services` (must be empty — R20)
+   - `grep -rnE '\b(malloc|calloc|realloc|free|goto|printf|float|double)\b' . --include=*.c --exclude-dir=avr`
 3. Read each file and check by hand what tools miss:
    - R05 single exit, R06 complete switches, R07 ignored returns, R08 implicit
      conversions, R12 non-boolean conditions, R15 `volatile` + atomic access,

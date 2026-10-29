@@ -13,13 +13,13 @@ Module name (snake_case), layer (`app` | `services` | `drivers` | `hal`), REQ ID
    depend on layers below. If it does not fit, stop and propose an architecture
    update first.
 2. Create:
-   - `src/<layer>/<name>.h` — include guard `GG_<NAME>_H`, Doxygen file header,
+   - `<layer>/<name>.h` — include guard `GG_<NAME>_H`, Doxygen file header,
      public types, `gg_status_t` functions, no globals.
-   - `src/<layer>/<name>.c` — "How it works" comment block (filled after
+   - `<layer>/<name>.c` — "How it works" comment block (filled after
      implementation), one `static` state struct `s_<name>`, `static` helpers,
      `<name>_init()` that resets state.
-   - For `hal/`: interface in `src/hal/<name>.h`, AVR implementation in
-     `src/hal/avr/<name>_avr.c`, fake in `src/hal/host/<name>_fake.c` with
+   - For `hal/`: interface in `hal/<name>.h`, AVR implementation in
+     `hal/avr/<name>_avr.c`, fake in `hal/host/<name>_fake.c` with
      control functions for tests (`<name>_fake_set_…()`).
    - `tests/test_<name>.c` — Unity skeleton with `setUp`/`tearDown` and one
      failing placeholder test per REQ (`TEST_IGNORE_MESSAGE("todo REQ-…")`).

@@ -40,7 +40,7 @@ def main() -> int:
     code = strip_comments(file.read_text(encoding="utf-8", errors="replace"))
     norm = path.replace("\\", "/")
     rules = list(FORBIDDEN_ALL)
-    if "/src/app/" in norm or "/src/services/" in norm:
+    if "/app/" in norm or "/services/" in norm:
         rules += FORBIDDEN_LOGIC
     problems = []
     for pattern, message in rules:

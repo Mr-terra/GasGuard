@@ -7,7 +7,7 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 - [ ] Toolchain in WSL2: `sudo apt install build-essential gcc-avr avr-libc binutils-avr cppcheck clang-tidy gcovr python3-pip && pip install lizard`
 - [ ] Makefile with targets `test coverage lint avr size trace check`
 - [ ] Add Unity (git submodule or vendored in `third_party/unity`)
-- [ ] `src/common/gg_types.h` (`gg_status_t`, units), HAL interfaces in `src/hal/*.h`, host fakes
+- [ ] `common/gg_types.h` (`gg_status_t`, units), HAL interfaces in `hal/*.h`, host fakes
 - [ ] GitHub Actions CI running `make check` on every push
 - [ ] **Learn:** compilation chain (preprocessor → compiler → linker), headers vs sources, `static`
 

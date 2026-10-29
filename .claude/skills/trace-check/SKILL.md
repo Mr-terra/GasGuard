@@ -9,7 +9,7 @@ description: Check requirement traceability (REQ → code → tests) for GasGuar
 1. Run `python3 tools/trace.py` (same as `make trace`).
 2. Read `docs/traceability.md` and the script's console output.
 3. Report three lists:
-   - **Not implemented**: REQ with no `@req` tag in `src/`
+   - **Not implemented**: REQ with no `@req` tag in the code folders (`common/`, `hal/`, `app/`, `services/`, `drivers/`, `main.c`)
    - **Not verified**: REQ with code but no `@verifies` tag in `tests/`
    - **Orphans**: tags in code/tests pointing to a REQ that does not exist (typo or removed requirement)
 4. Separate gaps that are **expected for the current day** of `PLAN.md` from

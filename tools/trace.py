@@ -38,7 +38,7 @@ def main() -> int:
 
     spec = (ROOT / "docs" / "01-requirements.md").read_text(encoding="utf-8")
     reqs = REQ_DEF.findall(spec)
-    code = collect_tags(ROOT / "src", "req")
+    code = collect_tags(ROOT, "req")
     tests = collect_tags(ROOT / "tests", "verifies")
 
     known = set(reqs)
