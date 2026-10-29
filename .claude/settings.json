@@ -12,12 +12,13 @@
       "Bash(clang-tidy:*)",
       "Bash(lizard:*)",
       "Bash(avr-size:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(git push origin day-1)"
     ],
     "deny": [
       "Bash(avrdude:*)",
-      "Bash(git push:*)",
       "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
       "Bash(rm -rf:*)"
     ]
   },
