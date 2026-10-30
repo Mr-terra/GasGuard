@@ -63,13 +63,13 @@ static uint16_t read_counter(void) {
 
 ## 2026-10-30 — Day 2 Learn: `enum` + `switch`, fixed-point maths, integer promotion
 
-- **Validated** on the reformulated questions 1 (integer promotion) and 4 (`>>` versus `/`). Questions 2 and 3 were answered with corrections; question 3 (`uint32_t` product) is still to be reformulated before the next session.
+- **Validated** on the reformulated questions 1 (integer promotion), 3 (`uint32_t` product: 1023 × 65 535 = 67 042 305 overflows `uint16_t`) and 4 (`>>` versus `/`). Question 2 was answered with corrections.
 
 | # | Theme | Result |
 |---|---|---|
 | 1 | Integer promotion: `a + b > 255` with two `uint8_t` | Correct: operands are promoted to `int`, so `a + b` is 300. Wording to fix: the modulo 256 only happens when the result is stored in a `uint8_t` (`(uint8_t)300 == 44`). |
 | 2 | Listing every `enum` value in a `switch` | Correct. Also keep `default` for impossible values. With `-Wswitch-enum` (in `Makefile`), a new state without a `case` is a compile error, not a silent fall-through to FAULT. |
-| 3 | Why the product is `uint32_t` | To reformulate: worst case 1023 × 65535 = 67 042 305 does not fit in `uint16_t`. Even 1023 × 2560 = 2 618 880 does not. |
+| 3 | Why the product is `uint32_t` | Validated: 1023 × 65 535 = 67 042 305 overflows `uint16_t` (65 535), fits `uint32_t` (4 294 967 295). worst case 1023 × 65535 = 67 042 305 does not fit in `uint16_t`. Even 1023 × 2560 = 2 618 880 does not. |
 | 4 | `>>` versus `/` on a negative value | Correct: `>>` on a negative value is implementation-defined (gcc floors, −5 >> 1 = −3); `/` truncates towards zero (−5 / 2 = −2), defined by C99. |
 
 **Concepts to review**
