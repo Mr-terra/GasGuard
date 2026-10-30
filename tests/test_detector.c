@@ -263,6 +263,32 @@ static void test_detector_rejects_hysteresis_not_between_zero_and_al1(void)
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_init(&det_test_state, &valid_below));
 }
 
+/* @verifies REQ-SAF-007 */
+static void test_detector_input_fault_records_its_reason(void)
+{
+    detector_input_t fault_in = {0, true, false};
+    detector_fault_code_t code = DET_FAULT_NONE;
+
+    finish_warmup();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &fault_in));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_fault_code(&det_test_state, &code));
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_INPUT, code);
+}
+
+/* An impossible state must go to FAULT with an internal reason (CLAUDE.md: default -> diag_raise). */
+/* @verifies REQ-SAF-007 */
+static void test_detector_impossible_state_raises_internal_fault(void)
+{
+    detector_input_t in = {0, false, false};
+    detector_fault_code_t code = DET_FAULT_NONE;
+
+    det_test_state.state = (detector_state_t)99;
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_fault_code(&det_test_state, &code));
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_INTERNAL, code);
+}
+
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
@@ -270,6 +296,8 @@ int main(void)
     RUN_TEST(test_detector_init_rejects_null);
     RUN_TEST(test_detector_rejects_threshold_ordering_and_limits);
     RUN_TEST(test_detector_rejects_hysteresis_not_between_zero_and_al1);
+    RUN_TEST(test_detector_input_fault_records_its_reason);
+    RUN_TEST(test_detector_impossible_state_raises_internal_fault);
     RUN_TEST(test_detector_starts_in_warmup_with_alarms_inhibited);
     RUN_TEST(test_detector_warmup_ends_in_normal);
     RUN_TEST(test_detector_alarm_1_after_three_samples_at_threshold);
