@@ -70,6 +70,10 @@ don't mention anthropic or the adresse mail of the company in the commit.
   implementation (`test(...)` commits). The branch must be green before merge.
 - After the author validates the day: `git rebase main`, then merge with
   fast-forward only (`git merge --ff-only`), so `main` stays linear.
+- Push rights: once the author has validated the end of a day, the agent may
+  push that day branch (`git push origin day-N`) and then `main`. Never force-push
+  (`--force`, `-f`), never delete a remote branch, and never push before the
+  validation.
 - Before the day ends, check that the merge is on `main` and that the CI passes.
   If not, fix it on a new branch (`day-N-fix-<topic>`), never by rewriting `main`.
 - CI (`.github/workflows/ci.yml`) runs on push to `main`, and on demand on other
