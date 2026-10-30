@@ -67,6 +67,7 @@ static void test_channel_select_rejects_bad_arguments(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, channel_select_max(concs, valid, 0u, &out, &any));
 }
 
+// cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
     UNITY_BEGIN();
