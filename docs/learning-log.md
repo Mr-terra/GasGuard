@@ -60,3 +60,19 @@ static uint16_t read_counter(void) {
 
 1. Linkage and `static` at the symbol level: check the output of `nm` on an object file (`T` global, `b`/`t` local).
 2. Include guards and the cost of definitions in headers (flash duplication, `multiple definition`).
+
+## 2026-10-30 — Day 2 Learn: `enum` + `switch`, fixed-point maths, integer promotion
+
+- **Score : 4/4 after one correction of wording per question**
+
+| # | Theme | Result |
+|---|---|---|
+| 1 | Integer promotion: `a + b > 255` with two `uint8_t` | Correct: operands are promoted to `int`, so `a + b` is 300. Wording to fix: the modulo 256 only happens when the result is stored in a `uint8_t` (`(uint8_t)300 == 44`). |
+| 2 | Listing every `enum` value in a `switch` | Correct. Also keep `default` for impossible values. With `-Wswitch-enum` (in `Makefile`), a new state without a `case` is a compile error, not a silent fall-through to FAULT. |
+| 3 | Why the product is `uint32_t` | Not yet answered in full: worst case 1023 × 65535 = 67 042 305 does not fit in `uint16_t`. Even 1023 × 2560 = 2 618 880 does not. |
+| 4 | `>>` versus `/` on a negative value | Correct: `>>` on a negative value is implementation-defined (gcc floors, −5 >> 1 = −3); `/` truncates towards zero (−5 / 2 = −2), defined by C99. |
+
+**Concepts to review**
+
+1. Worst-case range of intermediate results: compute the maximum of every product before choosing its type (question 3).
+2. Where promotion stops: the value only wraps when it is converted to a narrower type.

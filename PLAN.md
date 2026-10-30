@@ -17,7 +17,7 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 - [x] `services/diag` (range, stuck-at, bandgap) — REQ-SAF-002..004
 - [x] `app/detector` state machine + alarm logic — REQ-ALM-*, REQ-FUN-005 (`app/channel_select` for FUN-005)
 - [x] Scenario tests SC-01..SC-10, SC-13
-- [ ] **Learn:** `enum` + `switch` state machines, fixed-point maths, integer promotion
+- [x] **Learn:** `enum` + `switch` state machines, fixed-point maths, integer promotion
 
 ## Day 3 — Hardware layer (board arrived)
 - [ ] `hal/avr`: timer tick 1 ms, ADC (+ bandgap), GPIO, UART, watchdog, reset cause, EEPROM, I2C (TWI)
