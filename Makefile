@@ -71,6 +71,8 @@ lint:
 	    printf '#include "%s"\n' "$$h" | $(CC) $(HOST_CFLAGS) -fsyntax-only -x c - || exit 1; done
 
 # Line coverage report (REQ-NFR-004). The 90 % gate is enabled on Day 2.
+# @req REQ-NFR-004
+# @verifies REQ-NFR-004
 coverage: test
 	@mkdir -p $(COVERAGE_DIR)
 	gcovr -r . --object-directory $(BUILD)/test \
@@ -88,6 +90,8 @@ $(AVR_HEX): $(AVR_ELF)
 avr: $(AVR_HEX)
 
 # Memory budget check on the ELF file (REQ-NFR-005).
+# @req REQ-NFR-005
+# @verifies REQ-NFR-005
 size: $(AVR_ELF)
 	avr-size --mcu=$(AVR_MCU) -C $(AVR_ELF)
 	avr-size --format=berkeley $(AVR_ELF) | \

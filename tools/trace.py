@@ -35,6 +35,19 @@ def collect_tags(folder: Path, kind: str, pattern: str = "*.[ch]") -> dict:
     return found
 
 
+def collect_makefile(kind: str) -> dict:
+    """Tags written as comments above the gate targets of the Makefile."""
+    found: dict = {}
+    text = (ROOT / "Makefile").read_text(encoding="utf-8")
+    for match in REQ_TAG.finditer(text):
+        if match.group(1) != kind:
+            continue
+        line = text.count("\n", 0, match.start()) + 1
+        for req in REQ_ID.findall(match.group(2)):
+            found.setdefault(req, []).append(f"Makefile:{line}")
+    return found
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--allow-gaps", action="store_true")
@@ -46,6 +59,10 @@ def main() -> int:
     # it does not implement the requirement.
     code = collect_tags(ROOT, "req", "*.c")
     tests = collect_tags(ROOT / "tests", "verifies")
+    # Quality gates are verified by Makefile targets, so their tags live there.
+    for kind, found in ("req", code), ("verifies", tests):
+        for req, places in collect_makefile(kind).items():
+            found.setdefault(req, []).extend(places)
 
     known = set(reqs)
     orphans = sorted((set(code) | set(tests)) - known)

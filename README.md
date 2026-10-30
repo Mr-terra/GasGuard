@@ -285,7 +285,7 @@ Verification follows four levels, defined in
 | L3 Scenario | CI (PC) | Full detector driven by scripted ADC sequences, time-stepped | Unity, `hal/host` |
 | L4 Hardware | Bench | Real board, potentiometer, then butane from an unlit lighter | Manual, logic analyser |
 
-Scenario tests SC-01 to SC-10 and SC-13 are implemented (Day 2); SC-11, SC-12 and SC-14 to SC-16 follow on Day 4. They cover boot, alarms,
+Scenario tests SC-01 to SC-10 and SC-13 are implemented (Day 2), with two deviations: SC-01 starts in WARMUP (INIT and SELF_TEST come on Day 4), and SC-15 is unit-tested only. SC-11, SC-12, SC-14 and SC-16 follow on Day 4. They cover boot, alarms,
 latching, sensor faults, configuration recovery, maintenance timeout, bandgap
 failure and task overruns.
 
@@ -296,7 +296,7 @@ failure and task overruns.
 | Compiler | REQ-NFR-003 | Zero warnings with `-Wall -Wextra -Werror` and the extra flags of the standard |
 | Static analysis | Coding standard §6 | Zero findings outside the register of deviations |
 | Unit test coverage | REQ-NFR-004 | At least 90 % of lines in `app/` and `services/` (enforced from Day 2) |
-| Flash | REQ-NFR-005 | At most 80 % of 32 KB |
+| Flash | REQ-NFR-005 | At most 80 % of 32 KB. Measured on the firmware image, so it only means something once `main.c` uses the modules (Day 4); until then the linker drops the unused code |
 | RAM | REQ-NFR-005 | At most 60 % of 2 KB |
 | Traceability | `trace.py` | Every requirement has code and a test (enforced on Day 5) |
 
