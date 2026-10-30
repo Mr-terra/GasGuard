@@ -12,13 +12,11 @@ void tearDown(void);
 
 static diag_t s_diag;
 
-// cppcheck-suppress unusedFunction
 void setUp(void)
 {
     TEST_ASSERT_EQUAL_INT(GG_OK, diag_init(&s_diag));
 }
 
-// cppcheck-suppress unusedFunction
 void tearDown(void) {}
 
 /* Feed n range checks of the same raw value. Timing is not involved here. */
@@ -29,6 +27,14 @@ static void feed_range(uint16_t raw, uint8_t n)
     for (i = 0u; i < n; i++) {
         TEST_ASSERT_EQUAL_INT(GG_OK, diag_check_range(&s_diag, raw));
     }
+}
+
+/* Build the sample struct for the stuck check, then run it on the channel under test. */
+static gg_status_t check_stuck(uint16_t raw, uint32_t now_ms, bool in_warmup)
+{
+    diag_stuck_sample_t sample = {raw, now_ms, in_warmup};
+
+    return diag_check_stuck(&s_diag, &sample);
 }
 
 static bool is_faulty(void)
@@ -83,10 +89,10 @@ static void test_diag_stuck_value_faulty_after_ten_minutes(void)
     uint32_t t;
 
     for (t = 0u; t < DIAG_STUCK_MS; t += 100u) {
-        TEST_ASSERT_EQUAL_INT(GG_OK, diag_check_stuck(&s_diag, 512u, t, false));
+        TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(512u, t, false));
     }
     TEST_ASSERT_FALSE(is_faulty());
-    TEST_ASSERT_EQUAL_INT(GG_OK, diag_check_stuck(&s_diag, 512u, DIAG_STUCK_MS, false));
+    TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(512u, DIAG_STUCK_MS, false));
     TEST_ASSERT_TRUE(is_faulty());
 }
 
@@ -97,9 +103,9 @@ static void test_diag_moving_value_is_not_stuck(void)
     uint16_t raw = 300u;
 
     /* Two LSB of change every 100 ms: the window never settles, so no fault. */
-    for (t = 0u; t <= DIAG_STUCK_MS + 1000u; t += 100u) {
+    for (t = 0u; t <= (DIAG_STUCK_MS + 1000u); t += 100u) {
         raw = (uint16_t)((raw == 300u) ? 302u : 300u);
-        TEST_ASSERT_EQUAL_INT(GG_OK, diag_check_stuck(&s_diag, raw, t, false));
+        TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(raw, t, false));
     }
     TEST_ASSERT_FALSE(is_faulty());
 }
@@ -109,8 +115,8 @@ static void test_diag_stuck_check_is_inhibited_during_warmup(void)
 {
     uint32_t t;
 
-    for (t = 0u; t <= DIAG_STUCK_MS + 1000u; t += 100u) {
-        TEST_ASSERT_EQUAL_INT(GG_OK, diag_check_stuck(&s_diag, 512u, t, true));
+    for (t = 0u; t <= (DIAG_STUCK_MS + 1000u); t += 100u) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(512u, t, true));
     }
     TEST_ASSERT_FALSE(is_faulty());
 }
