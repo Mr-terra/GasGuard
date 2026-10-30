@@ -16,13 +16,11 @@ static const detector_thresholds_t s_thresholds = {
     DETECTOR_AL1_DEFAULT, DETECTOR_AL2_DEFAULT, DETECTOR_HYSTERESIS_DEFAULT
 };
 
-// cppcheck-suppress unusedFunction
 void setUp(void)
 {
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_init(&s_det, &s_thresholds));
 }
 
-// cppcheck-suppress unusedFunction
 void tearDown(void) {}
 
 /* Run one sample through the detector, with no fault and no reset request. */
@@ -154,7 +152,7 @@ static void test_detector_hysteresis_band_does_not_chatter(void)
     finish_warmup();
     step_n(DETECTOR_AL1_DEFAULT, 3u);
     for (i = 0u; i < 40u; i++) {
-        step((i % 2u == 0u) ? 85 : 105);
+        step(((i % 2u) == 0u) ? (gg_conc_t)85 : (gg_conc_t)105);
     }
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, state_now());
 }
