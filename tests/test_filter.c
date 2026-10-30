@@ -12,13 +12,11 @@ void tearDown(void);
 
 static filter_t s_filter;
 
-// cppcheck-suppress unusedFunction
 void setUp(void)
 {
     TEST_ASSERT_EQUAL_INT(GG_OK, filter_init(&s_filter));
 }
 
-// cppcheck-suppress unusedFunction
 void tearDown(void) {}
 
 /* @verifies REQ-FUN-002 */

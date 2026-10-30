@@ -10,13 +10,18 @@ void setUp(void);
 // cppcheck-suppress misra-c2012-8.6
 void tearDown(void);
 
-/* Zero at raw 100, gain of 1.0 %LEL per LSB (10 units per LSB, Q8 = 2560). */
+/* Gain of 10 units (1 %LEL) per LSB: 10 x 256 in Q8. */
+#define CALIB_TEST_GAIN_10 2560u
+
 static calib_t s_calib;
+
+/* Zero at raw 100, no temperature term. */
+static const calib_config_t s_config = {100u, CALIB_TEST_GAIN_10, 0u, 0};
 
 // cppcheck-suppress unusedFunction
 void setUp(void)
 {
-    TEST_ASSERT_EQUAL_INT(GG_OK, calib_init(&s_calib, 100u, 10u * CALIB_GAIN_ONE));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_init(&s_calib, &s_config));
 }
 
 // cppcheck-suppress unusedFunction
@@ -25,13 +30,16 @@ void tearDown(void) {}
 /* @verifies REQ-FUN-003 */
 static void test_calib_init_rejects_null(void)
 {
-    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, calib_init(NULL, 100u, CALIB_GAIN_ONE));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, calib_init(NULL, &s_config));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, calib_init(&s_calib, NULL));
 }
 
 /* @verifies REQ-FUN-003 */
 static void test_calib_init_rejects_zero_gain(void)
 {
-    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, calib_init(&s_calib, 100u, 0u));
+    calib_config_t bad = {100u, 0u, 0u, 0};
+
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, calib_init(&s_calib, &bad));
 }
 
 /* @verifies REQ-FUN-003 */
@@ -83,50 +91,61 @@ static void test_calib_to_lel_rejects_null(void)
 /* @verifies REQ-FUN-004 */
 static void test_calib_temperature_correction_applied_when_valid(void)
 {
-    uint16_t corrected = 0u;
-
     /* Reference 500, temperature reads 520 (+20 LSB), coefficient -0.5 LSB per LSB:
      * the correction is -10 LSB, so the raw value goes from 300 to 290. */
-    TEST_ASSERT_EQUAL_INT(GG_OK, calib_set_temp_compensation(&s_calib, 500u, -CALIB_GAIN_ONE / 2));
-    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&s_calib, 300u, 520u, true, &corrected));
+    calib_config_t cfg = {100u, CALIB_TEST_GAIN_10, 500u, -CALIB_GAIN_ONE / 2};
+    calib_reading_t reading = {300u, 520u, true};
+    uint16_t corrected = 0u;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_init(&s_calib, &cfg));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&s_calib, &reading, &corrected));
     TEST_ASSERT_EQUAL_UINT16(290u, corrected);
 }
 
 /* @verifies REQ-FUN-004 */
 static void test_calib_temperature_ignored_when_sensor_invalid(void)
 {
+    calib_config_t cfg = {100u, CALIB_TEST_GAIN_10, 500u, -CALIB_GAIN_ONE / 2};
+    calib_reading_t reading = {300u, 900u, false};
     uint16_t corrected = 0u;
 
-    TEST_ASSERT_EQUAL_INT(GG_OK, calib_set_temp_compensation(&s_calib, 500u, -CALIB_GAIN_ONE / 2));
-    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&s_calib, 300u, 900u, false, &corrected));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_init(&s_calib, &cfg));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&s_calib, &reading, &corrected));
     TEST_ASSERT_EQUAL_UINT16(300u, corrected);
 }
 
 /* @verifies REQ-FUN-004 */
 static void test_calib_temperature_correction_is_clamped_to_adc_range(void)
 {
+    calib_config_t up = {100u, CALIB_TEST_GAIN_10, 0u, CALIB_GAIN_ONE};
+    calib_config_t down = {100u, CALIB_TEST_GAIN_10, 0u, -CALIB_GAIN_ONE};
+    calib_reading_t high = {1000u, 1000u, true};
+    calib_reading_t low = {10u, 900u, true};
     uint16_t corrected = 0u;
 
-    /* Coefficient +1 LSB per LSB, temperature 1000 above reference: 1000 + 1000 saturates. */
-    TEST_ASSERT_EQUAL_INT(GG_OK, calib_set_temp_compensation(&s_calib, 0u, CALIB_GAIN_ONE));
-    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&s_calib, 1000u, 1000u, true, &corrected));
+    /* Coefficient +1 LSB per LSB, temperature 1000 above reference: saturates at the top. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_init(&s_calib, &up));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&s_calib, &high, &corrected));
     TEST_ASSERT_EQUAL_UINT16(HAL_ADC_RAW_MAX, corrected);
 
     /* Coefficient -1 LSB per LSB: 10 - 900 would be negative, so it floors at 0. */
-    TEST_ASSERT_EQUAL_INT(GG_OK, calib_set_temp_compensation(&s_calib, 0u, -CALIB_GAIN_ONE));
-    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&s_calib, 10u, 900u, true, &corrected));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_init(&s_calib, &down));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&s_calib, &low, &corrected));
     TEST_ASSERT_EQUAL_UINT16(0u, corrected);
 }
 
 /* @verifies REQ-FUN-004 */
 static void test_calib_temp_correct_rejects_null(void)
 {
+    calib_reading_t reading = {300u, 520u, true};
     uint16_t corrected = 0u;
 
-    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, calib_temp_correct(NULL, 300u, 520u, true, &corrected));
-    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, calib_temp_correct(&s_calib, 300u, 520u, true, NULL));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, calib_temp_correct(NULL, &reading, &corrected));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, calib_temp_correct(&s_calib, NULL, &corrected));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, calib_temp_correct(&s_calib, &reading, NULL));
 }
 
+// cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
     UNITY_BEGIN();
