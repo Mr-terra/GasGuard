@@ -9,16 +9,16 @@ void setUp(void);
 // cppcheck-suppress misra-c2012-8.6
 void tearDown(void);
 
-static detector_t s_det;
+static detector_t det_test_state;
 
 /* Defaults from REQ-ALM-001..003: AL1 10 %LEL, AL2 25 %LEL, hysteresis 2 %LEL. */
-static const detector_thresholds_t s_thresholds = {
+static const detector_thresholds_t det_test_thresholds = {
     DETECTOR_AL1_DEFAULT, DETECTOR_AL2_DEFAULT, DETECTOR_HYSTERESIS_DEFAULT
 };
 
 void setUp(void)
 {
-    TEST_ASSERT_EQUAL_INT(GG_OK, detector_init(&s_det, &s_thresholds));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_init(&det_test_state, &det_test_thresholds));
 }
 
 void tearDown(void) {}
@@ -28,7 +28,7 @@ static void step(gg_conc_t conc)
 {
     detector_input_t in = {conc, false, false};
 
-    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&s_det, &in));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
 }
 
 static void step_n(gg_conc_t conc, uint8_t n)
@@ -44,21 +44,21 @@ static detector_state_t state_now(void)
 {
     detector_state_t state = DET_STATE_FAULT;
 
-    TEST_ASSERT_EQUAL_INT(GG_OK, detector_state(&s_det, &state));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_state(&det_test_state, &state));
     return state;
 }
 
 /* Bring the detector out of warm-up, so the alarm logic is active. */
 static void finish_warmup(void)
 {
-    TEST_ASSERT_EQUAL_INT(GG_OK, detector_end_warmup(&s_det));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_end_warmup(&det_test_state));
 }
 
 /* @verifies REQ-NFR-002 */
 static void test_detector_init_rejects_null(void)
 {
-    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_init(NULL, &s_thresholds));
-    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_init(&s_det, NULL));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_init(NULL, &det_test_thresholds));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_init(&det_test_state, NULL));
 }
 
 /* @verifies REQ-ALM-005 */
@@ -69,10 +69,10 @@ static void test_detector_rejects_threshold_ordering_and_limits(void)
     detector_thresholds_t zero_al1 = {0, 250, 20};
     detector_thresholds_t above_max = {100, DETECTOR_AL2_MAX + 1, 20};
 
-    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, detector_init(&s_det, &equal));
-    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, detector_init(&s_det, &inverted));
-    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, detector_init(&s_det, &zero_al1));
-    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, detector_init(&s_det, &above_max));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, detector_init(&det_test_state, &equal));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, detector_init(&det_test_state, &inverted));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, detector_init(&det_test_state, &zero_al1));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, detector_init(&det_test_state, &above_max));
 }
 
 /* @verifies REQ-ALM-006 */
@@ -174,7 +174,7 @@ static void test_detector_alarm_2_reset_refused_while_gas_present(void)
 
     finish_warmup();
     step_n(DETECTOR_AL2_DEFAULT, 6u);
-    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&s_det, &reset));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &reset));
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, state_now());
 }
 
@@ -186,7 +186,7 @@ static void test_detector_alarm_2_reset_accepted_when_gas_gone(void)
     finish_warmup();
     step_n(DETECTOR_AL2_DEFAULT, 6u);
     step_n(0, 1u);
-    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&s_det, &reset));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &reset));
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
 }
 
@@ -196,15 +196,15 @@ static void test_detector_relay_energised_only_in_healthy_normal_state(void)
     bool energised = false;
 
     finish_warmup();
-    TEST_ASSERT_EQUAL_INT(GG_OK, detector_relay_energised(&s_det, &energised));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_relay_energised(&det_test_state, &energised));
     TEST_ASSERT_TRUE(energised);
 
     step_n(DETECTOR_AL1_DEFAULT, 3u);
-    TEST_ASSERT_EQUAL_INT(GG_OK, detector_relay_energised(&s_det, &energised));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_relay_energised(&det_test_state, &energised));
     TEST_ASSERT_FALSE(energised);
 
     step_n(DETECTOR_AL2_DEFAULT, 3u);
-    TEST_ASSERT_EQUAL_INT(GG_OK, detector_relay_energised(&s_det, &energised));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_relay_energised(&det_test_state, &energised));
     TEST_ASSERT_FALSE(energised);
 }
 
@@ -216,13 +216,13 @@ static void test_detector_fault_latches_and_drops_relay(void)
     bool energised = true;
 
     finish_warmup();
-    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&s_det, &fault_in));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &fault_in));
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
-    TEST_ASSERT_EQUAL_INT(GG_OK, detector_relay_energised(&s_det, &energised));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_relay_energised(&det_test_state, &energised));
     TEST_ASSERT_FALSE(energised);
 
     /* The fault input going away does not clear a latched FAULT. */
-    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&s_det, &clear_in));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &clear_in));
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
 }
 
@@ -231,7 +231,7 @@ static void test_detector_fault_during_warmup_is_not_hidden(void)
 {
     detector_input_t fault_in = {0, true, false};
 
-    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&s_det, &fault_in));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &fault_in));
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
 }
 
@@ -243,7 +243,7 @@ static void test_detector_step_and_getters_reject_null(void)
     bool energised = false;
 
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_step(NULL, &in));
-    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_step(&s_det, NULL));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_step(&det_test_state, NULL));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_state(NULL, &state));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_relay_energised(NULL, &energised));
 }
