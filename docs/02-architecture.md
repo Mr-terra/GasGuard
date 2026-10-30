@@ -142,3 +142,5 @@ in that loop has returned (REQ-SAF-005).
 | ADR-4 | Normally-energised relay | Power loss or firmware crash = alarm side (fail-safe) |
 | ADR-5 | Max of valid channels | Conservative: never under-report |
 | ADR-6 | Fixed-point arithmetic (0.1 %LEL units, `int16_t`) | No float on AVR: smaller, faster, deterministic |
+| ADR-7 | Relay energised only in WARMUP and NORMAL; de-energised in ALARM_1 too | Early warning beats a missed warning. A false alarm costs a nuisance; a missed one can cost a life (H1 > H2). REQ-SAF-001 does not name ALARM_1, so this is the fail-safe reading. |
+| ADR-8 | FAULT and sensor faults are latched until re-initialisation | A sensor that failed once is not trusted again without a reset. A contact that reconnects can hide an intermittent fault; an operator must look at it. Automatic recovery would need its own requirement. |

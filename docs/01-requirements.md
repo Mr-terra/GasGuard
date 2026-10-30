@@ -55,7 +55,7 @@ Any mode → `FAULT`. `NORMAL` ⇄ `MAINTENANCE` (operator request, time-limited
 | REQ-ALM-002 | The firmware shall enter ALARM_2 when the concentration is ≥ AL2 threshold (default 25 %LEL) for 3 consecutive filtered samples. |
 | REQ-ALM-003 | ALARM_1 shall clear automatically when the concentration falls below AL1 − hysteresis (default 2 %LEL) for 10 consecutive samples. |
 | REQ-ALM-004 | ALARM_2 shall be **latched**: it shall only clear on an operator reset, and only if the concentration is below AL1 − hysteresis. |
-| REQ-ALM-005 | Threshold configuration shall be rejected unless 0 < AL1 < AL2 ≤ 60 %LEL. |
+| REQ-ALM-005 | Threshold configuration shall be rejected unless 0 < AL1 < AL2 ≤ 60 %LEL and 0 ≤ hysteresis < AL1. |
 | REQ-ALM-006 | Alarm detection shall be inhibited during WARMUP; the inhibition shall be visible on the display. |
 
 ## 6. Safety and diagnostic requirements

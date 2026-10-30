@@ -34,6 +34,8 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 - [ ] Scenario tests SC-11, SC-12, SC-14..SC-16
 - [ ] Bench test with potentiometer (simulation build), then real gas sensors
 - [ ] **Learn:** CRC, EEPROM wear, watchdog design, why fail-safe relay
+- [ ] **Remove DEV-05** (docs/04 §5) and its inline `misra-c2012-8.7` suppressions in `services/*.h` and `app/*.h`, once `app/` calls the service functions
+- [ ] **Replace the TODO in `app/detector.c`** (`default` branch of `step_state`) with `diag_raise()`, once the event log exists
 
 ## Day 5 — Evidence and presentation
 - [ ] `make check` without `--allow-gaps`: 100 % traceability

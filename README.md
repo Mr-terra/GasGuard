@@ -139,7 +139,7 @@ Any state → FAULT   (all channels faulty, ADC fault, 3 overruns, stack low)
 | AL2 (ALARM_2 threshold) | 25 %LEL | Entered after 3 consecutive filtered samples at or above AL2 |
 | Hysteresis | 2 %LEL | ALARM_1 clears below AL1 − 2 %LEL for 10 consecutive samples |
 | ALARM_2 latch | — | Clears only on an operator reset, and only when the gas is below AL1 − 2 %LEL |
-| Validity | 0 < AL1 < AL2 ≤ 60 %LEL | Any configuration outside this range is rejected |
+| Validity | 0 < AL1 < AL2 ≤ 60 %LEL and 0 ≤ hysteresis < AL1 | Any configuration outside these ranges is rejected |
 
 ### Buzzer and display
 
