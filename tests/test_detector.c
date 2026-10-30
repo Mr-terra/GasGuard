@@ -248,12 +248,28 @@ static void test_detector_step_and_getters_reject_null(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_relay_energised(NULL, &energised));
 }
 
+/* @verifies REQ-ALM-005 */
+static void test_detector_rejects_hysteresis_not_between_zero_and_al1(void)
+{
+    /* Clear level is al1 - hysteresis: it must stay above zero, so 0 <= hyst < al1. */
+    detector_thresholds_t negative = {100, 250, -1};
+    detector_thresholds_t equal_to_al1 = {100, 250, 100};
+    detector_thresholds_t valid_zero = {100, 250, 0};
+    detector_thresholds_t valid_below = {100, 250, 99};
+
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, detector_init(&det_test_state, &negative));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, detector_init(&det_test_state, &equal_to_al1));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_init(&det_test_state, &valid_zero));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_init(&det_test_state, &valid_below));
+}
+
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_detector_init_rejects_null);
     RUN_TEST(test_detector_rejects_threshold_ordering_and_limits);
+    RUN_TEST(test_detector_rejects_hysteresis_not_between_zero_and_al1);
     RUN_TEST(test_detector_starts_in_warmup_with_alarms_inhibited);
     RUN_TEST(test_detector_warmup_ends_in_normal);
     RUN_TEST(test_detector_alarm_1_after_three_samples_at_threshold);
