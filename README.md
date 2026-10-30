@@ -47,7 +47,7 @@ process is the point:
 3. **Constrained coding.** A MISRA C:2012 subset with 20 project rules, enforced
    by compilers and static analysers.
 4. **Tests before code.** Host-based unit tests run in CI on every push;
-   scripted scenario tests are planned for Day 2–4.
+   scripted scenario tests (SC-01 to SC-10, SC-13) run the whole chain on the PC.
 5. **Traceability.** Every requirement is linked to the code that implements it
    and the tests that verify it, generated automatically.
 
@@ -58,11 +58,12 @@ process is the point:
 | Foundations | Fixed-width status codes and 0.1 %LEL concentration type | Done (Day 1) |
 | Foundations | Build, unit test, static analysis and memory budget gates | Done (Day 1) |
 | Foundations | Hardware interfaces (ADC, timer, GPIO, EEPROM, UART, I2C, watchdog, reset cause), each with a PC fake and unit tests | Done (Day 1); AVR drivers Day 3 |
-| Sensing | Sample both gas channels every 100 ms, moving average over 8 samples | Day 2 |
-| Sensing | Linear calibration to %LEL, temperature compensation | Day 2 |
-| Diagnostics | Open/short circuit, stuck-sensor, bandgap, overrun and stack checks | Day 2–4 |
-| Alarms | Two-level alarm with hysteresis and a latched ALARM_2 | Day 2 |
-| Alarms | Relay normally energised, de-energised on alarm, fault and power loss | Day 2–3 |
+| Sensing | Moving average over the last 8 samples per channel (`services/filter`) | Done (Day 2); 100 ms sampling loop Day 4 |
+| Sensing | Linear calibration to %LEL in Q8 fixed point, temperature compensation when the sensor is valid | Done (Day 2) |
+| Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) | Done (Day 2) |
+| Diagnostics | Task overrun and stack watermark checks | Day 4 |
+| Alarms | Two-level alarm with hysteresis, latched ALARM_2, warm-up inhibition, max of valid channels | Done (Day 2) |
+| Alarms | Relay normally energised: energised in WARMUP and NORMAL only, de-energised on alarm and fault (state logic done; driving the pin is Day 3) | Logic done (Day 2); pin Day 3 |
 | Storage | A/B configuration with CRC-16 and safe defaults | Day 4 |
 | Storage | Event log in a 32-entry EEPROM ring buffer | Day 4 |
 | Interface | 16×2 LCD with backlight colours, buzzer patterns, button actions | Day 3–4 |
@@ -284,7 +285,7 @@ Verification follows four levels, defined in
 | L3 Scenario | CI (PC) | Full detector driven by scripted ADC sequences, time-stepped | Unity, `hal/host` |
 | L4 Hardware | Bench | Real board, potentiometer, then butane from an unlit lighter | Manual, logic analyser |
 
-Scenario tests SC-01 to SC-16 (planned, Day 2–4) will cover boot, alarms,
+Scenario tests SC-01 to SC-10 and SC-13 are implemented (Day 2); SC-11, SC-12 and SC-14 to SC-16 follow on Day 4. They cover boot, alarms,
 latching, sensor faults, configuration recovery, maintenance timeout, bandgap
 failure and task overruns.
 
@@ -307,8 +308,8 @@ Accepted deviations from the coding standard are listed in
 ```
 common/      shared types and status codes, no hardware dependency
 hal/         hardware interfaces (.h); hal/host/ holds the PC fakes
-app/         detector state machine and alarm logic              (Day 2)
-services/    filter, calibration, diagnostics, config, event log (Day 2–4)
+app/         detector state machine, alarm logic, channel selection (Day 2, done)
+services/    filter, calibration, diagnostics (Day 2, done); config, event log (Day 4)
 drivers/     LCD, buzzer, relay, button                          (Day 3)
 main.c       boot sequence and scheduler                         (Day 4)
 tests/       Unity unit and scenario tests, one file per module

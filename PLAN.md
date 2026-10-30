@@ -8,15 +8,15 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 - [x] Makefile with targets `test coverage lint avr size trace check`
 - [x] Add Unity (git submodule or vendored in `third_party/unity`)
 - [x] `common/gg_types.h` (`gg_status_t`, units), HAL interfaces in `hal/*.h`, host fakes
-- [ ] GitHub Actions CI running `make check` on every push (workflow written; first run pending the push of `day-1`)
+- [x] GitHub Actions CI running `make check` on every push (green on `main` after pinning the runner to Ubuntu 22.04)
 - [x] **Learn:** compilation chain (preprocessor → compiler → linker), headers vs sources, `static`
 
 ## Day 2 — Core logic, host-tested
-- [ ] `services/filter` (moving average) — REQ-FUN-002
-- [ ] `services/calib` (raw → 0.1 %LEL fixed-point, temp compensation) — REQ-FUN-003/004
-- [ ] `services/diag` (range, stuck-at, bandgap) — REQ-SAF-002..004
-- [ ] `app/detector` state machine + alarm logic — REQ-ALM-*, REQ-FUN-005
-- [ ] Scenario tests SC-01..SC-10, SC-13
+- [x] `services/filter` (moving average) — REQ-FUN-002
+- [x] `services/calib` (raw → 0.1 %LEL fixed-point, temp compensation) — REQ-FUN-003/004
+- [x] `services/diag` (range, stuck-at, bandgap) — REQ-SAF-002..004
+- [x] `app/detector` state machine + alarm logic — REQ-ALM-*, REQ-FUN-005 (`app/channel_select` for FUN-005)
+- [x] Scenario tests SC-01..SC-10, SC-13
 - [ ] **Learn:** `enum` + `switch` state machines, fixed-point maths, integer promotion
 
 ## Day 3 — Hardware layer (board arrived)
