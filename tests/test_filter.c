@@ -12,11 +12,13 @@ void tearDown(void);
 
 static filter_t s_filter;
 
+// cppcheck-suppress unusedFunction
 void setUp(void)
 {
     TEST_ASSERT_EQUAL_INT(GG_OK, filter_init(&s_filter));
 }
 
+// cppcheck-suppress unusedFunction
 void tearDown(void) {}
 
 /* @verifies REQ-FUN-002 */
@@ -102,6 +104,7 @@ static void test_filter_push_rejects_null_filter(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, filter_push(NULL, 100u));
 }
 
+// cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
     UNITY_BEGIN();
