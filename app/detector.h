@@ -53,6 +53,13 @@ typedef struct {
     gg_conc_t hysteresis;   /**< Clear level is al1 - hysteresis. */
 } detector_thresholds_t;
 
+/** @brief Why the detector is in FAULT. Kept for the event log (Day 4). */
+typedef enum {
+    DET_FAULT_NONE = 0,     /**< No fault latched. */
+    DET_FAULT_INPUT,        /**< Sensors faulty: all channels, or the ADC (REQ-SAF-007). */
+    DET_FAULT_INTERNAL      /**< Impossible internal state (coding standard: default -> diag_raise). */
+} detector_fault_code_t;
+
 /** @brief One sample for the state machine. */
 typedef struct {
     gg_conc_t conc;         /**< Maximum concentration of the valid channels (REQ-FUN-005). */
@@ -67,6 +74,7 @@ typedef struct {
     uint8_t above_al1;                /**< Consecutive samples at or above al1. */
     uint8_t above_al2;                /**< Consecutive samples at or above al2. */
     uint8_t below_clear;              /**< Consecutive samples below al1 - hysteresis. */
+    detector_fault_code_t fault_code; /**< Reason of the latched fault, DET_FAULT_NONE if none. */
 } detector_t;
 
 /**
@@ -145,5 +153,17 @@ gg_status_t detector_state(const detector_t *det, detector_state_t *state);
 // DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
 // cppcheck-suppress misra-c2012-8.7
 gg_status_t detector_relay_energised(const detector_t *det, bool *energised);
+
+/**
+ * @brief Report why the detector is in FAULT.
+ *
+ * @param det   Detector. Must not be NULL.
+ * @param code  Receives the reason, DET_FAULT_NONE if the detector is not in FAULT. Must not be NULL.
+ * @return GG_OK or GG_ERR_NULL.
+ * @req REQ-SAF-007
+ */
+// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
+// cppcheck-suppress misra-c2012-8.7
+gg_status_t detector_fault_code(const detector_t *det, detector_fault_code_t *code);
 
 #endif /* DETECTOR_H */

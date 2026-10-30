@@ -98,7 +98,8 @@ gg_status_t detector_thresholds_check(const detector_thresholds_t *thresholds)
     if (thresholds == NULL) {
         status = GG_ERR_NULL;
     } else if ((thresholds->al1 <= 0) || (thresholds->al1 >= thresholds->al2)
-               || (thresholds->al2 > DETECTOR_AL2_MAX)) {
+               || (thresholds->al2 > DETECTOR_AL2_MAX)
+               || (thresholds->hysteresis < 0) || (thresholds->hysteresis >= thresholds->al1)) {
         status = GG_ERR_RANGE;
     } else {
         status = GG_OK;
@@ -117,6 +118,7 @@ gg_status_t detector_init(detector_t *det, const detector_thresholds_t *threshol
         if (status == GG_OK) {
             det->thresholds = *thresholds;
             det->state = DET_STATE_WARMUP;
+            det->fault_code = DET_FAULT_NONE;
             reset_counters(det);
         }
     }
@@ -138,6 +140,16 @@ gg_status_t detector_end_warmup(detector_t *det)
     return status;
 }
 
+/* Latch FAULT and record why. The first reason is kept: a later one does not overwrite it.
+ * Minimal version for Day 2: the event log that stores the reason arrives on Day 4. */
+static void diag_raise(detector_t *det, detector_fault_code_t code)
+{
+    if (det->state != DET_STATE_FAULT) {
+        det->state = DET_STATE_FAULT;
+        det->fault_code = code;
+    }
+}
+
 /* Dispatch to the handler of the current state. One switch, every enum value listed. */
 static void step_state(detector_t *det, const detector_input_t *in)
 {
@@ -156,8 +168,8 @@ static void step_state(detector_t *det, const detector_input_t *in)
         case DET_STATE_FAULT:
             break;                /* Handled in detector_step(); listed for -Wswitch-enum. */
         default:
-            /* Impossible state: fail safe. TODO(Day 4): replace with diag_raise(). */
-            det->state = DET_STATE_FAULT;
+            /* Impossible state: fail safe. TODO(Day 4): also log it in the event log. */
+            diag_raise(det, DET_FAULT_INTERNAL);
             break;
     }
 }
@@ -169,7 +181,7 @@ gg_status_t detector_step(detector_t *det, const detector_input_t *in)
     if ((det == NULL) || (in == NULL)) {
         status = GG_ERR_NULL;
     } else if (in->fault) {
-        det->state = DET_STATE_FAULT;
+        diag_raise(det, DET_FAULT_INPUT);
     } else if (det->state == DET_STATE_FAULT) {
         /* Latched: only a new initialisation clears it. */
     } else {
@@ -191,6 +203,18 @@ gg_status_t detector_state(const detector_t *det, detector_state_t *state)
         status = GG_ERR_NULL;
     } else {
         *state = det->state;
+    }
+    return status;
+}
+
+gg_status_t detector_fault_code(const detector_t *det, detector_fault_code_t *code)
+{
+    gg_status_t status = GG_OK;
+
+    if ((det == NULL) || (code == NULL)) {
+        status = GG_ERR_NULL;
+    } else {
+        *code = det->fault_code;
     }
     return status;
 }
