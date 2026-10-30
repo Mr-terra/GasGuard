@@ -37,7 +37,10 @@
  * @brief Bandgap reading expected at 5 V: 1.1 V / 5 V x 1023, rounded (REQ-SAF-004).
  *
  * The ADC uses AVcc as reference, so the nominal count depends on the supply.
- * The value is set for a USB supply near 5 V; a 10 % band accepts 4.5 V to 5.5 V.
+ * The value is set for a USB supply near 5 V. At 4.75 V the reading is about 237
+ * counts and at 5.25 V about 214: both inside the band. The band accepts roughly
+ * 4.55 V to 5.56 V. A USB-only setup is therefore enough. If the heaters pull the
+ * supply below about 4.5 V, the check fails and the detector goes to FAULT (FMEA F20).
  */
 #define DIAG_BANDGAP_NOMINAL 225u
 
