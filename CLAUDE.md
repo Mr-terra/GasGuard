@@ -138,3 +138,6 @@ of its `.c` file (5–10 lines, plain English) and suggest running the
 - `trace-check` — verify requirement ↔ code ↔ test traceability
 - `new-module` — scaffold a module (header, source, fake, test) the project way
 - `explain-module` — teach a module to the author and quiz him (interview prep)
+- `pin-map-check` — check the pin table (docs/02 §2) against the code and wiring notes
+- `review-day` — write the end-of-day review in the five-part format
+- `day-close` — after validation: rebase, ff-only merge, push, CI check
