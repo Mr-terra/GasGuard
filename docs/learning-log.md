@@ -76,3 +76,20 @@ static uint16_t read_counter(void) {
 
 1. Worst-case range of intermediate results: compute the maximum of every product before choosing its type (question 3).
 2. Where promotion stops: the value only wraps when it is converted to a narrower type.
+
+## 2026-11-02 — Day 3 Explain: `hal/timer/timer_avr.c`, `app/channel_select/channel_select.c`, quiz
+
+- **Score: 3/5.** Quiz run with `/explain-module` (5 questions, one at a time).
+
+| # | Theme | Result |
+|---|---|---|
+| 1a | `volatile` on `v_ms_ticks` (timer) | Incorrect: `volatile` does not change the size of the variable and does not copy or lock it. It forces the compiler to reload the variable from memory on every access, so an interrupt-modified value is seen. The atomic read needs `ATOMIC_BLOCK`, a separate mechanism. The 32-bit read is protected by the block, not by `volatile`. |
+| 1b | `concs` and `const` (channel_select) | Corrected: `concs` stands for concentrations, not concatenation. `const` makes writes through the pointer a compile error, so the caller's data is safe. |
+| 2 | Why the relay is energised when healthy (REQ-SAF-001) | Correct: a power loss or a fault releases the coil, which moves the output to the alarm side without software. Refinement: the wiring (NO or NC contact) sets the result; the NO/NC choice is part of the design. Missing: the floating input at reset (F21, HW-004 proposed). |
+| 3 | Why FAULT stays latched (ADR-8) | Correct: a fault that disappears must still be checked by an operator in a fire-safety context. Refinement: the latch also covers intermittent faults (a loose wire flickering), which would otherwise make the detector oscillate and hide the fault. |
+| 4 | Value of the ADC when the sensor is unplugged | Incorrect: the ADC returns no "maximum" or "minimum" by itself, it reads the pin voltage. With the 100 kΩ pull-down (F01), the pin is pulled to about 0 and the reading is near 0, which the range check (≤ 5 LSB) turns into a channel fault. Without the pull-down, the input floats and the value is random: the worst case (missed alarm). |
+
+**Concepts to review**
+
+1. `volatile` versus atomic access: what the compiler may optimise away, and what `ATOMIC_BLOCK` protects.
+2. Floating inputs and pull-down resistors: why an unplugged sensor reads 0 only with the pull-down (F01, F21).
