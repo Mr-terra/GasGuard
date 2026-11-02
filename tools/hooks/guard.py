@@ -19,7 +19,7 @@ FORBIDDEN_NO_AVR = [
     (r"#\s*include\s*<avr/", "R20: app/ and services/ must not include AVR headers"),
 ]
 FORBIDDEN_NO_FLOAT = [
-    (r"\b(float|double)\b", "R14: no floating point outside hal/avr/"),
+    (r"\b(float|double)\b", "R14: no floating point outside the board drivers (*_avr.c)"),
 ]
 
 

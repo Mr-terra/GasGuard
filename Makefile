@@ -24,17 +24,17 @@ INCLUDES   := -I. -I$(UNITY_DIR)
 HOST_CFLAGS := $(STD_FLAGS) $(WARN_FLAGS) $(INCLUDES) -O0 -g \
                --coverage -fsanitize=address,undefined
 
-# Host code: the layer folders minus the AVR drivers (hal/avr is never built on the PC).
-LIB_SRCS   := $(shell find $(MODULE_DIRS) -name '*.c' -not -path 'hal/avr/*' 2>/dev/null)
+# Host code: the layer folders minus the board drivers (*_avr.c), which the PC never builds.
+LIB_SRCS   := $(shell find $(MODULE_DIRS) -name '*.c' -not -name '*_avr.c' 2>/dev/null)
 UNITY_SRCS := $(UNITY_DIR)/unity.c
-TEST_SRCS  := $(wildcard $(TEST_DIR)/test_*.c)
-TEST_BINS  := $(patsubst $(TEST_DIR)/%.c,$(BUILD)/test/%,$(TEST_SRCS))
+TEST_SRCS  := $(shell find $(TEST_DIR) -name 'test_*.c' 2>/dev/null)
+TEST_BINS  := $(addprefix $(BUILD)/test/,$(basename $(notdir $(TEST_SRCS))))
 
 # AVR firmware: main.c plus the layer folders minus the host fakes.
 AVR_MCU    := atmega328p
 AVR_FLAGS  := -mmcu=$(AVR_MCU) -DF_CPU=16000000UL $(STD_FLAGS) $(WARN_FLAGS) \
               $(INCLUDES) -Os -ffunction-sections -fdata-sections -Wl,--gc-sections
-AVR_SRCS   := main.c $(shell find $(MODULE_DIRS) -name '*.c' -not -path 'hal/host/*' 2>/dev/null)
+AVR_SRCS   := main.c $(shell find $(MODULE_DIRS) -name '*.c' -not -name '*_fake.c' 2>/dev/null)
 AVR_ELF    := $(BUILD)/avr/gasguard.elf
 AVR_HEX    := $(BUILD)/avr/gasguard.hex
 
@@ -55,7 +55,9 @@ test: $(TEST_BINS)
 	@rm -f $(BUILD)/test/*.gcda # stale coverage counters from older runs
 	@for t in $(TEST_BINS); do echo "== $$t"; ./$$t || exit 1; done
 
-$(BUILD)/test/%: $(TEST_DIR)/%.c $(LIB_SRCS) $(UNITY_SRCS)
+vpath %.c $(sort $(dir $(TEST_SRCS)))
+
+$(BUILD)/test/%: %.c $(LIB_SRCS) $(UNITY_SRCS)
 	@mkdir -p $(dir $@)
 	$(CC) $(HOST_CFLAGS) $^ -o $@
 

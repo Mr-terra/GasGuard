@@ -6,7 +6,7 @@
 |---|---|---|---|
 | L1 Static | CI | Warnings, MISRA subset, complexity, AVR-header isolation | gcc, cppcheck, clang-tidy, lizard, grep |
 | L2 Unit | CI (PC) | Each `services/` and `app/` module with host fakes | Unity, gcov |
-| L3 Scenario | CI (PC) | Full detector fed with scripted ADC sequences (time-stepped simulation) | Unity + `hal/host` |
+| L3 Scenario | CI (PC) | Full detector fed with scripted ADC sequences (time-stepped simulation) | Unity + `hal/*/*_fake.c` |
 | L4 Hardware | Bench | Real board, potentiometer, then real gas (butane from an unlit lighter) | Manual + logic analyzer |
 
 ## 2. Test naming and tracing
@@ -19,10 +19,10 @@
 ## 3. Mandatory scenario tests (L3)
 
 **Status (end of Day 2):** SC-01 to SC-10 and SC-13 are implemented in
-`tests/test_scenarios.c`. Deviations from the table below, all deliberate:
+`tests/scenarios/test_scenarios.c`. Deviations from the table below, all deliberate:
 - SC-01 starts in WARMUP: INIT and SELF_TEST are not implemented yet (Day 4).
 - SC-11, SC-12, SC-14, SC-16 need configuration, event log, maintenance and
-  overrun detection (Day 4). SC-15 (bandgap) is unit-tested in `tests/test_diag.c`.
+  overrun detection (Day 4). SC-15 (bandgap) is unit-tested in `tests/services/diag/test_diag.c`.
 - Flash measured by `make size` is not representative until `main.c` uses the
   modules (Day 4): the linker removes unused code.
 

@@ -20,7 +20,7 @@ then update the doc in the same commit.
 
 ## Non-negotiable rules
 
-- No `malloc`/`free`, no recursion, no `goto`, no floating point outside `hal/avr/`.
+- No `malloc`/`free`, no recursion, no `goto`, no floating point outside the board drivers (`*_avr.c`).
 - `app/` and `services/` never include `<avr/...>` headers (host-testable).
 - Fixed-width types only (`uint8_t`, `int16_t`…). Concentrations in `int16_t`, unit 0.1 %LEL.
 - Every public function: Doxygen header with `@req` tags, argument checks, `gg_status_t` return.

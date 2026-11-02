@@ -6,15 +6,15 @@ description: Write Unity unit or scenario tests for a GasGuard module, derived f
 # Write tests from requirements
 
 ## Steps
-1. Find the requirements the module implements (`grep -rn '@req' <layer>/<module>.c`,
+1. Find the requirements the module implements (`grep -rn '@req' <layer>/<module>/<module>.c`,
    or the REQ IDs given by the user) and read them in `docs/01-requirements.md`.
 2. For each requirement, list test cases in this order:
    - **Nominal** behaviour
    - **Boundaries**: exactly at threshold, threshold − 1, threshold + 1, min, max
    - **Invalid inputs**: `NULL` pointers, out-of-range values → expected `gg_status_t`
    - **Timing**: counters (3 samples to trigger, 10 to clear…), timeouts
-   - **Fault injection** using `hal/host` fakes (ADC script, corrupted EEPROM, clock jump)
-3. Write tests in `tests/test_<module>.c` with Unity:
+   - **Fault injection** using `hal/*/*_fake.c` fakes (ADC script, corrupted EEPROM, clock jump)
+3. Write tests in `tests/<layer>/<module>/test_<module>.c` with Unity:
    - one behaviour per test, name `test_<module>_<behaviour>`
    - comment `/* @verifies REQ-XXX-NNN */` above each test
    - `setUp()` resets the module and fakes to a known state

@@ -15,7 +15,7 @@
 │ hal/          interfaces (.h only): adc, gpio, i2c,      │
 │               eeprom, timer, uart, wdt, reset_cause      │
 ├───────────────────────────┬──────────────────────────────┤
-│ hal/avr/   ATmega328P     │ hal/host/  fakes for tests   │
+│ hal/*/*_avr.c  ATmega328P │ hal/*/*_fake.c  test fakes   │
 │ register-level drivers    │ (scriptable ADC, fake EEPROM │
 │                           │  in RAM, fake clock…)        │
 ├───────────────────────────┴──────────────────────────────┤

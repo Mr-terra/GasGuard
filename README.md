@@ -93,7 +93,7 @@ lets the application logic run unchanged on a PC (ADR-3).
 │ hal/          interfaces (.h only): adc, gpio, i2c, eeprom,  │
 │               timer, uart, wdt, reset cause                  │
 ├──────────────────────────────┬───────────────────────────────┤
-│ hal/avr/   ATmega328P        │ hal/host/  PC fakes           │
+│ hal/*/*_avr.c  ATmega328P    │ hal/*/*_fake.c  PC fakes      │
 │ register-level drivers       │ scriptable ADC, EEPROM in RAM,│
 │                              │ simulated clock               │
 ├──────────────────────────────┴───────────────────────────────┤
@@ -254,7 +254,7 @@ Individual targets:
 
 | Target | What it does |
 |---|---|
-| `make test` | Builds and runs every `tests/test_*.c` on the PC, with AddressSanitizer and UBSan |
+| `make test` | Builds and runs every `test_*.c` under `tests/` on the PC, with AddressSanitizer and UBSan |
 | `make lint` | cppcheck with the MISRA addon, clang-tidy, lizard, header self-containment, R20 grep |
 | `make coverage` | Line coverage report in `build/coverage/index.html` |
 | `make avr` | Cross-compiles `build/avr/gasguard.hex` for the ATmega328P |
@@ -282,7 +282,7 @@ Verification follows four levels, defined in
 |---|---|---|---|
 | L1 Static | CI | Warnings, MISRA subset, complexity, AVR header isolation | gcc, cppcheck, clang-tidy, lizard |
 | L2 Unit | CI (PC) | Each `services/` and `app/` module with host fakes | Unity, gcov |
-| L3 Scenario | CI (PC) | Full detector driven by scripted ADC sequences, time-stepped | Unity, `hal/host` |
+| L3 Scenario | CI (PC) | Full detector driven by scripted ADC sequences, time-stepped | Unity, `hal/*/*_fake.c` |
 | L4 Hardware | Bench | Real board, potentiometer, then butane from an unlit lighter | Manual, logic analyser |
 
 Scenario tests SC-01 to SC-10 and SC-13 are implemented (Day 2), with two deviations: SC-01 starts in WARMUP (INIT and SELF_TEST come on Day 4), and SC-15 is unit-tested only. SC-11, SC-12, SC-14 and SC-16 follow on Day 4. They cover boot, alarms,
@@ -305,18 +305,36 @@ Accepted deviations from the coding standard are listed in
 
 ## Repository layout
 
+One folder per module, grouped by layer. Each module folder holds its header,
+its source, and (for `hal/`) its board driver and its PC fake.
+
 ```
-common/      shared types and status codes, no hardware dependency
-hal/         hardware interfaces (.h); hal/host/ holds the PC fakes
-app/         detector state machine, alarm logic, channel selection (Day 2, done)
-services/    filter, calibration, diagnostics (Day 2, done); config, event log (Day 4)
-drivers/     LCD, buzzer, relay, button                          (Day 3)
-main.c       boot sequence and scheduler                         (Day 4)
-tests/       Unity unit and scenario tests, one file per module
-docs/        requirements, architecture, FMEA, coding standard, verification plan
-tools/       trace.py, size_check.awk, hook guard, flash script
-.claude/     project rules and Claude Code skills
+common/
+  gg_types/        gg_types.h            status codes, 0.1 %LEL type
+hal/                                     one folder per peripheral
+  adc/             adc.h  adc_avr.c*  adc_fake.c  adc_fake.h
+  timer/  gpio/  eeprom/  uart/  i2c/  wdt/  reset_cause/   (same pattern)
+services/                                pure logic, no AVR headers
+  filter/          filter.c  filter.h    8-sample moving average     (Day 2)
+  calib/           calib.c   calib.h     raw -> %LEL, temperature   (Day 2)
+  diag/            diag.c    diag.h      open/short, stuck, bandgap (Day 2)
+  config/  eventlog/                     configuration, event log   (Day 4)
+app/                                     pure logic, no AVR headers
+  detector/        detector.c detector.h state machine, alarms      (Day 2)
+  channel_select/  channel_select.c channel_select.h max of channels (Day 2)
+drivers/                                 LCD, buzzer, relay, button  (Day 3)
+main.c                                   boot sequence and scheduler (Day 4)
+tests/                                   mirrors the layout above
+  common/  hal/<peripheral>/  services/<module>/  app/<module>/
+  scenarios/       test_scenarios.c     whole-chain scenarios
+docs/            requirements, architecture, FMEA, coding standard, verification plan
+tools/           trace.py, size_check.awk, hook guard, flash script
+.claude/         project rules and Claude Code skills
+third_party/     vendored Unity
 ```
+
+`*_avr.c` is built only for the board; `*_fake.c` only for the PC. Both are
+selected by file name in the Makefile, so the layout can grow without editing it.
 
 ## Development workflow
 

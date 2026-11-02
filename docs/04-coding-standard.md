@@ -6,7 +6,7 @@ recorded in §5 with a justification.
 
 ## 1. Language and build
 
-- C99 (`-std=c99`), no compiler extensions except `ISR()` / `PROGMEM` in `hal/avr/`.
+- C99 (`-std=c99`), no compiler extensions except `ISR()` / `PROGMEM` in the board drivers (`hal/*/*_avr.c`).
 - Flags (both targets):
   `-Wall -Wextra -Werror -Wpedantic -Wconversion -Wsign-conversion -Wshadow
    -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes -Wundef -Wswitch-enum`
@@ -64,11 +64,11 @@ An unexpected internal state is never ignored: it calls
 
 | ID | Rule | Location | Justification |
 |---|---|---|---|
-| DEV-01 | R01 | `hal/avr/*` | avr-libc register macros use implementation types. |
+| DEV-01 | R01 | `hal/*/*_avr.c` | avr-libc register macros use implementation types. |
 | DEV-02 | MISRA 2.5 (unused macro) | include guards in every `*.h` (`#define X_H`) | Include guards are used only by the preprocessor, not as values; cppcheck reports them as unused macros. Each guard carries an inline `cppcheck-suppress misra-c2012-2.5` line. |
 | DEV-03 | MISRA 8.6, cppcheck unusedFunction | Unity hooks `setUp`, `tearDown`, `main` in `tests/` | Unity calls these hooks and `main` by name from its runner, so they have external linkage and no caller in our code. Each one carries an inline suppression. |
-| DEV-04 | MISRA 8.7 | Every prototype in `hal/hal_*.h` and `hal/host/hal_*_fake.h` | Each HAL interface is defined once on the PC (its host fake) but has a second implementation on the board (`hal/avr/`), and each fake control API is called from the tests. cppcheck analyses only the PC build, so it sees a single definition. Inline suppression on each prototype. |
-| DEV-05 | MISRA 8.7 | `services/filter.h` (and every later `services/` header) | Service functions are the public API of the module. Until `app/` calls them, cppcheck sees a single caller (the test) and asks for `static`. Making them `static` would hide the API from `app/`. Inline suppression on each prototype; to be removed when `app/` uses the function. |
+| DEV-04 | MISRA 8.7 | Every prototype in `hal/*/*.h` and `hal/*/*_fake.h` | Each HAL interface is defined once on the PC (its host fake) but has a second implementation on the board (`hal/*/*_avr.c`), and each fake control API is called from the tests. cppcheck analyses only the PC build, so it sees a single definition. Inline suppression on each prototype. |
+| DEV-05 | MISRA 8.7 | `services/*/*.h` and `app/*/*.h` (every service and app header) | Service functions are the public API of the module. Until `app/` calls them, cppcheck sees a single caller (the test) and asks for `static`. Making them `static` would hide the API from `app/`. Inline suppression on each prototype; to be removed when `app/` uses the function. |
 | *(add new deviations here — never silently)* | | | |
 
 ## 6. Tooling

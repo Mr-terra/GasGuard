@@ -4,7 +4,7 @@ Interview-preparation sessions run with the `explain-module` skill. One entry pe
 session: date, module, score out of 5, and the concepts to review before the next
 session.
 
-## 2026-10-29 — `hal/host/hal_adc_fake.c` (Day 1)
+## 2026-10-29 — `hal/adc/adc_fake.c` (Day 1)
 
 - **Score : 3,5 / 5**
 

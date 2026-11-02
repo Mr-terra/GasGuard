@@ -7,7 +7,7 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 - [x] Toolchain in WSL2: `sudo apt install build-essential gcc-avr avr-libc binutils-avr cppcheck clang-tidy gcovr python3-pip && pip install lizard`
 - [x] Makefile with targets `test coverage lint avr size trace check`
 - [x] Add Unity (git submodule or vendored in `third_party/unity`)
-- [x] `common/gg_types.h` (`gg_status_t`, units), HAL interfaces in `hal/*.h`, host fakes
+- [x] `common/gg_types/gg_types.h` (`gg_status_t`, units), HAL interfaces in `hal/*.h`, host fakes
 - [x] GitHub Actions CI running `make check` on every push (green on `main` after pinning the runner to Ubuntu 22.04)
 - [x] **Learn:** compilation chain (preprocessor → compiler → linker), headers vs sources, `static`
 
@@ -20,7 +20,7 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 - [x] **Learn:** `enum` + `switch` state machines, fixed-point maths, integer promotion
 
 ## Day 3 — Hardware layer (board arrived)
-- [ ] `hal/avr`: timer tick 1 ms, ADC (+ bandgap), GPIO, UART, watchdog, reset cause, EEPROM, I2C (TWI)
+- [ ] Board drivers `hal/<peripheral>/<peripheral>_avr.c`: timer tick 1 ms, ADC (+ bandgap), GPIO, UART, watchdog, reset cause, EEPROM, I2C (TWI)
 - [ ] Wire the MQ modules per `docs/02-architecture.md` §2.1 (pull-downs, white wire insulated)
 - [ ] I2C scan → confirm LCD RGB address (0x62 or 0x30)
 - [ ] `drivers/`: lcd_rgb, buzzer, relay, button (debounce)
@@ -34,8 +34,8 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 - [ ] Scenario tests SC-11, SC-12, SC-14..SC-16
 - [ ] Bench test with potentiometer (simulation build), then real gas sensors
 - [ ] **Learn:** CRC, EEPROM wear, watchdog design, why fail-safe relay
-- [ ] **Remove DEV-05** (docs/04 §5) and its inline `misra-c2012-8.7` suppressions in `services/*.h` and `app/*.h`, once `app/` calls the service functions
-- [ ] **Replace the TODO in `app/detector.c`** (`default` branch of `step_state`) with `diag_raise()`, once the event log exists
+- [ ] **Remove DEV-05** (docs/04 §5) and its inline `misra-c2012-8.7` suppressions in `services/*/*.h` and `app/*/*.h`, once `app/` calls the service functions
+- [ ] **Replace the TODO in `app/detector/detector.c`** (`default` branch of `step_state`) with `diag_raise()`, once the event log exists
 
 ## Day 5 — Evidence and presentation
 - [ ] `make check` without `--allow-gaps`: 100 % traceability
