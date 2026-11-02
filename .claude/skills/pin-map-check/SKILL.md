@@ -43,3 +43,9 @@ count per status and one verdict: **PASS** (no mismatch) or **FAIL**.
   asking the author.
 - This skill checks consistency only. It does not validate the schematic or
   the physical wiring; those need the hardware bring-up (`docs/05`).
+
+## Gotchas
+- The ADC channel-to-sensor mapping (A0 to A3) lives in the application layer
+  from Day 4. Until then, the check reports it as UNUSED, which is expected.
+- A pin shared with a timer (PD6 / OC0A) can look free in the GPIO code while
+  the PWM still drives it. Check the timer registers too.

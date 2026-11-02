@@ -32,3 +32,17 @@ Severity: **BLOCKER** (safety impact or R02/R03/R20), **MAJOR** (rule violation)
 
 Then: total per severity and a verdict **PASS** (no blocker/major) or **FAIL**.
 Do not fix anything unless asked; propose the fix in the table.
+
+## Gotchas
+- A passing `make lint` can hide a failure: a wrapper script may swallow the
+  exit code. Read the lizard and cppcheck lines, not only the status. (The
+  `hal_i2c_write` complexity of 15 was hidden this way.)
+- Static identifiers must be unique across the whole project (MISRA 5.9).
+  Grep for the name before creating a `static` in a test file.
+- cppcheck `unusedFunction` on Unity `setUp`/`tearDown` depends on the order
+  files are analysed. Suppress per file only where it is reported, then rerun
+  `make lint`.
+- A new interrupt handler uses the DEV-07 deviation, not a new inline
+  suppression. Add the handler to the register, do not copy the comment.
+- `PORTD |= x` triggers `-Wconversion`. Use the `REG_SET` / `REG_CLEAR`
+  macros with explicit casts.

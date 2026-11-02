@@ -34,3 +34,8 @@ implement. Implement nothing until the author answers, as CLAUDE.md requires.
 - Keep it short enough to read in one sitting; detail goes in the docs, not
   in the review.
 - The review is written for the author, in the language the author uses.
+
+## Gotchas
+- Quote the `make check` numbers from this session's run. A number from an
+  earlier day or another shell is not a check result.
+- Hardware items are gaps, not failures. Say which cable or device is missing.

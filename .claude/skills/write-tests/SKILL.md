@@ -27,3 +27,12 @@ description: Write Unity unit or scenario tests for a GasGuard module, derived f
 - Never weaken an assertion to make a test pass: if the code is wrong, say so.
 - Tests must be deterministic: no real time, no randomness without fixed seed.
 - If a requirement is untestable or ambiguous, report it instead of guessing.
+
+## Gotchas
+- Unity test function names must be unique within one test binary. A helper
+  defined `static` in two test files can collide at link time or break
+  MISRA 5.9.
+- `setUp()` must reset the fakes too. A fake left in a faulty state by one
+  test makes the next test fail for no visible reason.
+- An unreachable `default:` branch is not a reason to skip coverage. Reach it
+  through a fake, or document it as a deviation; never loosen the assertion.

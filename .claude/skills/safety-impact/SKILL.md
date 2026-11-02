@@ -26,3 +26,11 @@ description: Analyse the safety impact of a code or requirement change against t
 - List of tests to add or update.
 - If any residual RPN > 20 without justification: say **"BLOCKED — needs a
   decision from the author"** and do not proceed with the commit.
+
+## Gotchas
+- New FMEA rows continue from the last F-number in `docs/03-safety-analysis.md`.
+  Check with grep before numbering; do not assume the next number.
+- A timing change is never LOW by default. Compare it with the watchdog
+  period (500 ms) and the 100 ms sensor cycle, as F22 does.
+- An operator action that can inhibit an alarm (mute, bypass, maintenance)
+  needs its own row, even if the code path looks small.

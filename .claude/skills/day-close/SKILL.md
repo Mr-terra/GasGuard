@@ -44,3 +44,11 @@ Validation is required by CLAUDE.md ("Push rights"); the review in
 - Do not start the next day's branch in this skill; that is a separate step.
 - The commit message must not mention the company or the author's e-mail
   (CLAUDE.md "Commit style").
+
+## Gotchas
+- Run `make check` in WSL Ubuntu. The Git Bash shell has MinGW gcc, which
+  builds binaries that cannot run the tests ("Exec format error").
+- The CI on `main` runs Ubuntu 22.04. A green WSL run is strong evidence, but
+  read the CI result: it is the only check that runs from a clean checkout.
+- A pipeline such as `make check; echo $?` reports the last command's status,
+  not make's. Use `if make check; then ... fi`.

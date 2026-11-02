@@ -19,3 +19,11 @@ description: Check requirement traceability (REQ → code → tests) for GasGuar
 A short table per list, then: "Traceability: X/Y requirements fully traced".
 Propose the next tests or implementations to close the gaps, ordered by the
 FMEA severity of the related failure mode.
+
+## Gotchas
+- `*_fake.c` files never count as implementation. A requirement that only a
+  fake "implements" is reported as not implemented: that is intended.
+- The quality-gate requirements are tagged in comments above the Makefile
+  targets, not in a `.c` file. A missing tag there looks like a code gap.
+- The `make trace` step fails on orphan tags (a typo in a REQ ID). Fix the
+  tag; do not add the typo to `docs/01-requirements.md`.
