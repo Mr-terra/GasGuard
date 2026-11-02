@@ -66,12 +66,19 @@ static gg_status_t gpio_lookup(hal_gpio_pin_t pin, uint8_t *bit, bool *is_input)
             *is_input = false;
             break;
         default:
+            /* Impossible pin. DEV-08: the HAL returns the error; the caller raises the fault. */
             status = GG_ERR_RANGE;
             break;
     }
     return status;
 }
 
+/**
+ * @brief Configure every pin with its direction and idle level.
+ *
+ * The full contract is in the header.
+ * @req REQ-SAF-001
+ */
 gg_status_t hal_gpio_init(void)
 {
     /* Set the output levels before the directions: no glitch on the relay. */
@@ -87,6 +94,12 @@ gg_status_t hal_gpio_init(void)
     return GG_OK;
 }
 
+/**
+ * @brief Set an output pin.
+ *
+ * The full contract is in the header.
+ * @req REQ-SAF-001
+ */
 gg_status_t hal_gpio_write(hal_gpio_pin_t pin, bool high)
 {
     gg_status_t status;
@@ -107,6 +120,12 @@ gg_status_t hal_gpio_write(hal_gpio_pin_t pin, bool high)
     return status;
 }
 
+/**
+ * @brief Read an input pin.
+ *
+ * The full contract is in the header.
+ * @req REQ-HMI-007
+ */
 gg_status_t hal_gpio_read(hal_gpio_pin_t pin, bool *out_high)
 {
     gg_status_t status;

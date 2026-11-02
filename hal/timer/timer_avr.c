@@ -29,6 +29,12 @@
 /** @brief Milliseconds since init. Written by the interrupt, read by the main loop. */
 static volatile uint32_t v_ms_ticks;
 
+/**
+ * @brief Start the 1 ms tick.
+ *
+ * The full contract is in the header.
+ * @req REQ-FUN-001
+ */
 gg_status_t hal_timer_init(void)
 {
     v_ms_ticks = 0u;
@@ -39,6 +45,12 @@ gg_status_t hal_timer_init(void)
     return GG_OK;
 }
 
+/**
+ * @brief Read the milliseconds elapsed since hal_timer_init().
+ *
+ * The full contract is in the header.
+ * @req REQ-LOG-002
+ */
 gg_status_t hal_timer_get_ms(uint32_t *out_ms)
 {
     gg_status_t status = GG_OK;

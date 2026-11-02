@@ -27,10 +27,15 @@
 #define I2C_WAIT_LOOPS 20000u
 
 /** @brief TWSR status codes (prescaler bits masked off). */
+#define TWI_STATUS_MASK 0xF8u   /* TWSR bits 7..3 hold the status; bits 2..0 the prescaler. */
 #define TW_START        0x08u
 #define TW_REP_START    0x10u
 #define TW_MT_SLA_ACK   0x18u
 #define TW_MT_DATA_ACK  0x28u
+#define TW_MT_SLA_NACK  0x20u   /* no device acknowledged the address */
+
+/** @brief Largest 7-bit I2C address. */
+#define I2C_ADDR_MAX    0x7Fu
 
 /** @brief Start or continue a TWI command and wait for it to finish. */
 static gg_status_t twi_command(uint8_t control)
@@ -48,6 +53,12 @@ static gg_status_t twi_command(uint8_t control)
     return status;
 }
 
+/**
+ * @brief Enable the TWI peripheral at 100 kHz.
+ *
+ * The full contract is in the header.
+ * @req REQ-HMI-001
+ */
 gg_status_t hal_i2c_init(void)
 {
     TWSR = 0u;                    /* prescaler 1 */
@@ -60,7 +71,7 @@ gg_status_t hal_i2c_init(void)
 static gg_status_t twi_start(void)
 {
     gg_status_t status = twi_command(1u << TWSTA);
-    uint8_t st = (uint8_t)(TWSR & 0xF8u);
+    uint8_t st = (uint8_t)(TWSR & TWI_STATUS_MASK);
 
     if ((status == GG_OK) && (st != TW_START) && (st != TW_REP_START)) {
         status = GG_ERR_HW;
@@ -76,13 +87,19 @@ static gg_status_t twi_send_byte(uint8_t byte, uint8_t expected_ack)
 
     TWDR = byte;
     status = twi_command(0u);
-    st = (uint8_t)(TWSR & 0xF8u);
+    st = (uint8_t)(TWSR & TWI_STATUS_MASK);
     if ((status == GG_OK) && (st != expected_ack)) {
-        status = (st == 0x20u) ? GG_ERR_TIMEOUT : GG_ERR_HW;
+        status = (st == TW_MT_SLA_NACK) ? GG_ERR_TIMEOUT : GG_ERR_HW;
     }
     return status;
 }
 
+/**
+ * @brief Write bytes to a 7-bit device address, with a STOP at the end.
+ *
+ * The full contract is in the header.
+ * @req REQ-HMI-002
+ */
 gg_status_t hal_i2c_write(uint8_t addr7, const uint8_t *data, uint8_t len)
 {
     gg_status_t status = GG_OK;
@@ -90,7 +107,7 @@ gg_status_t hal_i2c_write(uint8_t addr7, const uint8_t *data, uint8_t len)
 
     if ((data == NULL) && (len > 0u)) {
         status = GG_ERR_NULL;
-    } else if (addr7 > 0x7Fu) {
+    } else if (addr7 > I2C_ADDR_MAX) {
         status = GG_ERR_RANGE;
     } else {
         status = twi_start();

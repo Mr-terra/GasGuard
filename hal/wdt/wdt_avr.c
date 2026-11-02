@@ -21,12 +21,24 @@
 #include "common/gg_types/gg_types.h"
 #include "hal/wdt/wdt.h"
 
+/**
+ * @brief Enable the watchdog with a 500 ms timeout.
+ *
+ * The full contract is in the header.
+ * @req REQ-SAF-005
+ */
 gg_status_t hal_wdt_enable(void)
 {
     wdt_enable(WDTO_500MS);
     return GG_OK;
 }
 
+/**
+ * @brief Restart the watchdog countdown. Called once per main-loop pass,
+ *
+ * The full contract is in the header.
+ * @req REQ-SAF-005
+ */
 gg_status_t hal_wdt_kick(void)
 {
     wdt_reset();

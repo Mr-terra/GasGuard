@@ -20,6 +20,12 @@
 
 #include "hal/reset_cause/reset_cause.h"
 
+/**
+ * @brief Return the cause of the last reset and clear the status flags.
+ *
+ * The full contract is in the header.
+ * @req REQ-SAF-006
+ */
 hal_reset_cause_t hal_reset_cause_get(void)
 {
     /* Cached result of the first read of MCUSR (the register is cleared by that read). */

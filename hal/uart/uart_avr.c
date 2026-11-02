@@ -37,6 +37,12 @@ static volatile uint8_t v_tx_head;
 static volatile uint8_t v_tx_tail;
 static volatile uint8_t v_tx_count;
 
+/**
+ * @brief Configure the UART at 38400 baud, 8N1.
+ *
+ * The full contract is in the header.
+ * @req REQ-LOG-004
+ */
 gg_status_t hal_uart_init(void)
 {
     UBRR0H = (uint8_t)(UART_UBRR_38400 / 256u);    /* high byte */
@@ -50,6 +56,12 @@ gg_status_t hal_uart_init(void)
     return GG_OK;
 }
 
+/**
+ * @brief Queue bytes for transmission without waiting for the line.
+ *
+ * The full contract is in the header.
+ * @req REQ-LOG-004
+ */
 gg_status_t hal_uart_write(const uint8_t *data, uint8_t len)
 {
     gg_status_t status = GG_OK;
@@ -74,6 +86,12 @@ gg_status_t hal_uart_write(const uint8_t *data, uint8_t len)
     return status;
 }
 
+/**
+ * @brief Read one received byte, if any.
+ *
+ * The full contract is in the header.
+ * @req REQ-LOG-004
+ */
 gg_status_t hal_uart_read_byte(uint8_t *out_byte)
 {
     gg_status_t status = GG_OK;
