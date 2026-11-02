@@ -141,3 +141,8 @@ of its `.c` file (5–10 lines, plain English) and suggest running the
 - `pin-map-check` — check the pin table (docs/02 §2) against the code and wiring notes
 - `review-day` — write the end-of-day review in the five-part format
 - `day-close` — after validation: rebase, ff-only merge, push, CI check
+
+Also available (not skills):
+
+- `.claude/agents/code-reviewer.md` — independent read-only reviewer with a fresh context; use it before each commit that touches `hal/`, `app/`, `services/` or `common/`
+- `/check` (`.claude/commands/check.md`) — runs `make check` in WSL and reports the verdict
