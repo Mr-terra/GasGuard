@@ -38,6 +38,18 @@ then update the doc in the same commit.
 6. If the change affects a safety mechanism, run the `safety-impact` skill.
 7. Summarise: what changed, which REQs, test results, memory usage (`make size`).
 
+## Checks before every commit and push
+
+- **Before every commit**: run `safety-impact` (if the change touches a safety
+  mechanism, or any file in `hal/`, `app/`, `services/`) and `misra-review` on
+  the staged files. Fix every finding they flag, or record a deviation in
+  `docs/04-coding-standard.md` §5 and say so explicitly. Then `make check`.
+- **Before every push**: run `trace-check` and the other skills the change
+  needs (`write-tests` for new modules, `explain-module` at the end of a day).
+  The author validates the day before any push.
+- A skill's findings are fixed in the same change set; a skill that reports
+  BLOCKED stops the commit until the author decides.
+
 ## Commands
 
 | Command | Purpose |
