@@ -398,6 +398,18 @@ Code was written with Claude Code, inside a quality system defined in the
 Every change goes through tests, static analysis and review before it is
 committed. The AI writes code; the process decides whether it is accepted.
 
+### Use of AI assistance
+
+GasGuard was written with Claude, an AI coding assistant from Anthropic. The
+assistant drafted code, tests and documents. The author decided the
+requirements, the safety design, the acceptance of each change and every action
+on the hardware. Each change must pass `make check` before it is committed;
+code changes also go through a MISRA review and, when they touch a safety
+mechanism, a safety-impact review.
+
+The full description (scope, decisions, controls, limits) is in
+[`docs/06-ai-usage.md`](docs/06-ai-usage.md).
+
 ## Documentation
 
 | Document | Content |
@@ -408,6 +420,7 @@ committed. The AI writes code; the process decides whether it is accepted.
 | [Coding standard](docs/04-coding-standard.md) | MISRA C:2012 subset, project rules R01–R20, tooling, deviations |
 | [Verification plan](docs/05-verification-plan.md) | Four verification levels, scenarios SC-01 to SC-16, bench procedure |
 | [Traceability](docs/traceability.md) | Generated matrix, requirement → code → test |
+| [AI assistance](docs/06-ai-usage.md) | How an AI coding assistant was used, why, and the controls on its output |
 | [Plan](PLAN.md) | Five-day implementation plan |
 
 ## License
