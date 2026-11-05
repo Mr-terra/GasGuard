@@ -17,6 +17,7 @@
 #include <avr/interrupt.h>
 
 #include "common/gg_types/gg_types.h"
+#include "drivers/lcd_rgb/lcd_rgb.h"
 #include "hal/i2c/i2c.h"
 #include "hal/timer/timer.h"
 #include "hal/uart/uart.h"
@@ -24,6 +25,9 @@
 /** @brief First and last 7-bit address probed. 0x00..0x07 and 0x78..0x7F are reserved. */
 #define BRINGUP_ADDR_FIRST 0x08u
 #define BRINGUP_ADDR_LAST  0x77u
+
+/** @brief Green backlight level for the NORMAL state (REQ-HMI-002). */
+#define BRINGUP_GREEN_LEVEL 0xFFu
 
 /** @brief The LCD controller (text) and its RGB backlight, which must both answer. */
 #define BRINGUP_LCD_TEXT_ADDR 0x3Eu
@@ -139,6 +143,26 @@ static gg_status_t scan_i2c(void)
 }
 
 /**
+ * @brief Initialise the LCD, show "GasGuard" and set the backlight to green (NORMAL).
+ * @return GG_OK, or the first error from the LCD driver.
+ */
+static gg_status_t show_on_lcd(void)
+{
+    gg_status_t status = lcd_rgb_init(wait_ms);
+
+    if (status == GG_OK) {
+        status = lcd_rgb_write_line(0u, "GasGuard");
+    }
+    if (status == GG_OK) {
+        status = lcd_rgb_write_line(1u, "bring-up OK");
+    }
+    if (status == GG_OK) {
+        status = lcd_rgb_set_colour(0x00u, BRINGUP_GREEN_LEVEL, 0x00u);
+    }
+    return status;
+}
+
+/**
  * @brief Initialise the peripherals, then run the scan and the heartbeat forever.
  *
  * Each init call sits in its own statement, so none depends on the short-circuit
@@ -163,6 +187,12 @@ int main(void)
     } else {
         send_text("GasGuard bring-up\n");
         status = scan_i2c();
+    }
+    if (status == GG_OK) {
+        status = show_on_lcd();
+        if (status != GG_OK) {
+            send_text("ERROR: LCD init failed\n");
+        }
     }
     /* On any failure the program stops here: it no longer reports "alive". */
     for (;;) {
