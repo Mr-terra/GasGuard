@@ -20,12 +20,12 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 - [x] **Learn:** `enum` + `switch` state machines, fixed-point maths, integer promotion
 
 ## Day 3 — Hardware layer (board arrived)
-- [ ] Board drivers `hal/<peripheral>/<peripheral>_avr.c`: timer tick 1 ms, ADC (+ bandgap), GPIO, UART, watchdog, reset cause, EEPROM, I2C (TWI)
-- [ ] Wire the MQ modules per `docs/02-architecture.md` §2.1 (pull-downs, white wire insulated)
-- [ ] I2C scan → confirm LCD RGB address (0x62 or 0x30)
-- [ ] `drivers/`: lcd_rgb, buzzer, relay, button (debounce)
-- [ ] First flash: boot banner on UART, LCD shows "GasGuard"
-- [ ] **Learn:** registers and bit masks, `volatile`, ISRs, atomic access
+- [x] Board drivers `hal/<peripheral>/<peripheral>_avr.c`: timer tick 1 ms, ADC (+ bandgap), GPIO, UART, watchdog, reset cause, EEPROM, I2C (TWI)
+- [ ] Wire the MQ modules per `docs/02-architecture.md` §2.1 (pull-downs, white wire insulated). Partly done: MQ5 on A0 with its pull-down, A1 channel and MQ on A1 still to wire; the supply limit (4.5 V with MQ5 on USB) is open, see `docs/test-report.md`
+- [x] I2C scan → confirm LCD RGB address: 0x3E and 0x62 answer (0x70 also answers, to be identified)
+- [x] `drivers/`: lcd_rgb, buzzer, relay, button (debounce), with host tests
+- [x] First flash: boot banner on UART, LCD shows "GasGuard" (green backlight)
+- [ ] **Learn:** registers and bit masks, `volatile`, ISRs, atomic access (quiz on the timer and channel_select done; drivers pending)
 
 ## Day 4 — Integration and robustness
 - [ ] `main.c` scheduler, watchdog kick policy, overrun + stack watermark — REQ-SAF-005..009

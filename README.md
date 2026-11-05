@@ -61,12 +61,15 @@ process is the point:
 | Sensing | Moving average over the last 8 samples per channel (`services/filter`) | Done (Day 2); 100 ms sampling loop Day 4 |
 | Sensing | Linear calibration to %LEL in Q8 fixed point, temperature compensation when the sensor is valid | Done (Day 2) |
 | Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) | Done (Day 2) |
+| Diagnostics | Bandgap raw read against AVcc (`hal_adc_read_bandgap`), for the bandgap check | Done (Day 3); check wired on Day 4 |
 | Diagnostics | Task overrun and stack watermark checks | Day 4 |
 | Alarms | Two-level alarm with hysteresis, latched ALARM_2, warm-up inhibition, max of valid channels | Done (Day 2) |
 | Alarms | Relay normally energised: energised in WARMUP and NORMAL only, de-energised on alarm and fault (state logic done; driving the pin is Day 3) | Logic done (Day 2); pin Day 3 |
 | Storage | A/B configuration with CRC-16 and safe defaults | Day 4 |
 | Storage | Event log in a 32-entry EEPROM ring buffer | Day 4 |
-| Interface | 16×2 LCD with backlight colours, buzzer patterns, button actions | Day 3–4 |
+| Interface | 16×2 LCD driver: two lines of text and backlight colour (`drivers/lcd_rgb`), verified on the board | Done (Day 3) |
+| Interface | Buzzer and button drivers (`drivers/buzzer`, `drivers/button` with 30 ms debounce) | Done (Day 3); patterns and actions Day 4 |
+| Interface | Buzzer patterns, button actions, LCD content by state | Day 4 |
 | Interface | Maintenance mode with automatic exit after 10 minutes | Day 4 |
 | Interface | UART command line (`log`, `status`, `cfg`) | Day 4 |
 | Simulation | Potentiometer replaces the MQ-5 channel for bench tests | Day 3 |
@@ -431,6 +434,7 @@ The full description (scope, decisions, controls, limits) is in
 | [Coding standard](docs/04-coding-standard.md) | MISRA C:2012 subset, project rules R01–R20, tooling, deviations |
 | [Verification plan](docs/05-verification-plan.md) | Four verification levels, scenarios SC-01 to SC-16, bench procedure |
 | [Traceability](docs/traceability.md) | Generated matrix, requirement → code → test |
+| [Test report](docs/test-report.md) | Hardware bench results, one section per session, with the steps still open |
 | [AI assistance](docs/06-ai-usage.md) | How an AI coding assistant was used, why, and the controls on its output |
 | [Plan](PLAN.md) | Five-day implementation plan |
 
