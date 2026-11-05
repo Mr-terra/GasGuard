@@ -55,4 +55,13 @@ uint8_t hal_i2c_fake_last_len(void);
 // cppcheck-suppress misra-c2012-8.7
 uint8_t hal_i2c_fake_last_first_byte(void);
 
+/**
+ * @brief Data byte recorded at a position in the log; 0 if the position is past the end.
+ * @param index  Position in the log, from 0.
+ * @req REQ-HMI-002
+ */
+// DEV-04: HAL interface or test control API, one definition on the PC
+// cppcheck-suppress misra-c2012-8.7
+uint8_t hal_i2c_fake_log_byte(uint8_t index);
+
 #endif /* HAL_I2C_FAKE_H */
