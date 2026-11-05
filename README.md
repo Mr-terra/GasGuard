@@ -273,6 +273,17 @@ tools\flash.ps1 -Port COM3
 Open the serial monitor at 38400 baud. The boot banner, reset cause and
 configuration CRC status appear there once the firmware is complete (Day 4).
 
+Two helper scripts, both run from Windows in the project folder:
+
+```powershell
+tools\monitor.ps1 -Port COM3              # read the serial log (Ctrl+C to stop)
+tools\flash-monitor.ps1 -Port COM3        # flash, then read the log
+```
+
+If PowerShell refuses to run a script (execution policy), start it with
+`powershell -ExecutionPolicy Bypass -File tools\flash-monitor.ps1 -Port COM3`.
+The flash needs `avrdude` in the `Path` (see `tools/flash.ps1`).
+
 ## Verification and quality gates
 
 Verification follows four levels, defined in
