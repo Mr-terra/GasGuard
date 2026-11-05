@@ -18,6 +18,7 @@
 
 #include "common/gg_types/gg_types.h"
 #include "drivers/lcd_rgb/lcd_rgb.h"
+#include "hal/adc/adc.h"
 #include "hal/i2c/i2c.h"
 #include "hal/timer/timer.h"
 #include "hal/uart/uart.h"
@@ -76,6 +77,27 @@ static void send_text(const char *text)
  * @brief Send one byte as two hexadecimal characters, then a line break.
  * @param value  Byte to print.
  */
+/** @brief Positions in a two-digit hex pair and the byte split used for 16-bit values. */
+#define BRINGUP_PAIR_HI  0u
+#define BRINGUP_PAIR_LO  1u
+#define BRINGUP_PAIR_NUL 2u
+#define BRINGUP_BYTE_SHIFT 8u
+#define BRINGUP_BYTE_MASK  0xFFu
+
+/**
+ * @brief Send one byte as two hexadecimal digits, without prefix or line break.
+ * @param value  Byte to print.
+ */
+static void send_hex_byte(uint8_t value)
+{
+    char pair[BRINGUP_PAIR_NUL + 1u];
+
+    pair[BRINGUP_PAIR_HI] = k_hex_digits[(uint8_t)(value >> BRINGUP_NIBBLE_SHIFT)];
+    pair[BRINGUP_PAIR_LO] = k_hex_digits[(uint8_t)(value & BRINGUP_NIBBLE_MASK)];
+    pair[BRINGUP_PAIR_NUL] = '\0';
+    send_text(pair);
+}
+
 static void send_hex_line(uint8_t value)
 {
     char line[BRINGUP_LINE_LEN];
@@ -143,6 +165,26 @@ static gg_status_t scan_i2c(void)
 }
 
 /**
+ * @brief Print the heartbeat line with the raw bandgap reading (REQ-SAF-004).
+ *
+ * The reading is the 1.1 V reference against AVcc. Its value depends on the
+ * supply voltage, so it is printed on every beat for the bench measurement.
+ */
+static void report_alive(void)
+{
+    uint16_t raw = 0u;
+
+    if (hal_adc_read_bandgap(&raw) == GG_OK) {
+        send_text("alive bandgap 0x");
+        send_hex_byte((uint8_t)(raw >> BRINGUP_BYTE_SHIFT));
+        send_hex_byte((uint8_t)(raw & BRINGUP_BYTE_MASK));
+        send_text("\n");
+    } else {
+        send_text("alive, bandgap read failed\n");
+    }
+}
+
+/**
  * @brief Initialise the LCD, show "GasGuard" and set the backlight to green (NORMAL).
  * @return GG_OK, or the first error from the LCD driver.
  */
@@ -198,7 +240,7 @@ int main(void)
     for (;;) {
         wait_ms(BRINGUP_TICK_MS);
         if (status == GG_OK) {
-            send_text("alive\n");
+            report_alive();
         } else {
             send_text("halted: fix the wiring and reset\n");
         }
