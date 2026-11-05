@@ -31,4 +31,14 @@ void hal_adc_fake_reset(void);
 // cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_adc_fake_set_value(uint8_t channel, uint16_t raw);
 
+/**
+ * @brief Set the raw value that hal_adc_read_bandgap() returns.
+ * @param raw  Raw value, 0 .. HAL_ADC_RAW_MAX.
+ * @return GG_OK, or GG_ERR_RANGE if raw is out of range.
+ * @req REQ-SAF-004
+ */
+// DEV-04: test-only control API, used from tests
+// cppcheck-suppress misra-c2012-8.7
+gg_status_t hal_adc_fake_set_bandgap(uint16_t raw);
+
 #endif /* HAL_ADC_FAKE_H */

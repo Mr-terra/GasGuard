@@ -35,4 +35,19 @@
 // cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_adc_read(uint8_t channel, uint16_t *out_raw);
 
+/**
+ * @brief Read the internal 1.1 V bandgap reference against AVcc, as a raw 10-bit value.
+ *
+ * The reading is about 226 counts at AVcc = 5 V; a different value means the
+ * supply or the converter is not what the firmware expects (REQ-SAF-004).
+ *
+ * @param out_raw  Receives the raw value, 0 .. HAL_ADC_RAW_MAX. Must not be NULL.
+ * @return GG_OK on success, GG_ERR_NULL if out_raw is NULL, or GG_ERR_TIMEOUT
+ *         if the conversion does not finish.
+ * @req REQ-SAF-004
+ */
+// DEV-04: one implementation per target, fake on PC
+// cppcheck-suppress misra-c2012-8.7
+gg_status_t hal_adc_read_bandgap(uint16_t *out_raw);
+
 #endif /* HAL_ADC_H */
