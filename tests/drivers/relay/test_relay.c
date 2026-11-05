@@ -50,6 +50,8 @@ static void test_relay_set_false_de_energises_the_coil(void)
     TEST_ASSERT_FALSE(hal_gpio_fake_level(HAL_GPIO_PIN_RELAY));
 }
 
+// DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
+// cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
     UNITY_BEGIN();
