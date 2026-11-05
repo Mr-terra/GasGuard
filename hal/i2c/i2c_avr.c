@@ -95,6 +95,27 @@ static gg_status_t twi_send_byte(uint8_t byte, uint8_t expected_ack)
 }
 
 /**
+ * @brief Wait until the hardware has sent the STOP condition.
+ *
+ * TWSTO stays set while the STOP is on the bus. A START requested before that
+ * is lost, so the next probe would time out although the device is present.
+ * @return GG_OK when the STOP has completed, GG_ERR_TIMEOUT otherwise.
+ */
+static gg_status_t twi_wait_stop(void)
+{
+    gg_status_t status = GG_OK;
+    uint16_t waited = 0u;
+
+    while (((TWCR & (1u << TWSTO)) != 0u) && (waited < I2C_WAIT_LOOPS)) {
+        waited++;
+    }
+    if ((TWCR & (1u << TWSTO)) != 0u) {
+        status = GG_ERR_TIMEOUT;
+    }
+    return status;
+}
+
+/**
  * @brief Write bytes to a 7-bit device address, with a STOP at the end.
  *
  * The full contract is in the header.
@@ -103,6 +124,7 @@ static gg_status_t twi_send_byte(uint8_t byte, uint8_t expected_ack)
 gg_status_t hal_i2c_write(uint8_t addr7, const uint8_t *data, uint8_t len)
 {
     gg_status_t status = GG_OK;
+    gg_status_t stop_status;
     uint8_t i;
 
     if ((data == NULL) && (len > 0u)) {
@@ -117,8 +139,13 @@ gg_status_t hal_i2c_write(uint8_t addr7, const uint8_t *data, uint8_t len)
         for (i = 0u; (status == GG_OK) && (i < len); i++) {
             status = twi_send_byte(data[i], TW_MT_DATA_ACK);
         }
-        /* STOP is sent even after an error, so the bus is released. */
+        /* STOP is sent even after an error, so the bus is released. The wait
+         * keeps the next START from being lost; an error before the STOP wins. */
         TWCR = (uint8_t)((1u << TWSTO) | (1u << TWINT) | (1u << TWEN));
+        stop_status = twi_wait_stop();
+        if (status == GG_OK) {
+            status = stop_status;
+        }
     }
     return status;
 }
