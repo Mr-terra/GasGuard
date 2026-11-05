@@ -1,14 +1,155 @@
 /**
  * @file main.c
- * @brief Firmware entry point. Placeholder until Day 4 of PLAN.md.
+ * @brief Bring-up program for the first board test (branch day-3-bringup).
  *
- * The boot sequence, the cooperative scheduler and the watchdog are added on
- * Day 4. Until then the program only spins, so that the AVR toolchain, the
- * memory budget and the flashing path can be exercised end to end.
+ * It is not the firmware. It only checks the hardware:
+ *  - the UART prints a banner, so the serial console can be read;
+ *  - the I2C bus is scanned, and every answering address is printed, so the
+ *    LCD controller (0x3E) and its RGB backlight (0x62 or 0x30) can be found;
+ *  - every second it prints "alive", so the board is seen to run.
+ *
+ * The full boot sequence, scheduler and watchdog come on Day 4 of PLAN.md.
  */
+#include <stddef.h>
+#include <stdint.h>
 
+#include <avr/interrupt.h>
+
+#include "common/gg_types/gg_types.h"
+#include "hal/i2c/i2c.h"
+#include "hal/timer/timer.h"
+#include "hal/uart/uart.h"
+
+/** @brief First and last 7-bit address probed. 0x00..0x07 and 0x78..0x7F are reserved. */
+#define BRINGUP_ADDR_FIRST 0x08u
+#define BRINGUP_ADDR_LAST  0x77u
+
+/** @brief Period of the "alive" line, in milliseconds. */
+#define BRINGUP_TICK_MS 1000u
+
+/** @brief How many times a UART write is retried while the transmit buffer is full. */
+#define BRINGUP_TX_RETRIES 1000u
+
+/** @brief Shift and mask that split a byte into its high and low nibble. */
+#define BRINGUP_NIBBLE_SHIFT 4u
+#define BRINGUP_NIBBLE_MASK  0x0Fu
+
+/** @brief Positions in the output line "0xHH\r\n" (the terminating NUL is the last one). */
+#define BRINGUP_HEX_HI_POS 2u
+#define BRINGUP_HEX_LO_POS 3u
+#define BRINGUP_LINE_LEN   6u
+#define BRINGUP_LINE_CR    4u
+#define BRINGUP_LINE_NUL   5u
+
+/** @brief Hexadecimal digits, indexed by a value 0..15. */
+static const char k_hex_digits[] = "0123456789ABCDEF";
+
+/**
+ * @brief Send a text, retrying while the transmit buffer is full.
+ * @param text  Zero-terminated text, shorter than 255 bytes.
+ */
+static void send_text(const char *text)
+{
+    uint8_t len = 0u;
+    uint16_t retries = 0u;
+    gg_status_t status = GG_ERR_TIMEOUT;
+
+    while (text[len] != '\0') {
+        len++;
+    }
+    while ((status != GG_OK) && (retries < BRINGUP_TX_RETRIES)) {
+        status = hal_uart_write((const uint8_t *)text, len);
+        retries++;
+    }
+}
+
+/**
+ * @brief Send one byte as two hexadecimal characters, then a line break.
+ * @param value  Byte to print.
+ */
+static void send_hex_line(uint8_t value)
+{
+    char line[BRINGUP_LINE_LEN];
+
+    line[0] = '0';
+    line[1] = 'x';
+    line[BRINGUP_HEX_HI_POS] = k_hex_digits[(uint8_t)(value >> BRINGUP_NIBBLE_SHIFT)];
+    line[BRINGUP_HEX_LO_POS] = k_hex_digits[(uint8_t)(value & BRINGUP_NIBBLE_MASK)];
+    line[BRINGUP_LINE_CR] = '\r';
+    line[BRINGUP_LINE_NUL] = '\0';
+    send_text(line);
+    send_text("\n");
+}
+
+/**
+ * @brief Busy-wait until at least @p ms milliseconds have passed.
+ * @param ms  Delay in milliseconds.
+ */
+static void wait_ms(uint32_t ms)
+{
+    uint32_t start = 0u;
+    uint32_t now = 0u;
+
+    /* The timer is initialised before any delay, and &start / &now are never NULL,
+     * so the status is not checked here. */
+    (void)hal_timer_get_ms(&start);
+    do {
+        (void)hal_timer_get_ms(&now);
+    } while ((now - start) < ms);
+}
+
+/**
+ * @brief Probe every 7-bit address and print the ones that answer.
+ *
+ * A write with zero data bytes sends START, the address and STOP. A device
+ * that is present acknowledges the address and the call returns GG_OK.
+ */
+static void scan_i2c(void)
+{
+    uint8_t addr = 0u;
+    uint8_t found = 0u;
+
+    send_text("I2C scan\n");
+    for (addr = BRINGUP_ADDR_FIRST; addr <= BRINGUP_ADDR_LAST; addr++) {
+        if (hal_i2c_write(addr, NULL, 0u) == GG_OK) {
+            send_hex_line(addr);
+            found++;
+        }
+    }
+    if (found == 0u) {
+        send_text("no device answered\n");
+    }
+    send_text("scan done\n");
+}
+
+/**
+ * @brief Initialise the peripherals, then run the scan and the heartbeat forever.
+ *
+ * Each init call sits in its own statement, so none depends on the short-circuit
+ * evaluation of a condition (R11). This file is bring-up only, not a requirement.
+ * @return Never returns.
+ */
 int main(void)
 {
+    gg_status_t status = hal_timer_init();
+
+    if (status == GG_OK) {
+        status = hal_uart_init();
+    }
+    if (status == GG_OK) {
+        status = hal_i2c_init();
+    }
+    /* The UART transmit and the timer tick both run in interrupts. */
+    sei();
+
+    if (status != GG_OK) {
+        send_text("init failed\n");
+    } else {
+        send_text("GasGuard bring-up\n");
+        scan_i2c();
+    }
     for (;;) {
+        wait_ms(BRINGUP_TICK_MS);
+        send_text("alive\n");
     }
 }
