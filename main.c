@@ -10,6 +10,7 @@
  *
  * The full boot sequence, scheduler and watchdog come on Day 4 of PLAN.md.
  */
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -23,6 +24,10 @@
 /** @brief First and last 7-bit address probed. 0x00..0x07 and 0x78..0x7F are reserved. */
 #define BRINGUP_ADDR_FIRST 0x08u
 #define BRINGUP_ADDR_LAST  0x77u
+
+/** @brief The LCD controller (text) and its RGB backlight, which must both answer. */
+#define BRINGUP_LCD_TEXT_ADDR 0x3Eu
+#define BRINGUP_LCD_RGB_ADDR  0x62u
 
 /** @brief Period of the "alive" line, in milliseconds. */
 #define BRINGUP_TICK_MS 1000u
@@ -99,27 +104,38 @@ static void wait_ms(uint32_t ms)
 }
 
 /**
- * @brief Probe every 7-bit address and print the ones that answer.
+ * @brief Probe every 7-bit address, print the ones that answer, and check the LCD.
  *
  * A write with zero data bytes sends START, the address and STOP. A device
  * that is present acknowledges the address and the call returns GG_OK.
+ * The scan fails unless both the LCD controller and its RGB backlight answer.
+ * @return GG_OK if both LCD addresses answered, GG_ERR_HW otherwise.
  */
-static void scan_i2c(void)
+static gg_status_t scan_i2c(void)
 {
     uint8_t addr = 0u;
-    uint8_t found = 0u;
+    bool text_found = false;
+    bool rgb_found = false;
+    gg_status_t status = GG_OK;
 
     send_text("I2C scan\n");
     for (addr = BRINGUP_ADDR_FIRST; addr <= BRINGUP_ADDR_LAST; addr++) {
         if (hal_i2c_write(addr, NULL, 0u) == GG_OK) {
             send_hex_line(addr);
-            found++;
+            if (addr == BRINGUP_LCD_TEXT_ADDR) {
+                text_found = true;
+            }
+            if (addr == BRINGUP_LCD_RGB_ADDR) {
+                rgb_found = true;
+            }
         }
     }
-    if (found == 0u) {
-        send_text("no device answered\n");
-    }
     send_text("scan done\n");
+    if ((!text_found) || (!rgb_found)) {
+        send_text("ERROR: LCD not found (expected 0x3E and 0x62)\n");
+        status = GG_ERR_HW;
+    }
+    return status;
 }
 
 /**
@@ -146,10 +162,15 @@ int main(void)
         send_text("init failed\n");
     } else {
         send_text("GasGuard bring-up\n");
-        scan_i2c();
+        status = scan_i2c();
     }
+    /* On any failure the program stops here: it no longer reports "alive". */
     for (;;) {
         wait_ms(BRINGUP_TICK_MS);
-        send_text("alive\n");
+        if (status == GG_OK) {
+            send_text("alive\n");
+        } else {
+            send_text("halted: fix the wiring and reset\n");
+        }
     }
 }
