@@ -54,6 +54,42 @@ static void test_hal_adc_read_rejects_channel_out_of_range(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, hal_adc_read(HAL_ADC_CHANNEL_COUNT, &raw));
 }
 
+/* @verifies REQ-SAF-004 */
+static void test_hal_adc_read_bandgap_returns_configured_value(void)
+{
+    uint16_t raw = 0u;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(226u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_read_bandgap(&raw));
+    TEST_ASSERT_EQUAL_UINT16(226u, raw);
+}
+
+/* @verifies REQ-SAF-004 */
+static void test_hal_adc_read_bandgap_unset_reads_zero(void)
+{
+    uint16_t raw = 99u;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_read_bandgap(&raw));
+    TEST_ASSERT_EQUAL_UINT16(0u, raw);
+}
+
+/* @verifies REQ-SAF-004 */
+static void test_hal_adc_read_bandgap_rejects_null_output(void)
+{
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, hal_adc_read_bandgap(NULL));
+}
+
+/* @verifies REQ-SAF-004 */
+static void test_hal_adc_fake_reset_clears_bandgap(void)
+{
+    uint16_t raw = 0u;
+
+    (void)hal_adc_fake_set_bandgap(226u);
+    hal_adc_fake_reset();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_read_bandgap(&raw));
+    TEST_ASSERT_EQUAL_UINT16(0u, raw);
+}
+
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
@@ -62,5 +98,9 @@ int main(void)
     RUN_TEST(test_hal_adc_fake_unset_channel_reads_zero);
     RUN_TEST(test_hal_adc_read_rejects_null_output);
     RUN_TEST(test_hal_adc_read_rejects_channel_out_of_range);
+    RUN_TEST(test_hal_adc_read_bandgap_returns_configured_value);
+    RUN_TEST(test_hal_adc_read_bandgap_unset_reads_zero);
+    RUN_TEST(test_hal_adc_read_bandgap_rejects_null_output);
+    RUN_TEST(test_hal_adc_fake_reset_clears_bandgap);
     return UNITY_END();
 }
