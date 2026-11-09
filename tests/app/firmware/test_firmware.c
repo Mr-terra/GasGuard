@@ -49,8 +49,8 @@ void tearDown(void) {}
 /** @brief Set both gas channels to a raw value that the calibration maps to a concentration. */
 static void set_gas_raw(uint16_t raw)
 {
-    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_CHANNEL_MQ5, raw));
-    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_CHANNEL_MQ2, raw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, raw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, raw));
 }
 
 /** @brief Boot with no stored configuration, so the defaults are used. */
@@ -145,6 +145,26 @@ static void test_firmware_alarm_1_after_warmup_and_three_samples(void)
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
     TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(2u, &entry));
     TEST_ASSERT_EQUAL_INT(EVENTLOG_MODE_CHANGE, entry.code);
+}
+
+/* @verifies REQ-FUN-006 */
+static void test_firmware_mq5_channel_reads_the_mapped_adc_input(void)
+{
+    uint8_t other = 0u;
+
+#ifdef GG_SIM_POT
+    /* Simulation build: A2 is the MQ-5 channel, A0 is not used. */
+    other = 0u;
+#else
+    /* Normal build: A0 is the MQ-5 channel, A2 is not used. */
+    other = 2u;
+#endif
+    boot_defaults();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, ALARM_1_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(other, ALARM_2_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, 130000u));
+    TEST_ASSERT_EQUAL_INT(ALARM_1_RAW, firmware_concentration(&fw));
 }
 
 /* @verifies REQ-HMI-001 */
@@ -324,6 +344,7 @@ int main(void)
     RUN_TEST(test_firmware_boot_logs_when_defaults_are_used);
     RUN_TEST(test_firmware_boot_starts_in_warmup_and_the_output_follows_it);
     RUN_TEST(test_firmware_alarm_1_after_warmup_and_three_samples);
+    RUN_TEST(test_firmware_mq5_channel_reads_the_mapped_adc_input);
     RUN_TEST(test_firmware_concentration_is_the_last_sample_for_the_display);
     RUN_TEST(test_firmware_both_channels_short_raise_fault_and_drop_the_relay);
     RUN_TEST(test_firmware_touch_for_three_seconds_enters_maintenance);

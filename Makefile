@@ -51,7 +51,10 @@ COVERAGE_DIR := $(BUILD)/coverage
 all: test
 
 # Each test file is linked with the host library code and Unity, then run.
-test: $(TEST_BINS)
+# Warning-free build and run of every host test (REQ-NFR-003: -Wall -Wextra -Werror and the extra flags).
+# @req REQ-NFR-003
+# @verifies REQ-NFR-003
+test: $(TEST_BINS) sim-test
 	@rm -f $(BUILD)/test/*.gcda # stale coverage counters from older runs
 	@for t in $(TEST_BINS); do echo "== $$t"; ./$$t || exit 1; done
 
@@ -62,6 +65,10 @@ $(BUILD)/test/%: %.c $(LIB_SRCS) $(UNITY_SRCS)
 	$(CC) $(HOST_CFLAGS) $^ -o $@
 
 # Static analysis gates (docs/04-coding-standard.md §6). Any finding fails the build.
+# Static gates (docs/04-coding-standard.md §6): MISRA and clang-tidy (NFR-002), no AVR header in
+# app/services (NFR-001, R20), no dynamic memory (SAF-010).
+# @req REQ-NFR-001 REQ-NFR-002 REQ-SAF-010
+# @verifies REQ-NFR-001 REQ-NFR-002 REQ-SAF-010
 lint:
 	cppcheck --enable=all --addon=misra --error-exitcode=1 --std=c99 \
 	         --suppress=missingIncludeSystem --inline-suppr -I. $(MODULE_DIRS) $(TEST_DIR)
@@ -69,6 +76,7 @@ lint:
 	lizard -C 10 -L 60 -w $(MODULE_DIRS)
 	@if grep -rn '<avr/' app services 2>/dev/null; then \
 	    echo "R20: app/ and services/ must not include AVR headers"; exit 1; fi
+	@if grep -rnE '(malloc|calloc|realloc|free)[[:space:]]*\(' app services hal drivers main.c 2>/dev/null; then 	    echo "SAF-010: no dynamic memory allocation"; exit 1; fi
 	@for h in $(HEADERS); do \
 	    printf '#include "%s"\n' "$$h" | $(CC) $(HOST_CFLAGS) -fsyntax-only -x c - || exit 1; done
 
@@ -90,6 +98,21 @@ $(AVR_HEX): $(AVR_ELF)
 	avr-objcopy -O ihex -R .eeprom $< $@
 
 avr: $(AVR_HEX)
+
+# Simulation build for the bench (REQ-FUN-006): the MQ-5 channel reads the potentiometer on A2.
+# @req REQ-FUN-006
+avr-sim:
+	@mkdir -p $(BUILD)/avr-sim
+	$(AVR_CC) $(AVR_FLAGS) -DGG_SIM_POT $(AVR_SRCS) -o $(BUILD)/avr-sim/gasguard_sim.elf
+	avr-objcopy -O ihex -R .eeprom $(BUILD)/avr-sim/gasguard_sim.elf $(BUILD)/avr-sim/gasguard_sim.hex
+
+# Host run of the firmware tests built for the simulation (REQ-FUN-006).
+# @verifies REQ-FUN-006
+sim-test:
+	@mkdir -p $(BUILD)/sim
+	@rm -f $(BUILD)/sim/*.gcda # stale coverage counters from older runs
+	$(CC) $(HOST_CFLAGS) -DGG_SIM_POT $(TEST_DIR)/app/firmware/test_firmware.c $(LIB_SRCS) $(UNITY_SRCS) -o $(BUILD)/sim/test_firmware
+	./$(BUILD)/sim/test_firmware
 
 # Memory budget check on the ELF file (REQ-NFR-005).
 # @req REQ-NFR-005

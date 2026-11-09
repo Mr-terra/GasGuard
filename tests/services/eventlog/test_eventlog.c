@@ -119,6 +119,21 @@ static void test_eventlog_rejects_unknown_codes_and_bad_arguments(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, eventlog_head(NULL));
 }
 
+/* @verifies REQ-LOG-003 */
+static void test_eventlog_writes_only_when_an_event_is_appended(void)
+{
+    eventlog_entry_t entry;
+    uint8_t head = 0u;
+    uint32_t before = hal_eeprom_fake_write_count();
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_head(&head));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_CRC, eventlog_read_slot(0u, &entry));
+    TEST_ASSERT_EQUAL_UINT32(before, hal_eeprom_fake_write_count());
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append(1u, EVENTLOG_FAULT, 0u));
+    /* One append = one entry write and one head write, and nothing else. */
+    TEST_ASSERT_EQUAL_UINT32(before + 2u, hal_eeprom_fake_write_count());
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -131,5 +146,6 @@ int main(void)
     RUN_TEST(test_eventlog_corrupted_entry_is_detected_by_its_checksum);
     RUN_TEST(test_eventlog_head_out_of_range_is_treated_as_zero);
     RUN_TEST(test_eventlog_rejects_unknown_codes_and_bad_arguments);
+    RUN_TEST(test_eventlog_writes_only_when_an_event_is_appended);
     return UNITY_END();
 }

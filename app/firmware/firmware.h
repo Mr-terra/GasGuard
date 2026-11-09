@@ -28,7 +28,17 @@
 
 /** @brief ADC channels of the two gas sensors (docs/02-architecture.md §2). */
 #define FIRMWARE_CHANNEL_MQ5 0u
-#define FIRMWARE_CHANNEL_MQ2 1u
+/**
+ * @brief ADC inputs of the sensors. In the simulation build the MQ-5 channel reads
+ * the potentiometer on A2 instead of A0 (REQ-FUN-006, bench tests without gas).
+ */
+#ifdef GG_SIM_POT
+#define FIRMWARE_ADC_MQ5 2u
+#else
+#define FIRMWARE_ADC_MQ5 0u
+#endif
+#define FIRMWARE_ADC_MQ2 1u
+
 /** @brief Number of gas channels. */
 #define FIRMWARE_CHANNELS 2u
 

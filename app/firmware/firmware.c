@@ -51,6 +51,16 @@ typedef struct {
 } firmware_gas_t;
 
 /**
+ * @brief ADC input of a gas channel (REQ-FUN-006).
+ * @param ch  Channel index.
+ * @return The ADC channel that reads it.
+ */
+static uint8_t adc_of_channel(uint8_t ch)
+{
+    return (uint8_t)((ch == FIRMWARE_CHANNEL_MQ5) ? FIRMWARE_ADC_MQ5 : FIRMWARE_ADC_MQ2);
+}
+
+/**
  * @brief Read, check and convert one gas channel.
  *
  * Any failure (ADC error, out-of-range value, diagnostic fault) makes the channel
@@ -67,7 +77,7 @@ static void sample_channel(firmware_t *fw, uint8_t ch, gg_conc_t *conc, bool *va
     uint16_t value = 0u;
     bool faulty = true;
     bool out_of_range = false;
-    gg_status_t status = hal_adc_read(ch, &raw);
+    gg_status_t status = hal_adc_read(adc_of_channel(ch), &raw);
 
     *conc = 0;
     *valid = false;

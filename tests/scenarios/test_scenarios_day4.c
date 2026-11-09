@@ -62,8 +62,8 @@ static void d4_tick(bool touch_pressed)
 static void boot_clean_air(void)
 {
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_boot(&d4_fw, HAL_RESET_POWER_ON, sc_now));
-    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_CHANNEL_MQ5, SC_CLEAN_RAW));
-    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_CHANNEL_MQ2, SC_CLEAN_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, SC_CLEAN_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, SC_CLEAN_RAW));
 }
 
 /** @brief Write a damaged copy of the configuration: every byte 0xFF fails the CRC. */
