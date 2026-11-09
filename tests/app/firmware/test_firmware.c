@@ -24,6 +24,8 @@ void tearDown(void);
 
 /** @brief Raw value of clean air: 2 %LEL with the identity calibration (below AL1). */
 #define CLEAN_RAW 20u
+/** @brief Clean air plus 2 LSB: the MQ-2 jitter of the frozen-channel test. */
+#define CLEAN_RAW_PLUS_2 22u
 /** @brief Raw value of a gas alarm level: 15 %LEL (between AL1 and AL2). */
 #define ALARM_1_RAW 150u
 /** @brief Raw value above AL2 (25 %LEL). */
@@ -310,12 +312,12 @@ static void test_firmware_stack_below_64_bytes_latches_fault(void)
 {
     boot_and_reach_normal();
     hal_stack_fake_set_free(64u);
-    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
     fw_tick(false, false);
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
 
     hal_stack_fake_set_free(63u);
-    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
     fw_tick(false, false);
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
 }
@@ -330,9 +332,69 @@ static void test_firmware_null_arguments_are_rejected(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_output(NULL, 0u));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_relay_energised(&fw, NULL));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_inputs(NULL, 0u, false, false));
-    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_health(NULL));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_health(NULL, 0u));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_report_timing(NULL, false, false, 0u));
     (void)energised;
+}
+
+/* @verifies REQ-SAF-003 */
+static void test_firmware_frozen_channel_is_excluded_after_ten_minutes(void)
+{
+    uint32_t i;
+
+    boot_defaults();
+    /* MQ-5 frozen at a plausible gas level; MQ-2 moves by 2 LSB, so it is not stuck. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, ALARM_1_RAW));
+    for (i = 0u; i < 7400u; i++) {
+        uint16_t mq2_raw = CLEAN_RAW;
+
+        if (((i % 2u) == 1u)) {
+            mq2_raw = CLEAN_RAW_PLUS_2;
+        }
+        TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, mq2_raw));
+        fw_tick(false, false);
+    }
+    /* Without the stuck check the frozen MQ-5 would keep ALARM_1 on. */
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-004 */
+static void test_firmware_bandgap_out_of_tolerance_raises_fault(void)
+{
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(150u));
+    /* The next measurement is due 60 s later. */
+    fw_ticks(600u, false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+}
+
+/* @verifies REQ-HMI-003 */
+static void test_firmware_alarm_2_buzzer_beeps_four_times_a_second_at_the_output_rate(void)
+{
+    uint32_t i;
+    uint32_t steps = FIRMWARE_OUTPUT_STEPS_PER_S;
+    uint8_t edges = 0u;
+    bool prev = false;
+
+    boot_and_reach_normal();
+    set_gas_raw(ALARM_2_RAW);
+    fw_ticks(10u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, firmware_state(&fw));
+    /* now_test is a multiple of 250 ms here: the pattern starts with a beep. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_output(&fw, now_test));
+    prev = hal_gpio_fake_level(HAL_GPIO_PIN_BUZZER);
+    for (i = 0u; i < steps; i++) {
+        now_test += FIRMWARE_OUTPUT_PERIOD_MS;
+        TEST_ASSERT_EQUAL_INT(GG_OK, firmware_output(&fw, now_test));
+        if (hal_gpio_fake_level(HAL_GPIO_PIN_BUZZER) && !prev) {
+            edges++;
+        }
+        prev = hal_gpio_fake_level(HAL_GPIO_PIN_BUZZER);
+    }
+    TEST_ASSERT_EQUAL_UINT8(4u, edges);
 }
 
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
@@ -355,6 +417,9 @@ int main(void)
     RUN_TEST(test_firmware_overrun_is_written_to_the_event_log);
     RUN_TEST(test_firmware_three_overruns_latch_fault);
     RUN_TEST(test_firmware_stack_below_64_bytes_latches_fault);
+    RUN_TEST(test_firmware_frozen_channel_is_excluded_after_ten_minutes);
+    RUN_TEST(test_firmware_bandgap_out_of_tolerance_raises_fault);
+    RUN_TEST(test_firmware_alarm_2_buzzer_beeps_four_times_a_second_at_the_output_rate);
     RUN_TEST(test_firmware_null_arguments_are_rejected);
     return UNITY_END();
 }

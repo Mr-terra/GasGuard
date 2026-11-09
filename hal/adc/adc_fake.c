@@ -21,6 +21,9 @@
 #include "hal/adc/adc.h"
 #include "hal/adc/adc_fake.h"
 
+/** @brief Nominal bandgap raw value, as DIAG_BANDGAP_NOMINAL: a reset starts in tolerance. */
+#define ADC_FAKE_BANDGAP_NOMINAL 225u
+
 /** @brief Raw value of every channel, as scripted by the test. */
 typedef struct {
     uint16_t raw[HAL_ADC_CHANNEL_COUNT];
@@ -36,7 +39,7 @@ void hal_adc_fake_reset(void)
     for (channel = 0u; channel < HAL_ADC_CHANNEL_COUNT; channel++) {
         s_adc_fake.raw[channel] = 0u;
     }
-    s_adc_fake.bandgap_raw = 0u;
+    s_adc_fake.bandgap_raw = ADC_FAKE_BANDGAP_NOMINAL;
 }
 
 gg_status_t hal_adc_fake_set_bandgap(uint16_t raw)

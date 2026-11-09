@@ -71,7 +71,7 @@ static uint8_t adc_of_channel(uint8_t ch)
  * @param conc   Receives the concentration when the channel is valid.
  * @param valid  Receives true when the channel can be used.
  */
-static void sample_channel(firmware_t *fw, uint8_t ch, gg_conc_t *conc, bool *valid)
+static void sample_channel(uint8_t ch, firmware_t *fw, uint32_t now_ms, gg_conc_t *conc, bool *valid)
 {
     uint16_t raw = 0u;
     uint16_t value = 0u;
@@ -87,6 +87,15 @@ static void sample_channel(firmware_t *fw, uint8_t ch, gg_conc_t *conc, bool *va
          * a high concentration and raise a latched alarm first (F02). */
         out_of_range = (raw <= DIAG_OPEN_MAX) || (raw >= DIAG_SHORT_MIN);
         status = diag_check_range(&fw->diag[ch], raw);
+    }
+    if (status == GG_OK) {
+        /* Frozen value outside warm-up: the stuck check latches a fault after 10 minutes (REQ-SAF-003). */
+        diag_stuck_sample_t stuck;
+
+        stuck.raw = raw;
+        stuck.now_ms = now_ms;
+        stuck.in_warmup = (now_ms < fw->warmup_end_ms);
+        status = diag_check_stuck(&fw->diag[ch], &stuck);
     }
     if (status == GG_OK) {
         status = diag_is_faulty(&fw->diag[ch], &faulty);
@@ -206,6 +215,7 @@ static gg_status_t boot_init_inputs(firmware_t *fw)
     fw->test_start_ms = 0u;
     fw->pending_fault = DET_FAULT_NONE;
     fw->last_conc = 0;
+    fw->bandgap_next_ms = 0u;
     return status;
 }
 
@@ -215,14 +225,14 @@ static gg_status_t boot_init_inputs(firmware_t *fw)
  * @param gas  Receives the selection.
  * @return The status of the selection.
  */
-static gg_status_t sample_gas(firmware_t *fw, firmware_gas_t *gas)
+static gg_status_t sample_gas(firmware_t *fw, uint32_t now_ms, firmware_gas_t *gas)
 {
     gg_conc_t concs[FIRMWARE_CHANNELS];
     bool valid[FIRMWARE_CHANNELS];
     uint8_t ch;
 
     for (ch = 0u; ch < FIRMWARE_CHANNELS; ch++) {
-        sample_channel(fw, ch, &concs[ch], &valid[ch]);
+        sample_channel(ch, fw, now_ms, &concs[ch], &valid[ch]);
     }
     return channel_select_max(concs, valid, FIRMWARE_CHANNELS, &gas->max_conc, &gas->any_valid);
 }
@@ -450,7 +460,7 @@ gg_status_t firmware_sample(firmware_t *fw, uint32_t now_ms)
     } else {
         firmware_gas_t gas;
 
-        status = sample_gas(fw, &gas);
+        status = sample_gas(fw, now_ms, &gas);
         if (status == GG_OK) {
             fw->last_conc = gas.max_conc;
             status = sample_detector_step(fw, now_ms, &gas);
@@ -540,18 +550,48 @@ gg_status_t firmware_output(const firmware_t *fw, uint32_t now_ms)
  * @brief Stack watermark check. The full contract is in the header.
  * @req REQ-SAF-009
  */
-gg_status_t firmware_health(firmware_t *fw)
+/**
+ * @brief Stack check: a fault when the free stack is low, or when it cannot be measured.
+ * @param fw  Firmware state.
+ */
+static void health_stack(firmware_t *fw)
+{
+    uint16_t free_bytes = 0u;
+
+    /* A stack that cannot be measured is treated as a low stack (fail-safe). */
+    if ((hal_stack_free_bytes(&free_bytes) != GG_OK) || (free_bytes < FIRMWARE_STACK_MIN_FREE)) {
+        fw->pending_fault = DET_FAULT_STACK;
+    }
+}
+
+/**
+ * @brief Measure the bandgap when it is due; a fault when it is out of tolerance (REQ-SAF-004).
+ * @param fw      Firmware state.
+ * @param now_ms  Current time.
+ */
+static void health_bandgap(firmware_t *fw, uint32_t now_ms)
+{
+    uint16_t raw = 0u;
+    bool ok = false;
+
+    if (now_ms >= fw->bandgap_next_ms) {
+        fw->bandgap_next_ms = now_ms + FIRMWARE_BANDGAP_PERIOD_MS;
+        /* An ADC error, or a reference out of tolerance, means the readings cannot be trusted. */
+        if ((hal_adc_read_bandgap(&raw) != GG_OK) || (diag_bandgap_ok(raw, &ok) != GG_OK) || !ok) {
+            fw->pending_fault = DET_FAULT_INPUT;
+        }
+    }
+}
+
+gg_status_t firmware_health(firmware_t *fw, uint32_t now_ms)
 {
     gg_status_t status = GG_OK;
-    uint16_t free_bytes = 0u;
 
     if (fw == NULL) {
         status = GG_ERR_NULL;
     } else {
-        status = hal_stack_free_bytes(&free_bytes);
-        if ((status == GG_OK) && (free_bytes < FIRMWARE_STACK_MIN_FREE)) {
-            fw->pending_fault = DET_FAULT_STACK;
-        }
+        health_stack(fw);
+        health_bandgap(fw, now_ms);
     }
     return status;
 }

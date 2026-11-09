@@ -51,6 +51,18 @@
 /** @brief Maintenance mode ends by itself after this time, in milliseconds (REQ-HMI-010). */
 #define FIRMWARE_MAINT_MAX_MS 600000u
 
+/** @brief Bandgap measurement period, in milliseconds: at start-up and every 60 s (REQ-SAF-004). */
+#define FIRMWARE_BANDGAP_PERIOD_MS 60000u
+
+/**
+ * @brief Output period (relay and buzzer), in milliseconds. A 4 Hz buzzer has a 250 ms period:
+ * the output must run at least 4 times per period, or the pattern is aliased (REQ-HMI-003).
+ */
+#define FIRMWARE_OUTPUT_PERIOD_MS 25u
+
+/** @brief Output steps in one second: 1000 ms / FIRMWARE_OUTPUT_PERIOD_MS. */
+#define FIRMWARE_OUTPUT_STEPS_PER_S 40u
+
 /** @brief Firmware state owned by the caller: one instance for the whole program. */
 typedef struct {
     detector_t det;                          /**< Alarm state machine. */
@@ -58,6 +70,7 @@ typedef struct {
     diag_t diag[FIRMWARE_CHANNELS];          /**< One diagnostic per channel. */
     calib_t calib[FIRMWARE_CHANNELS];        /**< One calibration per channel. */
     uint32_t warmup_end_ms;                  /**< Time at which WARMUP ends. */
+    uint32_t bandgap_next_ms;                /**< Time of the next bandgap measurement (REQ-SAF-004). */
     button_t button_db;                      /**< Debounce of the push button (REQ-HMI-007). */
     hmi_press_t button_press;                /**< Press classification of the push button. */
     button_t touch_db;                       /**< Debounce of the touch sensor (REQ-HMI-007). */
@@ -117,14 +130,20 @@ gg_status_t firmware_inputs(firmware_t *fw, uint32_t now_ms, bool button_raw, bo
 gg_status_t firmware_output(const firmware_t *fw, uint32_t now_ms);
 
 /**
- * @brief Stack watermark check, called once a second (REQ-SAF-009).
- * @param fw  Firmware state. Must not be NULL.
- * @return GG_OK or GG_ERR_NULL. A stack below FIRMWARE_STACK_MIN_FREE is a fault at the next sample.
- * @req REQ-SAF-009
+ * @brief Health checks, called once a second: stack watermark (REQ-SAF-009) and bandgap (REQ-SAF-004).
+ *
+ * A stack below FIRMWARE_STACK_MIN_FREE, a bandgap outside tolerance, or a failed
+ * measurement latches a fault at the next sample. A failed measurement is not
+ * returned as an error: the fault is the answer, and the watchdog keeps running.
+ *
+ * @param fw      Firmware state. Must not be NULL.
+ * @param now_ms  Current time.
+ * @return GG_OK or GG_ERR_NULL.
+ * @req REQ-SAF-004 REQ-SAF-009
  */
 // DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage
 // cppcheck-suppress misra-c2012-8.7
-gg_status_t firmware_health(firmware_t *fw);
+gg_status_t firmware_health(firmware_t *fw, uint32_t now_ms);
 
 /**
  * @brief Report the end of a scheduler cycle: log an overrun, raise FAULT after three.

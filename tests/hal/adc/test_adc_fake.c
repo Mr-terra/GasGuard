@@ -70,7 +70,7 @@ static void test_hal_adc_read_bandgap_unset_reads_zero(void)
     uint16_t raw = 99u;
 
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_read_bandgap(&raw));
-    TEST_ASSERT_EQUAL_UINT16(0u, raw);
+    TEST_ASSERT_EQUAL_UINT16(225u, raw);   /* Nominal after a reset: in tolerance. */
 }
 
 /* @verifies REQ-SAF-004 */
@@ -87,7 +87,7 @@ static void test_hal_adc_fake_reset_clears_bandgap(void)
     (void)hal_adc_fake_set_bandgap(226u);
     hal_adc_fake_reset();
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_read_bandgap(&raw));
-    TEST_ASSERT_EQUAL_UINT16(0u, raw);
+    TEST_ASSERT_EQUAL_UINT16(225u, raw);   /* Back to nominal, not to zero. */
 }
 
 // cppcheck-suppress misra-c2012-8.6

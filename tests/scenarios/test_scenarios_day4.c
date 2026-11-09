@@ -52,6 +52,11 @@ void tearDown(void) {}
 /** @brief One pass of the main loop at 100 ms, with the touch and button pressed or not. */
 static void d4_tick(bool touch_pressed)
 {
+    /* A real sensor is never exactly constant: alternate 2 LSB so the stuck check stays quiet. */
+    uint16_t raw = (uint16_t)(SC_CLEAN_RAW + (((sc_now / SC_TICK_MS) % 2u) * 2u));
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, raw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, raw));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&d4_fw, sc_now));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_inputs(&d4_fw, sc_now, true, touch_pressed));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_output(&d4_fw, sc_now));

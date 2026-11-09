@@ -50,7 +50,7 @@
 /** @brief Periods of the tasks, in milliseconds, in the order of the task identifiers. */
 #define PERIOD_SAMPLE_MS  100u
 #define PERIOD_HMI_MS     50u
-#define PERIOD_OUTPUT_MS  100u
+#define PERIOD_OUTPUT_MS  FIRMWARE_OUTPUT_PERIOD_MS
 #define PERIOD_DISPLAY_MS 500u
 #define PERIOD_HEALTH_MS  1000u
 #define PERIOD_CLI_MS     10u
@@ -171,25 +171,90 @@ static void state_colour(detector_state_t state, uint8_t *red, uint8_t *green, u
  *
  * @param now_ms  Current time, for the blink of FAULT.
  */
+/** @brief What the display shows now, so that only the changes are sent over I2C. */
+typedef struct {
+    bool valid;                       /**< False until the first full refresh. */
+    bool test;                        /**< The functional test was shown. */
+    detector_state_t state;           /**< State shown on the first row. */
+    uint8_t red;                      /**< Backlight red level shown. */
+    uint8_t green;                    /**< Backlight green level shown. */
+    uint8_t blue;                     /**< Backlight blue level shown. */
+    char conc[HMI_LEL_TEXT_MAX];      /**< Concentration text shown on the second row. */
+} display_shown_t;
+
+static display_shown_t shown;
+
+/**
+ * @brief Compare two zero-terminated texts of at most HMI_LEL_TEXT_MAX bytes.
+ * @param a  First text.
+ * @param b  Second text.
+ * @return true when they are equal.
+ */
+static bool same_text(const char *a, const char *b)
+{
+    uint8_t i = 0u;
+    bool equal = true;
+
+    while ((i < HMI_LEL_TEXT_MAX) && equal) {
+        equal = (a[i] == b[i]);
+        if ((a[i] == '\0') || (b[i] == '\0')) {
+            break;
+        }
+        i++;
+    }
+    return equal;
+}
+
+/**
+ * @brief Refresh the display with the current state (REQ-HMI-001, REQ-HMI-002).
+ *
+ * Only what changed is written: the LCD is on a slow I2C bus, and every write
+ * costs time inside the cycle. A failed write is retried on the next refresh.
+ * The display is not safety-critical: its errors do not stop the watchdog.
+ *
+ * @param now_ms  Current time, for the blink of FAULT.
+ * @return GG_OK.
+ */
 static gg_status_t task_display(uint32_t now_ms)
 {
     detector_state_t state = firmware_state(&fw);
+    bool test = firmware_test_running(&fw);
     uint8_t red = 0u;
     uint8_t green = 0u;
     uint8_t blue = 0u;
     bool blink_off = (state == DET_STATE_FAULT) && (((now_ms / DISPLAY_BLINK_MS) % 2u) == 1u);
     char conc_text[HMI_LEL_TEXT_MAX];
 
-    (void)lcd_rgb_write_line(DISPLAY_ROW_STATE, firmware_test_running(&fw) ? "TEST" : state_text(state));
-    if (hmi_format_lel(firmware_concentration(&fw), conc_text, HMI_LEL_TEXT_MAX) == GG_OK) {
-        (void)lcd_rgb_write_line(DISPLAY_ROW_CONC, conc_text);
-    }
     state_colour(state, &red, &green, &blue);
     if (blink_off) {
         red = LEVEL_OFF;
         green = LEVEL_OFF;
     }
-    (void)lcd_rgb_set_colour(red, green, blue);
+    if (!shown.valid || (shown.test != test) || (shown.state != state)) {
+        if (lcd_rgb_write_line(DISPLAY_ROW_STATE, test ? "TEST" : state_text(state)) == GG_OK) {
+            shown.test = test;
+            shown.state = state;
+        }
+    }
+    if (!shown.valid || (shown.red != red) || (shown.green != green) || (shown.blue != blue)) {
+        if (lcd_rgb_set_colour(red, green, blue) == GG_OK) {
+            shown.red = red;
+            shown.green = green;
+            shown.blue = blue;
+        }
+    }
+    if (hmi_format_lel(firmware_concentration(&fw), conc_text, HMI_LEL_TEXT_MAX) == GG_OK) {
+        if (!shown.valid || !same_text(shown.conc, conc_text)) {
+            if (lcd_rgb_write_line(DISPLAY_ROW_CONC, conc_text) == GG_OK) {
+                uint8_t i;
+
+                for (i = 0u; i < HMI_LEL_TEXT_MAX; i++) {
+                    shown.conc[i] = conc_text[i];
+                }
+            }
+        }
+    }
+    shown.valid = true;
     return GG_OK;
 }
 
@@ -300,7 +365,7 @@ static gg_status_t run_task_body(uint8_t task, uint32_t now_ms)
             status = task_display(now_ms);
             break;
         case TASK_HEALTH:
-            status = firmware_health(&fw);
+            status = firmware_health(&fw, now_ms);
             break;
         case TASK_CLI:
             status = task_cli();
