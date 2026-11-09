@@ -131,6 +131,23 @@ static void test_a_normal_cycle_resets_the_overrun_count(void)
     TEST_ASSERT_FALSE(fault);
 }
 
+/* @verifies REQ-SAF-005 */
+static void test_scheduler_late_task_runs_once_not_in_a_burst(void)
+{
+    scheduler_t late_sched;
+    uint32_t late_periods[1] = { 100u };
+    bool due = false;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, scheduler_init(&late_sched, 1u, late_periods, 0u));
+    /* 3.5 late_periods late: one run now, the next one a period after this instant. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, scheduler_task_due(&late_sched, 0u, 350u, &due));
+    TEST_ASSERT_TRUE(due);
+    TEST_ASSERT_EQUAL_INT(GG_OK, scheduler_task_due(&late_sched, 0u, 351u, &due));
+    TEST_ASSERT_FALSE(due);
+    TEST_ASSERT_EQUAL_INT(GG_OK, scheduler_task_due(&late_sched, 0u, 450u, &due));
+    TEST_ASSERT_TRUE(due);
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -144,5 +161,6 @@ int main(void)
     RUN_TEST(test_cycle_over_100_ms_is_an_overrun);
     RUN_TEST(test_three_consecutive_overruns_raise_fault);
     RUN_TEST(test_a_normal_cycle_resets_the_overrun_count);
+    RUN_TEST(test_scheduler_late_task_runs_once_not_in_a_burst);
     return UNITY_END();
 }

@@ -109,6 +109,10 @@ gg_status_t scheduler_task_due(scheduler_t *sched, uint8_t task, uint32_t now_ms
         *due = ((now_ms - sched->next_due_ms[task]) < SCHED_TIME_HALF_RANGE);
         if (*due) {
             sched->next_due_ms[task] += sched->period_ms[task];
+            /* More than one period late: run once now, not once per missed period (no burst). */
+            if ((now_ms - sched->next_due_ms[task]) < SCHED_TIME_HALF_RANGE) {
+                sched->next_due_ms[task] = now_ms + sched->period_ms[task];
+            }
         }
     }
     return status;

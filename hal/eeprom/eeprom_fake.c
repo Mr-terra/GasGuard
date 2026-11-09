@@ -26,6 +26,7 @@
 
 static uint8_t s_eeprom_fake[HAL_EEPROM_SIZE];
 static uint32_t s_write_count;
+static bool s_fail_writes;
 
 /**
  * @brief Check that a block lies inside the EEPROM.
@@ -43,6 +44,7 @@ void hal_eeprom_fake_reset(void)
     uint16_t addr;
 
     s_write_count = 0u;
+    s_fail_writes = false;
 
     for (addr = 0u; addr < HAL_EEPROM_SIZE; addr++) {
         s_eeprom_fake[addr] = EEPROM_FAKE_ERASED;
@@ -75,6 +77,8 @@ gg_status_t hal_eeprom_write(uint16_t addr, const uint8_t *data, uint16_t len)
         status = GG_ERR_NULL;
     } else if (!block_in_range(addr, len)) {
         status = GG_ERR_RANGE;
+    } else if (s_fail_writes) {
+        status = GG_ERR_HW;
     } else {
         for (i = 0u; i < len; i++) {
             s_eeprom_fake[addr + i] = data[i];
@@ -87,4 +91,9 @@ gg_status_t hal_eeprom_write(uint16_t addr, const uint8_t *data, uint16_t len)
 uint32_t hal_eeprom_fake_write_count(void)
 {
     return s_write_count;
+}
+
+void hal_eeprom_fake_fail_writes(bool fail)
+{
+    s_fail_writes = fail;
 }

@@ -259,6 +259,30 @@ static void test_config_null_arguments_are_rejected(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, config_load(&cfg, NULL));
 }
 
+/* @verifies REQ-CFG-002 */
+static void test_config_failed_repair_keeps_the_valid_copy_in_use(void)
+{
+    config_t stored;
+    config_t cfg;
+    config_source_t source = CONFIG_SRC_DEFAULTS;
+    uint8_t junk[CONFIG_COPY_SIZE];
+    uint8_t i;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_defaults(&stored));
+    stored.al1 = 120;
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_store(&stored));
+    for (i = 0u; i < CONFIG_COPY_SIZE; i++) {
+        junk[i] = 0xFFu;
+    }
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_write(CONFIG_ADDR_A, junk, CONFIG_COPY_SIZE));
+
+    hal_eeprom_fake_fail_writes(true);
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_load(&cfg, &source));
+    hal_eeprom_fake_fail_writes(false);
+    TEST_ASSERT_EQUAL_INT(CONFIG_SRC_COPY_B, source);
+    TEST_ASSERT_EQUAL_INT(120, cfg.al1);
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -277,6 +301,7 @@ int main(void)
     RUN_TEST(test_config_load_uses_copy_a_and_repairs_copy_b);
     RUN_TEST(test_config_store_refuses_an_invalid_configuration);
     RUN_TEST(test_config_load_rejects_a_valid_crc_with_out_of_range_values);
+    RUN_TEST(test_config_failed_repair_keeps_the_valid_copy_in_use);
     RUN_TEST(test_config_null_arguments_are_rejected);
     return UNITY_END();
 }

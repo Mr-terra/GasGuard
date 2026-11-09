@@ -3,7 +3,7 @@
  * @brief Event log: a ring of 32 entries in EEPROM, written only on events.
  *
  * Each entry holds an uptime timestamp in seconds, an event code, a 16-bit
- * argument and an 8-bit checksum (REQ-LOG-002). The ring head (the next slot
+ * argument and a CRC-16 (REQ-LOG-002). The ring head (the next slot
  * to write) is stored in EEPROM, so the log survives a reset. Entries are
  * written only when an event happens, never periodically (REQ-LOG-003), to
  * limit EEPROM wear.
@@ -21,8 +21,8 @@
 
 /** @brief Number of entries in the ring (REQ-LOG-001). */
 #define EVENTLOG_ENTRIES 32u
-/** @brief Bytes per stored entry: 4 timestamp, 1 code, 2 argument, 1 checksum. */
-#define EVENTLOG_ENTRY_SIZE 8u
+/** @brief Bytes per stored entry: 4 timestamp, 1 code, 2 argument, 2 CRC-16. */
+#define EVENTLOG_ENTRY_SIZE 9u
 /** @brief EEPROM address of the ring head (one byte), and of the first entry. */
 #define EVENTLOG_ADDR_HEAD 20u
 #define EVENTLOG_ADDR_ENTRIES 21u

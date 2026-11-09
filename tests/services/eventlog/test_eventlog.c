@@ -134,6 +134,27 @@ static void test_eventlog_writes_only_when_an_event_is_appended(void)
     TEST_ASSERT_EQUAL_UINT32(before + 2u, hal_eeprom_fake_write_count());
 }
 
+/** @brief Offset of the CRC high byte in the first entry: the entry is 9 bytes, the CRC is the last two. */
+#define EVENTLOG_TEST_CRC_HIGH_OFFSET 8u
+
+/* @verifies REQ-LOG-002 */
+static void test_eventlog_corrupted_crc_bytes_are_detected(void)
+{
+    eventlog_entry_t entry;
+    uint8_t byte = 0u;
+    uint16_t addr = EVENTLOG_ADDR_ENTRIES;
+
+    /* The last byte of the first entry is the high byte of the CRC. */
+    addr = (uint16_t)(addr + EVENTLOG_TEST_CRC_HIGH_OFFSET);
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append(7u, EVENTLOG_RESET, 3u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_read(addr, &byte, 1u));
+    byte = (uint8_t)(byte ^ 0x01u);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_write(addr, &byte, 1u));
+
+    TEST_ASSERT_EQUAL_INT(GG_ERR_CRC, eventlog_read_slot(0u, &entry));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -147,5 +168,6 @@ int main(void)
     RUN_TEST(test_eventlog_head_out_of_range_is_treated_as_zero);
     RUN_TEST(test_eventlog_rejects_unknown_codes_and_bad_arguments);
     RUN_TEST(test_eventlog_writes_only_when_an_event_is_appended);
+    RUN_TEST(test_eventlog_corrupted_crc_bytes_are_detected);
     return UNITY_END();
 }

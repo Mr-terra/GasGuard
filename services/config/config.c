@@ -188,6 +188,23 @@ gg_status_t config_validate(const config_t *cfg)
  * The full contract is in the header.
  * @req REQ-CFG-001 REQ-CFG-002 REQ-CFG-003
  */
+/**
+ * @brief Rewrite the damaged copy from the valid one (REQ-CFG-002).
+ *
+ * A failed repair is not fatal: the valid copy is in use, and the next boot
+ * tries the repair again. The boot must not stop for it (fail-safe: the
+ * detector keeps working with the thresholds it has).
+ *
+ * @param addr  Address of the damaged copy.
+ * @param copy  Bytes of the valid copy.
+ */
+static void repair_copy(uint16_t addr, const uint8_t *copy)
+{
+    if (hal_eeprom_write(addr, copy, CONFIG_COPY_SIZE) != GG_OK) {
+        /* Not fatal, see above: nothing else to do now. */
+    }
+}
+
 gg_status_t config_load(config_t *cfg, config_source_t *out_source)
 {
     gg_status_t status = GG_OK;
@@ -208,12 +225,12 @@ gg_status_t config_load(config_t *cfg, config_source_t *out_source)
             *cfg = cfg_a;
             *out_source = CONFIG_SRC_COPY_A;
             if (!valid_b) {
-                status = hal_eeprom_write(CONFIG_ADDR_B, copy_a, CONFIG_COPY_SIZE);
+                repair_copy(CONFIG_ADDR_B, copy_a);
             }
         } else if (valid_b) {
             *cfg = cfg_b;
             *out_source = CONFIG_SRC_COPY_B;
-            status = hal_eeprom_write(CONFIG_ADDR_A, copy_b, CONFIG_COPY_SIZE);
+            repair_copy(CONFIG_ADDR_A, copy_b);
         } else {
             status = config_defaults(cfg);
             *out_source = CONFIG_SRC_DEFAULTS;

@@ -6,11 +6,12 @@
  * ------------
  * Each event is written in the slot named by the head, then the head moves on
  * by one, wrapping after 32 slots, so the newest event overwrites the oldest.
- * An entry is 8 bytes: the uptime (4 bytes, little-endian), the code, the
- * argument (2 bytes) and a checksum. The checksum is the XOR of the first seven
- * bytes with a seed of 0xA5. The seed makes an erased or zeroed slot invalid,
- * so a slot that was never written is not read back as an event. Writing only
- * on events keeps the wear of the EEPROM low (REQ-LOG-003).
+ * An entry is 9 bytes: the uptime (4 bytes, little-endian), the code, the
+ * argument (2 bytes) and a CRC-16/CCITT-FALSE of the first seven bytes (2 bytes).
+ * A CRC detects every single and double bit error in an entry, which an XOR
+ * checksum does not. A slot that was never written reads as 0xFF, and a zeroed
+ * slot has code 0: both fail the code check, so they are not read back as events.
+ * Writing only on events keeps the wear of the EEPROM low (REQ-LOG-003).
  *
  * @req REQ-LOG-001 REQ-LOG-002 REQ-LOG-003
  */
@@ -20,6 +21,7 @@
 
 #include "common/gg_types/gg_types.h"
 #include "hal/eeprom/eeprom.h"
+#include "services/crc16/crc16.h"
 #include "services/eventlog/eventlog.h"
 
 /** @brief Byte offsets inside one entry. */
@@ -27,10 +29,8 @@
 #define EVENTLOG_OFS_CODE     4u
 #define EVENTLOG_OFS_ARG      5u
 #define EVENTLOG_OFS_CHECK    7u
-/** @brief Bytes covered by the checksum. */
+/** @brief Bytes covered by the CRC: everything before it. */
 #define EVENTLOG_CHECK_COVERED EVENTLOG_OFS_CHECK
-/** @brief Seed of the checksum; makes an erased slot invalid. */
-#define EVENTLOG_CHECK_SEED 0xA5u
 
 /** @brief Byte helpers for the little-endian fields. */
 #define EVENTLOG_BYTE_MASK  0xFFu
@@ -44,22 +44,6 @@
 #define EVENTLOG_CODE_MAX EVENTLOG_OVERRUN
 
 /**
- * @brief Checksum of the first seven bytes of an entry.
- * @param bytes  Entry bytes.
- * @return The checksum.
- */
-static uint8_t entry_checksum(const uint8_t *bytes)
-{
-    uint8_t check = EVENTLOG_CHECK_SEED;
-    uint8_t i;
-
-    for (i = 0u; i < EVENTLOG_CHECK_COVERED; i++) {
-        check ^= bytes[i];
-    }
-    return check;
-}
-
-/**
  * @brief Check that a code is one of the defined event codes.
  * @param code  Code to check.
  * @return true when the code is defined.
@@ -68,6 +52,36 @@ static bool code_is_valid(uint8_t code)
 {
     return (code >= (uint8_t)EVENTLOG_CODE_MIN) && (code <= (uint8_t)EVENTLOG_CODE_MAX);
 }
+
+/**
+ * @brief CRC-16 of the first seven bytes of an entry.
+ * @param bytes  Entry bytes, at least EVENTLOG_ENTRY_SIZE long.
+ * @param crc    Receives the CRC.
+ * @return GG_OK or the CRC error.
+ */
+static gg_status_t entry_crc(const uint8_t *bytes, uint16_t *crc)
+{
+    return crc16_compute(bytes, EVENTLOG_CHECK_COVERED, crc);
+}
+
+/**
+ * @brief Check the CRC and the code of an entry read from EEPROM.
+ * @param bytes  Entry bytes, EVENTLOG_ENTRY_SIZE long.
+ * @return true when the entry is intact.
+ */
+static bool entry_is_intact(const uint8_t *bytes)
+{
+    uint16_t crc = 0u;
+    bool intact = false;
+
+    if (entry_crc(bytes, &crc) == GG_OK) {
+        uint16_t stored = (uint16_t)((uint16_t)bytes[EVENTLOG_OFS_CHECK] |
+                                     (uint16_t)((uint16_t)bytes[EVENTLOG_OFS_CHECK + 1u] << EVENTLOG_BYTE_SHIFT));
+        intact = (stored == crc) && code_is_valid(bytes[EVENTLOG_OFS_CODE]);
+    }
+    return intact;
+}
+
 
 /**
  * @brief Read the ring head, with a stored value out of range reported as 0.
@@ -106,6 +120,7 @@ gg_status_t eventlog_append(const eventlog_entry_t *entry)
         uint8_t bytes[EVENTLOG_ENTRY_SIZE];
         uint8_t i;
         uint16_t addr;
+        uint16_t crc = 0u;
 
         for (i = 0u; i < EVENTLOG_UPTIME_BYTES; i++) {
             uint32_t shift = (uint32_t)i * EVENTLOG_UPTIME_SHIFT;
@@ -115,9 +130,13 @@ gg_status_t eventlog_append(const eventlog_entry_t *entry)
         bytes[EVENTLOG_OFS_CODE] = (uint8_t)entry->code;
         bytes[EVENTLOG_OFS_ARG] = (uint8_t)(entry->arg & EVENTLOG_BYTE_MASK);
         bytes[EVENTLOG_OFS_ARG + 1u] = (uint8_t)(entry->arg >> EVENTLOG_BYTE_SHIFT);
-        bytes[EVENTLOG_OFS_CHECK] = entry_checksum(bytes);
+        status = entry_crc(bytes, &crc);
+        bytes[EVENTLOG_OFS_CHECK] = (uint8_t)(crc & EVENTLOG_BYTE_MASK);
+        bytes[EVENTLOG_OFS_CHECK + 1u] = (uint8_t)(crc >> EVENTLOG_BYTE_SHIFT);
         addr = (uint16_t)(EVENTLOG_ADDR_ENTRIES + ((uint16_t)head * EVENTLOG_ENTRY_SIZE));
-        status = hal_eeprom_write(addr, bytes, EVENTLOG_ENTRY_SIZE);
+        if (status == GG_OK) {
+            status = hal_eeprom_write(addr, bytes, EVENTLOG_ENTRY_SIZE);
+        }
     }
     if (status == GG_OK) {
         head = (uint8_t)((head + 1u) % EVENTLOG_ENTRIES);
@@ -146,7 +165,7 @@ gg_status_t eventlog_read_slot(uint8_t slot, eventlog_entry_t *out)
 
         status = hal_eeprom_read(addr, bytes, EVENTLOG_ENTRY_SIZE);
         if (status == GG_OK) {
-            if ((bytes[EVENTLOG_OFS_CHECK] != entry_checksum(bytes)) || !code_is_valid(bytes[EVENTLOG_OFS_CODE])) {
+            if (!entry_is_intact(bytes)) {
                 status = GG_ERR_CRC;
             } else {
                 uint8_t i;
