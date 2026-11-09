@@ -290,6 +290,62 @@ static void test_detector_impossible_state_raises_internal_fault(void)
 }
 
 // cppcheck-suppress misra-c2012-8.6
+/* @verifies REQ-SAF-007 */
+static void test_detector_new_fault_is_reported_once_for_the_event_log(void)
+{
+    bool is_new = false;
+    detector_fault_code_t code = DET_FAULT_NONE;
+
+    detector_input_t in = {0, true, false};
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_take_new_fault(&det_test_state, &is_new, &code));
+    TEST_ASSERT_TRUE(is_new);
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_INPUT, code);
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_take_new_fault(&det_test_state, &is_new, &code));
+    TEST_ASSERT_FALSE(is_new);
+}
+
+/* @verifies REQ-SAF-007 */
+static void test_detector_repeated_fault_samples_are_not_reported_again(void)
+{
+    bool is_new = false;
+    detector_fault_code_t code = DET_FAULT_NONE;
+    detector_input_t in = {0, true, false};
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_take_new_fault(&det_test_state, &is_new, &code));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_take_new_fault(&det_test_state, &is_new, &code));
+    TEST_ASSERT_FALSE(is_new);
+}
+
+/* @verifies REQ-SAF-007 */
+static void test_detector_impossible_state_is_reported_as_a_new_internal_fault(void)
+{
+    bool is_new = false;
+    detector_fault_code_t code = DET_FAULT_NONE;
+    detector_input_t in = {0, false, false};
+
+    det_test_state.state = (detector_state_t)99;
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_take_new_fault(&det_test_state, &is_new, &code));
+    TEST_ASSERT_TRUE(is_new);
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_INTERNAL, code);
+}
+
+/* @verifies REQ-SAF-007 */
+static void test_detector_take_new_fault_rejects_null(void)
+{
+    bool is_new = false;
+    detector_fault_code_t code = DET_FAULT_NONE;
+
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_take_new_fault(NULL, &is_new, &code));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_take_new_fault(&det_test_state, NULL, &code));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_take_new_fault(&det_test_state, &is_new, NULL));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -313,5 +369,9 @@ int main(void)
     RUN_TEST(test_detector_fault_latches_and_drops_relay);
     RUN_TEST(test_detector_fault_during_warmup_is_not_hidden);
     RUN_TEST(test_detector_step_and_getters_reject_null);
+    RUN_TEST(test_detector_new_fault_is_reported_once_for_the_event_log);
+    RUN_TEST(test_detector_repeated_fault_samples_are_not_reported_again);
+    RUN_TEST(test_detector_impossible_state_is_reported_as_a_new_internal_fault);
+    RUN_TEST(test_detector_take_new_fault_rejects_null);
     return UNITY_END();
 }
