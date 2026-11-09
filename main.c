@@ -1,14 +1,19 @@
 /**
  * @file main.c
- * @brief Bring-up program for the first board test (branch day-3-bringup).
+ * @brief Firmware entry point: boot, cooperative loop, watchdog.
  *
- * It is not the firmware. It only checks the hardware:
- *  - the UART prints a banner, so the serial console can be read;
- *  - the I2C bus is scanned, and every answering address is printed, so the
- *    LCD controller (0x3E) and its RGB backlight (0x62 or 0x30) can be found;
- *  - every second it prints "alive", so the board is seen to run.
+ * The bring-up program that checked the board (scan, banner) is kept in the
+ * history at commit 5c578c0. This file runs the firmware.
  *
- * The full boot sequence, scheduler and watchdog come on Day 4 of PLAN.md.
+ * Boot order matters for fail-safety (F21): the GPIO driver sets the relay low
+ * before anything else. Then the reset cause, the configuration and the
+ * detector are started (firmware_boot), and the watchdog is enabled.
+ *
+ * Each pass of the loop is one scheduler cycle. Every task is either run (when
+ * due) or reported as serviced; the watchdog is kicked only when all of them
+ * were serviced (REQ-SAF-005).
+ *
+ * @req REQ-SAF-001 REQ-SAF-005 REQ-SAF-006 REQ-HMI-001 REQ-HMI-002
  */
 #include <stdbool.h>
 #include <stddef.h>
@@ -16,101 +21,44 @@
 
 #include <avr/interrupt.h>
 
+#include "app/firmware/firmware.h"
 #include "common/gg_types/gg_types.h"
 #include "drivers/lcd_rgb/lcd_rgb.h"
-#include "hal/adc/adc.h"
+#include "hal/gpio/gpio.h"
 #include "hal/i2c/i2c.h"
+#include "hal/reset_cause/reset_cause.h"
 #include "hal/timer/timer.h"
 #include "hal/uart/uart.h"
+#include "hal/wdt/wdt.h"
+#include "services/scheduler/scheduler.h"
 
-/** @brief First and last 7-bit address probed. 0x00..0x07 and 0x78..0x7F are reserved. */
-#define BRINGUP_ADDR_FIRST 0x08u
-#define BRINGUP_ADDR_LAST  0x77u
+/** @brief Scheduler tasks. */
+#define TASK_SAMPLE  0u
+#define TASK_OUTPUT  1u
+#define TASK_DISPLAY 2u
+#define TASK_COUNT   3u
 
-/** @brief Green backlight level for the NORMAL state (REQ-HMI-002). */
-#define BRINGUP_GREEN_LEVEL 0xFFu
+/** @brief Periods of the tasks, in milliseconds. */
+#define PERIOD_SAMPLE_MS  100u
+#define PERIOD_OUTPUT_MS  100u
+#define PERIOD_DISPLAY_MS 500u
 
-/** @brief The LCD controller (text) and its RGB backlight, which must both answer. */
-#define BRINGUP_LCD_TEXT_ADDR 0x3Eu
-#define BRINGUP_LCD_RGB_ADDR  0x62u
+/** @brief Backlight colours per state (REQ-HMI-002), in 0..255 levels. */
+#define LEVEL_OFF   0x00u
+#define LEVEL_FULL  0xFFu
+#define LEVEL_HALF  0x80u
 
-/** @brief Period of the "alive" line, in milliseconds. */
-#define BRINGUP_TICK_MS 1000u
+/** @brief Number of rows and characters of the display. */
+#define DISPLAY_ROW_STATE 0u
 
-/** @brief How many times a UART write is retried while the transmit buffer is full. */
-#define BRINGUP_TX_RETRIES 1000u
+/** @brief Scheduler periods, in the order of the task identifiers. */
+static const uint32_t k_periods[TASK_COUNT] = {
+    PERIOD_SAMPLE_MS, PERIOD_OUTPUT_MS, PERIOD_DISPLAY_MS
+};
 
-/** @brief Shift and mask that split a byte into its high and low nibble. */
-#define BRINGUP_NIBBLE_SHIFT 4u
-#define BRINGUP_NIBBLE_MASK  0x0Fu
-
-/** @brief Positions in the output line "0xHH\r\n" (the terminating NUL is the last one). */
-#define BRINGUP_HEX_HI_POS 2u
-#define BRINGUP_HEX_LO_POS 3u
-#define BRINGUP_LINE_LEN   6u
-#define BRINGUP_LINE_CR    4u
-#define BRINGUP_LINE_NUL   5u
-
-/** @brief Hexadecimal digits, indexed by a value 0..15. */
-static const char k_hex_digits[] = "0123456789ABCDEF";
-
-/**
- * @brief Send a text, retrying while the transmit buffer is full.
- * @param text  Zero-terminated text, shorter than 255 bytes.
- */
-static void send_text(const char *text)
-{
-    uint8_t len = 0u;
-    uint16_t retries = 0u;
-    gg_status_t status = GG_ERR_TIMEOUT;
-
-    while (text[len] != '\0') {
-        len++;
-    }
-    while ((status != GG_OK) && (retries < BRINGUP_TX_RETRIES)) {
-        status = hal_uart_write((const uint8_t *)text, len);
-        retries++;
-    }
-}
-
-/**
- * @brief Send one byte as two hexadecimal characters, then a line break.
- * @param value  Byte to print.
- */
-/** @brief Positions in a two-digit hex pair and the byte split used for 16-bit values. */
-#define BRINGUP_PAIR_HI  0u
-#define BRINGUP_PAIR_LO  1u
-#define BRINGUP_PAIR_NUL 2u
-#define BRINGUP_BYTE_SHIFT 8u
-#define BRINGUP_BYTE_MASK  0xFFu
-
-/**
- * @brief Send one byte as two hexadecimal digits, without prefix or line break.
- * @param value  Byte to print.
- */
-static void send_hex_byte(uint8_t value)
-{
-    char pair[BRINGUP_PAIR_NUL + 1u];
-
-    pair[BRINGUP_PAIR_HI] = k_hex_digits[(uint8_t)(value >> BRINGUP_NIBBLE_SHIFT)];
-    pair[BRINGUP_PAIR_LO] = k_hex_digits[(uint8_t)(value & BRINGUP_NIBBLE_MASK)];
-    pair[BRINGUP_PAIR_NUL] = '\0';
-    send_text(pair);
-}
-
-static void send_hex_line(uint8_t value)
-{
-    char line[BRINGUP_LINE_LEN];
-
-    line[0] = '0';
-    line[1] = 'x';
-    line[BRINGUP_HEX_HI_POS] = k_hex_digits[(uint8_t)(value >> BRINGUP_NIBBLE_SHIFT)];
-    line[BRINGUP_HEX_LO_POS] = k_hex_digits[(uint8_t)(value & BRINGUP_NIBBLE_MASK)];
-    line[BRINGUP_LINE_CR] = '\r';
-    line[BRINGUP_LINE_NUL] = '\0';
-    send_text(line);
-    send_text("\n");
-}
+/** @brief Firmware state and scheduler, one instance each for the whole program. */
+static firmware_t fw;
+static scheduler_t sched;
 
 /**
  * @brief Busy-wait until at least @p ms milliseconds have passed.
@@ -121,8 +69,6 @@ static void wait_ms(uint32_t ms)
     uint32_t start = 0u;
     uint32_t now = 0u;
 
-    /* The timer is initialised before any delay, and &start / &now are never NULL,
-     * so the status is not checked here. */
     (void)hal_timer_get_ms(&start);
     do {
         (void)hal_timer_get_ms(&now);
@@ -130,91 +76,97 @@ static void wait_ms(uint32_t ms)
 }
 
 /**
- * @brief Probe every 7-bit address, print the ones that answer, and check the LCD.
- *
- * A write with zero data bytes sends START, the address and STOP. A device
- * that is present acknowledges the address and the call returns GG_OK.
- * The scan fails unless both the LCD controller and its RGB backlight answer.
- * @return GG_OK if both LCD addresses answered, GG_ERR_HW otherwise.
+ * @brief Text shown on the first row for a detector state.
+ * @param state  Detector state.
+ * @return A zero-terminated text.
  */
-static gg_status_t scan_i2c(void)
+static const char *state_text(detector_state_t state)
 {
-    uint8_t addr = 0u;
-    bool text_found = false;
-    bool rgb_found = false;
-    gg_status_t status = GG_OK;
+    const char *text = "FAULT";
 
-    send_text("I2C scan\n");
-    for (addr = BRINGUP_ADDR_FIRST; addr <= BRINGUP_ADDR_LAST; addr++) {
-        if (hal_i2c_write(addr, NULL, 0u) == GG_OK) {
-            send_hex_line(addr);
-            if (addr == BRINGUP_LCD_TEXT_ADDR) {
-                text_found = true;
-            }
-            if (addr == BRINGUP_LCD_RGB_ADDR) {
-                rgb_found = true;
-            }
-        }
+    switch (state) {
+        case DET_STATE_WARMUP:
+            text = "WARMUP";
+            break;
+        case DET_STATE_NORMAL:
+            text = "NORMAL";
+            break;
+        case DET_STATE_ALARM_1:
+            text = "ALARM 1";
+            break;
+        case DET_STATE_ALARM_2:
+            text = "ALARM 2";
+            break;
+        case DET_STATE_FAULT:
+            text = "FAULT";
+            break;
+        default:
+            text = "FAULT";
+            break;
     }
-    send_text("scan done\n");
-    if ((!text_found) || (!rgb_found)) {
-        send_text("ERROR: LCD not found (expected 0x3E and 0x62)\n");
-        status = GG_ERR_HW;
-    }
-    return status;
+    return text;
 }
 
 /**
- * @brief Print the heartbeat line with the raw bandgap reading (REQ-SAF-004).
+ * @brief Backlight colour for a detector state (REQ-HMI-002).
  *
- * The reading is the 1.1 V reference against AVcc. Its value depends on the
- * supply voltage, so it is printed on every beat for the bench measurement.
+ * NORMAL green, WARMUP and ALARM_1 yellow, ALARM_2 red, FAULT amber.
+ * @param state  Detector state.
+ * @param red    Receives the red level.
+ * @param green  Receives the green level.
+ * @param blue   Receives the blue level.
  */
-static void report_alive(void)
+static void state_colour(detector_state_t state, uint8_t *red, uint8_t *green, uint8_t *blue)
 {
-    uint16_t raw = 0u;
-
-    if (hal_adc_read_bandgap(&raw) == GG_OK) {
-        send_text("alive bandgap 0x");
-        send_hex_byte((uint8_t)(raw >> BRINGUP_BYTE_SHIFT));
-        send_hex_byte((uint8_t)(raw & BRINGUP_BYTE_MASK));
-        send_text("\n");
-    } else {
-        send_text("alive, bandgap read failed\n");
+    *red = LEVEL_FULL;
+    *green = LEVEL_OFF;
+    *blue = LEVEL_OFF;
+    switch (state) {
+        case DET_STATE_NORMAL:
+            *red = LEVEL_OFF;
+            *green = LEVEL_FULL;
+            break;
+        case DET_STATE_WARMUP:
+        case DET_STATE_ALARM_1:
+            *green = LEVEL_FULL;
+            break;
+        case DET_STATE_ALARM_2:
+            break;
+        case DET_STATE_FAULT:
+            *green = LEVEL_HALF;
+            break;
+        default:
+            *green = LEVEL_HALF;
+            break;
     }
 }
 
 /**
- * @brief Initialise the LCD, show "GasGuard" and set the backlight to green (NORMAL).
- * @return GG_OK, or the first error from the LCD driver.
+ * @brief Refresh the display with the current state (REQ-HMI-001, REQ-HMI-002).
  */
-static gg_status_t show_on_lcd(void)
+static void task_display(void)
 {
-    gg_status_t status = lcd_rgb_init(wait_ms);
+    detector_state_t state = firmware_state(&fw);
+    uint8_t red = 0u;
+    uint8_t green = 0u;
+    uint8_t blue = 0u;
 
-    if (status == GG_OK) {
-        status = lcd_rgb_write_line(0u, "GasGuard");
-    }
-    if (status == GG_OK) {
-        status = lcd_rgb_write_line(1u, "bring-up OK");
-    }
-    if (status == GG_OK) {
-        status = lcd_rgb_set_colour(0x00u, BRINGUP_GREEN_LEVEL, 0x00u);
-    }
-    return status;
+    (void)lcd_rgb_write_line(DISPLAY_ROW_STATE, state_text(state));
+    state_colour(state, &red, &green, &blue);
+    (void)lcd_rgb_set_colour(red, green, blue);
 }
 
 /**
- * @brief Initialise the peripherals, then run the scan and the heartbeat forever.
- *
- * Each init call sits in its own statement, so none depends on the short-circuit
- * evaluation of a condition (R11). This file is bring-up only, not a requirement.
- * @return Never returns.
+ * @brief Boot: start the peripherals, the firmware and the watchdog.
+ * @return GG_OK, or the first error. On error the caller must not enter the loop.
  */
-int main(void)
+static gg_status_t boot(void)
 {
-    gg_status_t status = hal_timer_init();
+    gg_status_t status = hal_gpio_init();
 
+    if (status == GG_OK) {
+        status = hal_timer_init();
+    }
     if (status == GG_OK) {
         status = hal_uart_init();
     }
@@ -223,26 +175,94 @@ int main(void)
     }
     /* The UART transmit and the timer tick both run in interrupts. */
     sei();
-
-    if (status != GG_OK) {
-        send_text("init failed\n");
-    } else {
-        send_text("GasGuard bring-up\n");
-        status = scan_i2c();
+    if (status == GG_OK) {
+        status = lcd_rgb_init(wait_ms);
     }
     if (status == GG_OK) {
-        status = show_on_lcd();
-        if (status != GG_OK) {
-            send_text("ERROR: LCD init failed\n");
-        }
+        status = firmware_boot(&fw, hal_reset_cause_get(), 0u);
     }
-    /* On any failure the program stops here: it no longer reports "alive". */
+    if (status == GG_OK) {
+        status = scheduler_init(&sched, TASK_COUNT, k_periods, 0u);
+    }
+    if (status == GG_OK) {
+        status = hal_wdt_enable();
+    }
+    return status;
+}
+
+/**
+ * @brief Run every due task, then report the cycle and kick the watchdog if it is healthy.
+ * @param now_ms  Current time.
+ * @return The first error of the cycle, or GG_OK.
+ */
+static gg_status_t cycle(uint32_t now_ms)
+{
+    gg_status_t status = scheduler_begin_cycle(&sched, now_ms);
+    bool due = false;
+    bool overrun = false;
+    bool fault = false;
+    bool kick = false;
+
+    if (status == GG_OK) {
+        status = scheduler_task_due(&sched, TASK_SAMPLE, now_ms, &due);
+    }
+    if ((status == GG_OK) && due) {
+        status = firmware_sample(&fw, now_ms);
+    }
+    if (status == GG_OK) {
+        status = scheduler_task_done(&sched, TASK_SAMPLE);
+    }
+    if (status == GG_OK) {
+        status = scheduler_task_due(&sched, TASK_OUTPUT, now_ms, &due);
+    }
+    if ((status == GG_OK) && due) {
+        status = firmware_output(&fw);
+    }
+    if (status == GG_OK) {
+        status = scheduler_task_done(&sched, TASK_OUTPUT);
+    }
+    if (status == GG_OK) {
+        status = scheduler_task_due(&sched, TASK_DISPLAY, now_ms, &due);
+    }
+    if ((status == GG_OK) && due) {
+        task_display();
+    }
+    if (status == GG_OK) {
+        status = scheduler_task_done(&sched, TASK_DISPLAY);
+    }
+    if (status == GG_OK) {
+        status = scheduler_end_cycle(&sched, now_ms, &overrun, &fault);
+    }
+    if (status == GG_OK) {
+        status = scheduler_watchdog_ok(&sched, &kick);
+    }
+    if ((status == GG_OK) && kick) {
+        status = hal_wdt_kick();
+    }
+    return status;
+}
+
+/**
+ * @brief Entry point. Boots, then runs the cycle forever.
+ *
+ * If the boot fails, the program stops without enabling the watchdog. The relay
+ * stays low (set by the GPIO driver first), so a failed boot is the alarm side.
+ *
+ * @return Never returns.
+ */
+int main(void)
+{
+    gg_status_t status = boot();
+    uint32_t now_ms = 0u;
+
     for (;;) {
-        wait_ms(BRINGUP_TICK_MS);
         if (status == GG_OK) {
-            report_alive();
-        } else {
-            send_text("halted: fix the wiring and reset\n");
+            status = hal_timer_get_ms(&now_ms);
         }
+        if (status == GG_OK) {
+            status = cycle(now_ms);
+        }
+        /* After an error the loop stops servicing the watchdog: it resets the MCU,
+         * and the reset starts from a known state with the relay low (F21). */
     }
 }
