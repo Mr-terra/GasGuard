@@ -101,6 +101,7 @@ static void test_config_validate_rejects_al1_not_positive(void)
     cfg.al1 = 0;
     TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, config_validate(&cfg));
     cfg.al1 = 1;
+    cfg.hysteresis = 0;
     TEST_ASSERT_EQUAL_INT(GG_OK, config_validate(&cfg));
 }
 
