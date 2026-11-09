@@ -66,14 +66,17 @@ static void test_firmware_boot_logs_when_defaults_are_used(void)
     TEST_ASSERT_EQUAL_UINT16((uint16_t)CONFIG_SRC_DEFAULTS, entry.arg);
 }
 
-/* @verifies REQ-HMI-001 */
-static void test_firmware_boot_starts_in_warmup_with_the_relay_de_energised(void)
+/* @verifies REQ-SAF-001 */
+static void test_firmware_boot_starts_in_warmup_and_the_output_follows_it(void)
 {
-    bool energised = true;
+    bool energised = false;
 
     boot_defaults();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
-    TEST_ASSERT_FALSE(energised);
+    TEST_ASSERT_TRUE(energised);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_output(&fw));
+    TEST_ASSERT_TRUE(hal_gpio_fake_level(HAL_GPIO_PIN_RELAY));
 }
 
 /* @verifies REQ-ALM-001 */
@@ -112,8 +115,8 @@ static void test_firmware_both_channels_short_raise_fault_and_drop_the_relay(voi
     TEST_ASSERT_FALSE(energised);
     TEST_ASSERT_FALSE(hal_gpio_fake_level(HAL_GPIO_PIN_RELAY));
     TEST_ASSERT_TRUE(hal_gpio_fake_level(HAL_GPIO_PIN_BUZZER));
-    /* The new fault is logged once, after the mode change to FAULT. */
-    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(3u, &entry));
+    /* The fault is logged once, after the mode change to FAULT (slot 3). */
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(4u, &entry));
     TEST_ASSERT_EQUAL_INT(EVENTLOG_FAULT, entry.code);
 }
 
@@ -136,7 +139,7 @@ int main(void)
     UNITY_BEGIN();
     RUN_TEST(test_firmware_boot_logs_the_reset_cause);
     RUN_TEST(test_firmware_boot_logs_when_defaults_are_used);
-    RUN_TEST(test_firmware_boot_starts_in_warmup_with_the_relay_de_energised);
+    RUN_TEST(test_firmware_boot_starts_in_warmup_and_the_output_follows_it);
     RUN_TEST(test_firmware_alarm_1_after_warmup_and_three_samples);
     RUN_TEST(test_firmware_both_channels_short_raise_fault_and_drop_the_relay);
     RUN_TEST(test_firmware_null_arguments_are_rejected);
