@@ -75,6 +75,7 @@ typedef struct {
     uint8_t above_al2;                /**< Consecutive samples at or above al2. */
     uint8_t below_clear;              /**< Consecutive samples below al1 - hysteresis. */
     detector_fault_code_t fault_code; /**< Reason of the latched fault, DET_FAULT_NONE if none. */
+    bool fault_new;                   /**< True from the start of a fault until it is taken once. */
 } detector_t;
 
 /**
@@ -165,5 +166,22 @@ gg_status_t detector_relay_energised(const detector_t *det, bool *energised);
 // DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
 // cppcheck-suppress misra-c2012-8.7
 gg_status_t detector_fault_code(const detector_t *det, detector_fault_code_t *code);
+
+/**
+ * @brief Take the fault that started since the last call, so it is logged once.
+ *
+ * A fault starts when the detector enters FAULT. The first call after that
+ * returns it with out_new true; later calls return out_new false. Repeated
+ * samples in FAULT do not start a new fault.
+ *
+ * @param det        Detector. Must not be NULL.
+ * @param out_new    Receives true when a new fault was taken. Must not be NULL.
+ * @param out_code   Receives the reason when out_new is true, DET_FAULT_NONE otherwise. Must not be NULL.
+ * @return GG_OK or GG_ERR_NULL.
+ * @req REQ-SAF-007
+ */
+// DEV-05: app API, called by the main loop from Day 4; cppcheck sees no caller in the build yet
+// cppcheck-suppress misra-c2012-8.7
+gg_status_t detector_take_new_fault(detector_t *det, bool *out_new, detector_fault_code_t *out_code);
 
 #endif /* DETECTOR_H */

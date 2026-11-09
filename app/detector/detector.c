@@ -119,6 +119,7 @@ gg_status_t detector_init(detector_t *det, const detector_thresholds_t *threshol
             det->thresholds = *thresholds;
             det->state = DET_STATE_WARMUP;
             det->fault_code = DET_FAULT_NONE;
+            det->fault_new = false;
             reset_counters(det);
         }
     }
@@ -147,7 +148,22 @@ static void diag_raise(detector_t *det, detector_fault_code_t code)
     if (det->state != DET_STATE_FAULT) {
         det->state = DET_STATE_FAULT;
         det->fault_code = code;
+        det->fault_new = true;
     }
+}
+
+gg_status_t detector_take_new_fault(detector_t *det, bool *out_new, detector_fault_code_t *out_code)
+{
+    gg_status_t status = GG_OK;
+
+    if ((det == NULL) || (out_new == NULL) || (out_code == NULL)) {
+        status = GG_ERR_NULL;
+    } else {
+        *out_new = det->fault_new;
+        *out_code = det->fault_new ? det->fault_code : DET_FAULT_NONE;
+        det->fault_new = false;
+    }
+    return status;
 }
 
 /* Dispatch to the handler of the current state. One switch, every enum value listed. */
@@ -168,7 +184,8 @@ static void step_state(detector_t *det, const detector_input_t *in)
         case DET_STATE_FAULT:
             break;                /* Handled in detector_step(); listed for -Wswitch-enum. */
         default:
-            /* Impossible state: fail safe. TODO(Day 4): also log it in the event log. */
+            /* Impossible state: fail safe. The main loop takes this fault with
+             * detector_take_new_fault() and writes it to the event log. */
             diag_raise(det, DET_FAULT_INTERNAL);
             break;
     }
