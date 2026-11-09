@@ -41,7 +41,7 @@
 
 /** @brief Smallest and largest event code. */
 #define EVENTLOG_CODE_MIN EVENTLOG_MODE_CHANGE
-#define EVENTLOG_CODE_MAX EVENTLOG_CONFIG
+#define EVENTLOG_CODE_MAX EVENTLOG_OVERRUN
 
 /**
  * @brief Checksum of the first seven bytes of an entry.

@@ -32,7 +32,8 @@ typedef enum {
     EVENTLOG_MODE_CHANGE = 1,
     EVENTLOG_FAULT = 2,
     EVENTLOG_RESET = 3,
-    EVENTLOG_CONFIG = 4
+    EVENTLOG_CONFIG = 4,
+    EVENTLOG_OVERRUN = 5   /**< A scheduler cycle took longer than 100 ms (REQ-SAF-008). */
 } eventlog_code_t;
 
 /** @brief One logged event. */
@@ -52,8 +53,6 @@ typedef struct {
  * @return GG_OK, GG_ERR_NULL, GG_ERR_RANGE for an unknown code, or the EEPROM error.
  * @req REQ-LOG-001 REQ-LOG-002 REQ-LOG-003
  */
-// DEV-05: service API, called by app/ from Day 4; cppcheck sees one caller
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t eventlog_append(const eventlog_entry_t *entry);
 
 /**
@@ -64,8 +63,6 @@ gg_status_t eventlog_append(const eventlog_entry_t *entry);
  *         written or its checksum is wrong, or the EEPROM error.
  * @req REQ-LOG-002
  */
-// DEV-05: service API, called by app/ and the CLI from Day 4; cppcheck sees one caller
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t eventlog_read_slot(uint8_t slot, eventlog_entry_t *out);
 
 /**
@@ -75,8 +72,6 @@ gg_status_t eventlog_read_slot(uint8_t slot, eventlog_entry_t *out);
  * @return GG_OK, GG_ERR_NULL, or the EEPROM error.
  * @req REQ-LOG-001
  */
-// DEV-05: service API, called by app/ and the CLI from Day 4; cppcheck sees one caller
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t eventlog_head(uint8_t *out_head);
 
 #endif /* EVENTLOG_H */
