@@ -114,6 +114,12 @@ static const char *code_name(eventlog_code_t code)
         case EVENTLOG_OVERRUN:
             name = "OVERRUN";
             break;
+        case EVENTLOG_CHANNEL_FAULT:
+            name = "CHANNEL";
+            break;
+        case EVENTLOG_DISPLAY_FAULT:
+            name = "DISPLAY";
+            break;
         default:
             name = "UNKNOWN";
             break;

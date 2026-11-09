@@ -33,7 +33,9 @@ typedef enum {
     EVENTLOG_FAULT = 2,
     EVENTLOG_RESET = 3,
     EVENTLOG_CONFIG = 4,
-    EVENTLOG_OVERRUN = 5   /**< A scheduler cycle took longer than 100 ms (REQ-SAF-008). */
+    EVENTLOG_OVERRUN = 5,  /**< A scheduler cycle took longer than 100 ms (REQ-SAF-008). */
+    EVENTLOG_CHANNEL_FAULT = 6,  /**< A gas channel became faulty; arg is the channel index (REQ-SAF-002, REQ-SAF-003). */
+    EVENTLOG_DISPLAY_FAULT = 7   /**< The display did not answer at boot; the detector runs without it (REQ-HMI-001). */
 } eventlog_code_t;
 
 /** @brief One logged event. */

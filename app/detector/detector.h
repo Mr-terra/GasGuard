@@ -55,7 +55,7 @@ typedef struct {
     gg_conc_t hysteresis;   /**< Clear level is al1 - hysteresis. */
 } detector_thresholds_t;
 
-/** @brief Why the detector is in FAULT. Kept for the event log (Day 4). */
+/** @brief Why the detector is in FAULT. Written to the event log by the firmware. */
 typedef enum {
     DET_FAULT_NONE = 0,     /**< No fault latched. */
     DET_FAULT_INPUT,        /**< Sensors faulty: all channels, or the ADC (REQ-SAF-007). */

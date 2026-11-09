@@ -7,7 +7,7 @@
  * The buzzer is on pin D6. A high level sounds it. buzzer_init() drives the
  * pin low, so the buzzer starts silent. buzzer_set() passes the requested
  * state to the GPIO HAL. The driver keeps no state: the pin is the state.
- * Timing of the alarm patterns is left to the application (Day 4).
+ * Timing of the alarm patterns is left to the application (app/hmi).
  *
  * @req REQ-HMI-003
  */

@@ -41,6 +41,8 @@
 
 /** @brief Calibration used until a calibration is stored: one raw LSB is one unit (0.1 %LEL). */
 #define FIRMWARE_ZERO_RAW 0u
+/* Temperature compensation is OFF: the temperature input (A3) is not read yet, so the
+ * coefficient is zero and calib_temp_correct() is not called (README, limitations). */
 #define FIRMWARE_TEMP_REF_RAW 0u
 #define FIRMWARE_TEMP_COEF_Q8 0
 
@@ -171,6 +173,10 @@ static gg_status_t boot_init_channels(firmware_t *fw)
     gg_status_t status = GG_OK;
     uint8_t ch;
 
+    for (ch = 0u; ch < FIRMWARE_CHANNELS; ch++) {
+        fw->channel_faulty[ch] = false;
+    }
+
     calib_cfg.zero_raw = FIRMWARE_ZERO_RAW;
     calib_cfg.gain_q8 = CALIB_GAIN_ONE;
     calib_cfg.temp_ref_raw = FIRMWARE_TEMP_REF_RAW;
@@ -261,6 +267,37 @@ static void sample_fill_input(firmware_t *fw, uint32_t now_ms, const firmware_ga
     fw->reset_pending = false;
     fw->maint_pending = false;
     fw->pending_fault = DET_FAULT_NONE;
+}
+
+/**
+ * @brief Log each channel that became faulty since the last sample (REQ-SAF-002, REQ-SAF-003).
+ *
+ * A channel fault is latched, so it is logged once. The channel stays excluded
+ * until the next power-on: the log is the only trace of it.
+ *
+ * @param fw      Firmware state.
+ * @param now_ms  Current time.
+ * @return The first error, or GG_OK.
+ */
+static gg_status_t sample_report_channels(firmware_t *fw, uint32_t now_ms)
+{
+    gg_status_t status = GG_OK;
+    uint8_t ch;
+
+    for (ch = 0u; (status == GG_OK) && (ch < FIRMWARE_CHANNELS); ch++) {
+        bool faulty = false;
+
+        status = diag_is_faulty(&fw->diag[ch], &faulty);
+        if ((status == GG_OK) && faulty && !fw->channel_faulty[ch]) {
+            eventlog_entry_t event = { now_ms / FIRMWARE_MS_PER_S, EVENTLOG_CHANNEL_FAULT, (uint16_t)ch };
+
+            status = eventlog_append(&event);
+        }
+        if (status == GG_OK) {
+            fw->channel_faulty[ch] = faulty;
+        }
+    }
+    return status;
 }
 
 /**
@@ -462,6 +499,9 @@ gg_status_t firmware_sample(firmware_t *fw, uint32_t now_ms)
 
         status = sample_gas(fw, now_ms, &gas);
         if (status == GG_OK) {
+            status = sample_report_channels(fw, now_ms);
+        }
+        if (status == GG_OK) {
             fw->last_conc = gas.max_conc;
             status = sample_detector_step(fw, now_ms, &gas);
         }
@@ -633,6 +673,26 @@ detector_state_t firmware_state(const firmware_t *fw)
         }
     }
     return state;
+}
+
+/**
+ * @brief Log a display that did not answer at boot. The full contract is in the header.
+ * @req REQ-HMI-001
+ */
+gg_status_t firmware_report_display(const firmware_t *fw, bool present, uint32_t now_ms)
+{
+    gg_status_t status = GG_OK;
+
+    if (fw == NULL) {
+        status = GG_ERR_NULL;
+    } else if (!present) {
+        eventlog_entry_t event = { now_ms / FIRMWARE_MS_PER_S, EVENTLOG_DISPLAY_FAULT, 0u };
+
+        status = eventlog_append(&event);
+    } else {
+        /* Present: nothing to log. */
+    }
+    return status;
 }
 
 /**

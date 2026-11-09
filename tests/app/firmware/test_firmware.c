@@ -333,6 +333,7 @@ static void test_firmware_null_arguments_are_rejected(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_relay_energised(&fw, NULL));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_inputs(NULL, 0u, false, false));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_health(NULL, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_report_display(NULL, false, 0u));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_report_timing(NULL, false, false, 0u));
     (void)energised;
 }
@@ -397,6 +398,38 @@ static void test_firmware_alarm_2_buzzer_beeps_four_times_a_second_at_the_output
     TEST_ASSERT_EQUAL_UINT8(4u, edges);
 }
 
+/* @verifies REQ-SAF-002 */
+static void test_firmware_channel_fault_is_logged_once(void)
+{
+    uint8_t i;
+    eventlog_entry_t entry;
+
+    boot_defaults();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW));
+    /* MQ-5 open circuit: the range fault latches after 5 samples, and is logged once. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, 0u));
+    for (i = 0u; i < 8u; i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, (uint32_t)i * FIRMWARE_OUTPUT_PERIOD_MS));
+    }
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(2u, &entry));
+    TEST_ASSERT_EQUAL_INT(EVENTLOG_CHANNEL_FAULT, entry.code);
+    TEST_ASSERT_EQUAL_UINT16(0u, entry.arg);
+    TEST_ASSERT_EQUAL_INT(GG_ERR_CRC, eventlog_read_slot(3u, &entry));
+}
+
+/* @verifies REQ-HMI-001 */
+static void test_firmware_missing_display_is_logged(void)
+{
+    eventlog_entry_t entry;
+
+    boot_defaults();
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_report_display(&fw, true, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_CRC, eventlog_read_slot(2u, &entry));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_report_display(&fw, false, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(2u, &entry));
+    TEST_ASSERT_EQUAL_INT(EVENTLOG_DISPLAY_FAULT, entry.code);
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -420,6 +453,8 @@ int main(void)
     RUN_TEST(test_firmware_frozen_channel_is_excluded_after_ten_minutes);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_raises_fault);
     RUN_TEST(test_firmware_alarm_2_buzzer_beeps_four_times_a_second_at_the_output_rate);
+    RUN_TEST(test_firmware_channel_fault_is_logged_once);
+    RUN_TEST(test_firmware_missing_display_is_logged);
     RUN_TEST(test_firmware_null_arguments_are_rejected);
     return UNITY_END();
 }

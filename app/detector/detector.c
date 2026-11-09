@@ -156,7 +156,7 @@ gg_status_t detector_end_warmup(detector_t *det)
 }
 
 /* Latch FAULT and record why. The first reason is kept: a later one does not overwrite it.
- * Minimal version for Day 2: the event log that stores the reason arrives on Day 4. */
+ * The reason is read by the caller with detector_take_new_fault() and written to the event log. */
 static void diag_raise(detector_t *det, detector_fault_code_t code)
 {
     if (det->state != DET_STATE_FAULT) {

@@ -71,6 +71,7 @@ typedef struct {
     calib_t calib[FIRMWARE_CHANNELS];        /**< One calibration per channel. */
     uint32_t warmup_end_ms;                  /**< Time at which WARMUP ends. */
     uint32_t bandgap_next_ms;                /**< Time of the next bandgap measurement (REQ-SAF-004). */
+    bool channel_faulty[FIRMWARE_CHANNELS];  /**< Fault state of each channel at the last sample, to log each change once. */
     button_t button_db;                      /**< Debounce of the push button (REQ-HMI-007). */
     hmi_press_t button_press;                /**< Press classification of the push button. */
     button_t touch_db;                       /**< Debounce of the touch sensor (REQ-HMI-007). */
@@ -163,6 +164,18 @@ gg_status_t firmware_report_timing(firmware_t *fw, bool overrun, bool fault, uin
  * @req REQ-ALM-001
  */
 detector_state_t firmware_state(const firmware_t *fw);
+
+/**
+ * @brief Log that the display did not answer at boot (REQ-HMI-001). The detector runs without it.
+ * @param fw       Firmware state. Must not be NULL.
+ * @param present  True if the display answered.
+ * @param now_ms   Current time.
+ * @return GG_OK, GG_ERR_NULL, or the event log error.
+ * @req REQ-HMI-001 REQ-SAF-006
+ */
+// DEV-05: application API, called by main.c and tests; cppcheck sees one caller
+// cppcheck-suppress misra-c2012-8.7
+gg_status_t firmware_report_display(const firmware_t *fw, bool present, uint32_t now_ms);
 
 /**
  * @brief Concentration of the last sample, in 0.1 %LEL (REQ-HMI-001).
