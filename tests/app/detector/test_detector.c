@@ -289,7 +289,6 @@ static void test_detector_impossible_state_raises_internal_fault(void)
     TEST_ASSERT_EQUAL_INT(DET_FAULT_INTERNAL, code);
 }
 
-// cppcheck-suppress misra-c2012-8.6
 /* @verifies REQ-SAF-007 */
 static void test_detector_new_fault_is_reported_once_for_the_event_log(void)
 {
@@ -346,6 +345,8 @@ static void test_detector_take_new_fault_rejects_null(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_take_new_fault(&det_test_state, &is_new, NULL));
 }
 
+// DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
+// cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
     UNITY_BEGIN();
