@@ -8,6 +8,7 @@
 #include "hal/eeprom/eeprom_fake.h"
 #include "hal/gpio/gpio.h"
 #include "hal/gpio/gpio_fake.h"
+#include "services/config/config.h"
 #include "services/eventlog/eventlog.h"
 
 #include <stdbool.h>
@@ -115,8 +116,12 @@ static void test_firmware_both_channels_short_raise_fault_and_drop_the_relay(voi
     TEST_ASSERT_FALSE(energised);
     TEST_ASSERT_FALSE(hal_gpio_fake_level(HAL_GPIO_PIN_RELAY));
     TEST_ASSERT_TRUE(hal_gpio_fake_level(HAL_GPIO_PIN_BUZZER));
-    /* The fault is logged once, after the mode change to FAULT (slot 3). */
-    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(4u, &entry));
+    /* Out-of-range readings are never used: the fault comes at the first sample,
+     * and the mode change to FAULT (slot 2) is followed by the fault (slot 3). */
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(2u, &entry));
+    TEST_ASSERT_EQUAL_INT(EVENTLOG_MODE_CHANGE, entry.code);
+    TEST_ASSERT_EQUAL_UINT16((uint16_t)DET_STATE_FAULT, entry.arg);
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(3u, &entry));
     TEST_ASSERT_EQUAL_INT(EVENTLOG_FAULT, entry.code);
 }
 
