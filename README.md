@@ -396,6 +396,15 @@ selected by file name in the Makefile, so the layout can grow without editing it
   monitoring channel.
 - **Semiconductor sensors** respond to many gases and vapours, not only to the
   target gas. Readings are approximations (see REQ-FUN-003).
+- **Maintenance inhibits the alarm outputs** for up to 10 minutes, as REQ-HMI-009
+  states. The relay stays energised and the buzzer stays silent during that time
+  (FMEA F36, accepted by the author).
+- **Not yet checked on the board:** the stack watermark value, the LCD concentration
+  line, the buzzer patterns, the button and touch actions, the `log` dump over UART
+  and the relay state at reset. The open steps are listed in
+  [`docs/test-report.md`](docs/test-report.md).
+- **`status` and `cfg` commands** of the UART interface are not implemented;
+  only `log` is (REQ-LOG-004).
 
 ## How this project was built
 

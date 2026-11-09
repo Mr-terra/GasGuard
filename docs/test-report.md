@@ -4,6 +4,25 @@ Hardware test results, one section per bench session. Each entry gives the
 date, the firmware (branch and commit), and the result of each step. Steps not
 yet run are listed as open, so nothing is reported as passed by default.
 
+## Open steps for the next bench session (Day 5 and after)
+
+No result is recorded for these steps yet. Each one needs the board, a logic
+analyser or the serial monitor.
+
+| Step | What to check | Requirement |
+|---|---|---|
+| Relay at reset | Pin D5 low before the first GPIO init (FMEA F21) | REQ-SAF-001 |
+| Watchdog timing | Reset after 500 ms without kick; no reset in normal running | REQ-SAF-005 |
+| Stack watermark | Value of `hal_stack_free_bytes` after boot and after a minute | REQ-SAF-009 |
+| Buzzer patterns | 1 Hz (ALARM_1), 4 Hz (ALARM_2), one beep every 5 s (FAULT) | REQ-HMI-003 |
+| Button | Short press silences ALARM_1; long press resets ALARM_2; long press in NORMAL starts the test | REQ-HMI-004..006 |
+| Touch | 3 s touch enters MAINTENANCE, the display shows MAINT | REQ-HMI-008, REQ-HMI-009 |
+| LCD | Line 2 shows the concentration, FAULT blinks amber | REQ-HMI-001, REQ-HMI-002 |
+| `log` command | Dump over the UART at 38400 baud, complete, with the reset and config entries | REQ-LOG-004 |
+| Bandgap | Raw value of the bandgap against AVcc (expected near 0xED at 4.75 V) | REQ-SAF-004 |
+| Second MQ sensor | Wiring and reading on A1 | REQ-FUN-001 |
+| Simulation build | `make avr-sim`: the potentiometer on A2 drives the MQ-5 channel | REQ-FUN-006 |
+
 ## Day 3 — first bench session (2026-11-05)
 
 Firmware: bring-up program on branch `day-3-bringup` (commit `d577f30` and later),

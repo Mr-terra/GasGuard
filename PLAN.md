@@ -38,12 +38,12 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 - [ ] **Replace the TODO in `app/detector/detector.c`** (`default` branch of `step_state`) with `diag_raise()`, once the event log exists
 
 ## Day 5 — Evidence and presentation
-- [ ] `make check` without `--allow-gaps`: 100 % traceability
-- [ ] `misra-review` on the whole tree, fix or register deviations
-- [ ] Hardware test report `docs/test-report.md` + logic-analyzer screenshots
-- [ ] README: photo, wiring, demo GIF/video, quality dashboard (badges: CI, coverage)
-- [ ] Short section "How this project was built with Claude Code" (the `.claude/` setup as quality system)
-- [ ] Tag `v1.0`
+- [x] `make check` without `--allow-gaps`: 100 % traceability (45/45, strict run of `tools/trace.py`)
+- [~] `misra-review` on the whole tree: cppcheck MISRA and clang-tidy pass on every library and test file; `main.c` is outside the cppcheck scope and was reviewed by hand only
+- [ ] Hardware test report `docs/test-report.md` + logic-analyzer screenshots (open steps listed; needs the bench)
+- [ ] README: photo, demo GIF/video, quality badges (needs the bench for the photo and demo; wiring section exists)
+- [x] Short section "How this project was built with Claude Code" (the `.claude/` setup as quality system)
+- [ ] Tag `v1.0` (after the author validates Day 5)
 - [ ] **Learn:** full `explain-module` pass on `detector` and `diag` — mock interview
 
 ## Version 2 (during the hiring process)

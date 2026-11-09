@@ -1,12 +1,11 @@
 ---
 name: explain-module
-description: Teach a GasGuard module to the author (who is learning C) and quiz him with technical-interview questions. Use when the author asks to understand a file, a concept, or to prepare for an interview.
+description: Teach a GasGuard module to the author (who is learning C) and quiz him with technical questions on the design. Use when the author asks to understand a file or a concept, or to check his own understanding.
 ---
 
 # Explain a module and quiz the author
 
-The author is new to C and will be interviewed by an embedded team at a gas
-detector manufacturer. Goal: he can explain and defend every line.
+The author is new to C. Goal: he can explain and defend every line of the module.
 
 ## Steps
 1. Read the module (`.h`, `.c`, its tests) and its requirements / FMEA rows.
@@ -22,8 +21,8 @@ detector manufacturer. Goal: he can explain and defend every line.
    - 2 on C mechanics ("what happens if `v_tick` is not volatile?")
    - 2 on the design/safety ("why is the relay energised when healthy?")
    - 1 on hardware ("what does the ADC return if the sensor is unplugged, and why?")
-4. Correct each answer kindly but precisely; give the model answer an
-   interviewer expects in 2–3 sentences.
+4. Correct each answer kindly but precisely; give the model answer in
+   2–3 sentences.
 5. End with a score /5 and the 2 concepts to review, appended to `docs/learning-log.md`
    (date, module, score, concepts to review).
 
