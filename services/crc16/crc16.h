@@ -24,8 +24,6 @@
  * @return GG_OK, GG_ERR_NULL if out_crc is NULL, or if data is NULL with len > 0.
  * @req REQ-CFG-001
  */
-// DEV-05: service API, called by app/ and services/config from Day 4; cppcheck sees one caller
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t crc16_compute(const uint8_t *data, uint16_t len, uint16_t *out_crc);
 
 #endif /* CRC16_H */

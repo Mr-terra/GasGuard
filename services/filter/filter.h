@@ -35,8 +35,6 @@ typedef struct {
  * @return GG_OK, or GG_ERR_NULL if filter is NULL.
  * @req REQ-FUN-002
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t filter_init(filter_t *filter);
 
 /**
@@ -47,8 +45,6 @@ gg_status_t filter_init(filter_t *filter);
  * @return GG_OK, GG_ERR_NULL if filter is NULL, or GG_ERR_RANGE if raw is out of range.
  * @req REQ-FUN-002
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t filter_push(filter_t *filter, uint16_t raw);
 
 /**
@@ -60,8 +56,6 @@ gg_status_t filter_push(filter_t *filter, uint16_t raw);
  *         sample has been pushed yet (there is no average to report).
  * @req REQ-FUN-002
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t filter_value(const filter_t *filter, uint16_t *out_value);
 
 #endif /* FILTER_H */

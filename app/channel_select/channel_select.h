@@ -33,8 +33,6 @@
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE if count is zero.
  * @req REQ-FUN-005
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t channel_select_max(const gg_conc_t *concs, const bool *valid, uint8_t count,
                                gg_conc_t *out_max, bool *out_any_valid);
 

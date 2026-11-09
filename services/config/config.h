@@ -56,8 +56,6 @@ typedef enum {
  * @return GG_OK, or GG_ERR_NULL.
  * @req REQ-CFG-004
  */
-// DEV-05: service API, called by app/ from Day 4; cppcheck sees one caller
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t config_defaults(config_t *cfg);
 
 /**
@@ -68,8 +66,6 @@ gg_status_t config_defaults(config_t *cfg);
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE if a rule is broken.
  * @req REQ-CFG-003 REQ-ALM-005
  */
-// DEV-05: service API, called by app/ from Day 4; cppcheck sees one caller
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t config_validate(const config_t *cfg);
 
 /**
@@ -84,8 +80,6 @@ gg_status_t config_validate(const config_t *cfg);
  * @return GG_OK, GG_ERR_NULL, or the EEPROM error of a repair write.
  * @req REQ-CFG-001 REQ-CFG-002 REQ-CFG-003
  */
-// DEV-05: service API, called by app/ from Day 4; cppcheck sees one caller
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t config_load(config_t *cfg, config_source_t *out_source);
 
 /**
@@ -94,8 +88,6 @@ gg_status_t config_load(config_t *cfg, config_source_t *out_source);
  * @return GG_OK, GG_ERR_NULL, GG_ERR_RANGE (nothing written), or the EEPROM error.
  * @req REQ-CFG-001 REQ-CFG-003
  */
-// DEV-05: service API, called by app/ from Day 4; cppcheck sees one caller
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t config_store(const config_t *cfg);
 
 #endif /* CONFIG_H */

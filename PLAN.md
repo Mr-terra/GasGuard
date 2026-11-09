@@ -28,13 +28,13 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 - [ ] **Learn:** registers and bit masks, `volatile`, ISRs, atomic access (quiz on the timer and channel_select done; drivers pending)
 
 ## Day 4 — Integration and robustness
-- [ ] `main.c` scheduler, watchdog kick policy, overrun + stack watermark — REQ-SAF-005..009
-- [ ] `services/config` A/B + CRC-16, `services/eventlog` ring buffer, CLI `log`/`status`/`cfg` — REQ-CFG-*, REQ-LOG-*
-- [ ] HMI: patterns, ack/reset, functional test, maintenance mode — REQ-HMI-*
-- [ ] Scenario tests SC-11, SC-12, SC-14..SC-16
+- [x] `main.c` scheduler, watchdog kick policy, overrun + stack watermark — REQ-SAF-005..009 (stack painting and check: AVR code compiled, not yet measured on the board)
+- [x] `services/config` A/B + CRC-16, `services/eventlog` ring buffer, CLI `log` — REQ-CFG-*, REQ-LOG-* (`status` and `cfg` not done: not required by a REQ; planned)
+- [x] HMI: patterns, ack/reset, functional test, maintenance mode, LCD concentration — REQ-HMI-* (FMEA F36 decision pending)
+- [x] Scenario tests SC-11, SC-12, SC-14, SC-16 (SC-15 in unit tests)
 - [ ] Bench test with potentiometer (simulation build), then real gas sensors
 - [ ] **Learn:** CRC, EEPROM wear, watchdog design, why fail-safe relay
-- [ ] **Remove DEV-05** (docs/04 §5) and its inline `misra-c2012-8.7` suppressions in `services/*/*.h` and `app/*/*.h`, once `app/` calls the service functions
+- [~] **Remove DEV-05** (docs/04 §5): removed where `app/` or the tests call the function; kept on the prototypes that only `main.c` calls (cppcheck does not lint `main.c`)
 - [ ] **Replace the TODO in `app/detector/detector.c`** (`default` branch of `step_state`) with `diag_raise()`, once the event log exists
 
 ## Day 5 — Evidence and presentation

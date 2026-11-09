@@ -53,8 +53,6 @@ typedef struct {
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE if gain_q8 is zero.
  * @req REQ-FUN-003
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t calib_init(calib_t *calib, const calib_config_t *config);
 
 /**
@@ -69,8 +67,6 @@ gg_status_t calib_init(calib_t *calib, const calib_config_t *config);
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE if raw is out of range.
  * @req REQ-FUN-003
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t calib_to_lel(const calib_t *calib, uint16_t raw, gg_conc_t *out);
 
 /**
@@ -86,7 +82,7 @@ gg_status_t calib_to_lel(const calib_t *calib, uint16_t raw, gg_conc_t *out);
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE if the raw value is out of range.
  * @req REQ-FUN-004
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
+// DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage
 // cppcheck-suppress misra-c2012-8.7
 gg_status_t calib_temp_correct(const calib_t *calib, const calib_reading_t *reading, uint16_t *out_raw);
 

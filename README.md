@@ -62,16 +62,17 @@ process is the point:
 | Sensing | Linear calibration to %LEL in Q8 fixed point, temperature compensation when the sensor is valid | Done (Day 2) |
 | Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) | Done (Day 2) |
 | Diagnostics | Bandgap raw read against AVcc (`hal_adc_read_bandgap`), for the bandgap check | Done (Day 3); check wired on Day 4 |
-| Diagnostics | Task overrun and stack watermark checks | Day 4 |
+| Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) | Done (Day 4); stack measurement on the bench in Day 5 |
 | Alarms | Two-level alarm with hysteresis, latched ALARM_2, warm-up inhibition, max of valid channels | Done (Day 2) |
 | Alarms | Relay normally energised: energised in WARMUP and NORMAL only, de-energised on alarm and fault (state logic done; driving the pin is Day 3) | Logic done (Day 2); pin Day 3 |
-| Storage | A/B configuration with CRC-16 and safe defaults | Day 4 |
-| Storage | Event log in a 32-entry EEPROM ring buffer | Day 4 |
+| Storage | A/B configuration with CRC-16 and safe defaults, repair of the other copy (REQ-CFG-001..004) | Done (Day 4) |
+| Storage | Event log in a 32-entry EEPROM ring buffer, written on events only (REQ-LOG-001..003) | Done (Day 4) |
 | Interface | 16×2 LCD driver: two lines of text and backlight colour (`drivers/lcd_rgb`), verified on the board | Done (Day 3) |
 | Interface | Buzzer and button drivers (`drivers/buzzer`, `drivers/button` with 30 ms debounce) | Done (Day 3); patterns and actions Day 4 |
-| Interface | Buzzer patterns, button actions, LCD content by state | Day 4 |
-| Interface | Maintenance mode with automatic exit after 10 minutes | Day 4 |
-| Interface | UART command line (`log`, `status`, `cfg`) | Day 4 |
+| Interface | Buzzer patterns (1 Hz, 4 Hz, 1 beep / 5 s), short-press silence, long-press reset and functional test, debounce (REQ-HMI-003..007) | Done (Day 4) |
+| Interface | LCD: state text (MAINT, TEST), backlight colour per state, amber blink in FAULT, concentration on line 2 (REQ-HMI-001, REQ-HMI-002) | Done (Day 4); not yet checked on the board |
+| Interface | Maintenance mode from NORMAL by a 3 s touch, relay held, alarms not output, automatic exit after 10 minutes (REQ-HMI-008..010, FMEA F36) | Done (Day 4); decision on F36 pending |
+| Interface | UART command line: `log` dumps the event log, one line per poll for the 64-byte transmit buffer (REQ-LOG-004) | `log` done (Day 4); `status` and `cfg` planned |
 | Simulation | Potentiometer replaces the MQ-5 channel for bench tests | Day 3 |
 
 Requirement-level coverage is tracked in
@@ -299,7 +300,7 @@ Verification follows four levels, defined in
 | L3 Scenario | CI (PC) | Full detector driven by scripted ADC sequences, time-stepped | Unity, `hal/*/*_fake.c` |
 | L4 Hardware | Bench | Real board, potentiometer, then butane from an unlit lighter | Manual, logic analyser |
 
-Scenario tests SC-01 to SC-10 and SC-13 are implemented (Day 2), with two deviations: SC-01 starts in WARMUP (INIT and SELF_TEST come on Day 4), and SC-15 is unit-tested only. SC-11, SC-12, SC-14 and SC-16 follow on Day 4. They cover boot, alarms,
+Scenario tests SC-01 to SC-10 and SC-13 are implemented (Day 2), with two deviations: SC-01 starts in WARMUP (INIT and SELF_TEST come on Day 4), and SC-15 is unit-tested only. SC-11, SC-12, SC-14 and SC-16 are implemented on Day 4 (`tests/scenarios/test_scenarios_day4.c`). They cover boot, alarms,
 latching, sensor faults, configuration recovery, maintenance timeout, bandgap
 failure and task overruns.
 

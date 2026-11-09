@@ -33,7 +33,7 @@ typedef void (*lcd_rgb_delay_fn)(uint32_t ms);
  * @return GG_OK, GG_ERR_NULL if delay_ms is NULL, or GG_ERR_TIMEOUT if a chip does not answer.
  * @req REQ-HMI-001 REQ-HMI-002
  */
-// DEV-05: driver API, called by app/ from Day 4; cppcheck sees no caller yet
+// DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage
 // cppcheck-suppress misra-c2012-8.7
 gg_status_t lcd_rgb_init(lcd_rgb_delay_fn delay_ms);
 
@@ -45,8 +45,6 @@ gg_status_t lcd_rgb_init(lcd_rgb_delay_fn delay_ms);
  * @return GG_OK, or GG_ERR_TIMEOUT if the backlight chip does not answer.
  * @req REQ-HMI-002
  */
-// DEV-05: driver API, called by app/ from Day 4; cppcheck sees no caller yet
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t lcd_rgb_set_colour(uint8_t red, uint8_t green, uint8_t blue);
 
 /**
@@ -56,7 +54,7 @@ gg_status_t lcd_rgb_set_colour(uint8_t red, uint8_t green, uint8_t blue);
  * @return GG_OK, GG_ERR_NULL, GG_ERR_RANGE (bad row or text too long), or GG_ERR_TIMEOUT.
  * @req REQ-HMI-001
  */
-// DEV-05: driver API, called by app/ from Day 4; cppcheck sees no caller yet
+// DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage
 // cppcheck-suppress misra-c2012-8.7
 gg_status_t lcd_rgb_write_line(uint8_t row, const char *text);
 

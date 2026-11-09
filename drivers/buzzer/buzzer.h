@@ -22,8 +22,6 @@
  * @return GG_OK on success, or the error returned by the GPIO HAL.
  * @req REQ-HMI-003
  */
-// DEV-05: driver API, called by app/ from Day 4; cppcheck sees no caller yet
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t buzzer_init(void);
 
 /**
@@ -32,8 +30,6 @@ gg_status_t buzzer_init(void);
  * @return GG_OK on success, or the error returned by the GPIO HAL.
  * @req REQ-HMI-003
  */
-// DEV-05: driver API, called by app/ from Day 4; cppcheck sees no caller yet
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t buzzer_set(bool on);
 
 #endif /* BUZZER_H */

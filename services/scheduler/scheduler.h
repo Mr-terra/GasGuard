@@ -45,8 +45,6 @@ typedef struct {
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE if count is out of range.
  * @req REQ-SAF-005
  */
-// DEV-05: scheduler API, called by main.c from Day 4; cppcheck sees one caller
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t scheduler_init(scheduler_t *sched, uint8_t count, const uint32_t *periods, uint32_t now_ms);
 
 /**
@@ -56,8 +54,6 @@ gg_status_t scheduler_init(scheduler_t *sched, uint8_t count, const uint32_t *pe
  * @return GG_OK or GG_ERR_NULL.
  * @req REQ-SAF-005
  */
-// DEV-05: scheduler API, called by main.c from Day 4; cppcheck sees one caller
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t scheduler_begin_cycle(scheduler_t *sched, uint32_t now_ms);
 
 /**
@@ -69,8 +65,6 @@ gg_status_t scheduler_begin_cycle(scheduler_t *sched, uint32_t now_ms);
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE for a bad task index.
  * @req REQ-SAF-005
  */
-// DEV-05: scheduler API, called by main.c from Day 4; cppcheck sees one caller
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t scheduler_task_due(scheduler_t *sched, uint8_t task, uint32_t now_ms, bool *due);
 
 /**
@@ -80,8 +74,6 @@ gg_status_t scheduler_task_due(scheduler_t *sched, uint8_t task, uint32_t now_ms
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE for a bad task index.
  * @req REQ-SAF-005
  */
-// DEV-05: scheduler API, called by main.c from Day 4; cppcheck sees one caller
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t scheduler_task_done(scheduler_t *sched, uint8_t task);
 
 /**
@@ -93,8 +85,6 @@ gg_status_t scheduler_task_done(scheduler_t *sched, uint8_t task);
  * @return GG_OK, or GG_ERR_NULL if a pointer is NULL.
  * @req REQ-SAF-008
  */
-// DEV-05: scheduler API, called by main.c from Day 4; cppcheck sees one caller
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t scheduler_end_cycle(scheduler_t *sched, uint32_t now_ms, bool *out_overrun, bool *out_fault);
 
 /**
@@ -104,7 +94,7 @@ gg_status_t scheduler_end_cycle(scheduler_t *sched, uint32_t now_ms, bool *out_o
  * @return GG_OK or GG_ERR_NULL.
  * @req REQ-SAF-005
  */
-// DEV-05: scheduler API, called by main.c from Day 4; cppcheck sees one caller
+// DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage
 // cppcheck-suppress misra-c2012-8.7
 gg_status_t scheduler_watchdog_ok(const scheduler_t *sched, bool *out_kick);
 

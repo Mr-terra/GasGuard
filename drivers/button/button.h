@@ -33,8 +33,6 @@ typedef struct {
  * @return GG_OK, or GG_ERR_NULL if button is NULL.
  * @req REQ-HMI-007
  */
-// DEV-05: driver API, called by app/ from Day 4; cppcheck sees no caller yet
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t button_init(button_t *button);
 
 /**
@@ -50,8 +48,6 @@ gg_status_t button_init(button_t *button);
  * @return GG_OK, or GG_ERR_NULL if a pointer is NULL.
  * @req REQ-HMI-007
  */
-// DEV-05: driver API, called by app/ from Day 4; cppcheck sees no caller yet
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t button_step(button_t *button, bool raw_pressed, uint32_t now_ms, bool *out_pressed);
 
 #endif /* BUTTON_H */

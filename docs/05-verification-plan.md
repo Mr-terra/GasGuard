@@ -21,8 +21,9 @@
 **Status (end of Day 2):** SC-01 to SC-10 and SC-13 are implemented in
 `tests/scenarios/test_scenarios.c`. Deviations from the table below, all deliberate:
 - SC-01 starts in WARMUP: INIT and SELF_TEST are not implemented yet (Day 4).
-- SC-11, SC-12, SC-14, SC-16 need configuration, event log, maintenance and
-  overrun detection (Day 4). SC-15 (bandgap) is unit-tested in `tests/services/diag/test_diag.c`.
+- SC-11, SC-12, SC-14 and SC-16 are implemented on Day 4 in
+  `tests/scenarios/test_scenarios_day4.c` (SC-16 with the real scheduler). SC-15 (bandgap) is
+  unit-tested in `tests/services/diag/test_diag.c`.
 - Flash measured by `make size` is not representative until `main.c` uses the
   modules (Day 4): the linker removes unused code.
 

@@ -70,8 +70,6 @@ typedef struct {
  * @return GG_OK or GG_ERR_NULL.
  * @req REQ-SAF-002
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t diag_init(diag_t *diag);
 
 /**
@@ -82,8 +80,6 @@ gg_status_t diag_init(diag_t *diag);
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE if raw is out of range.
  * @req REQ-SAF-002
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t diag_check_range(diag_t *diag, uint16_t raw);
 
 /** @brief One sample for the stuck-at check. Grouped so that its fields cannot be swapped. */
@@ -105,8 +101,6 @@ typedef struct {
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE if the raw value is out of range.
  * @req REQ-SAF-003
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t diag_check_stuck(diag_t *diag, const diag_stuck_sample_t *sample);
 
 /**
@@ -117,8 +111,6 @@ gg_status_t diag_check_stuck(diag_t *diag, const diag_stuck_sample_t *sample);
  * @return GG_OK or GG_ERR_NULL.
  * @req REQ-SAF-002 REQ-SAF-003
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t diag_is_faulty(const diag_t *diag, bool *out_fault);
 
 /**
@@ -129,7 +121,7 @@ gg_status_t diag_is_faulty(const diag_t *diag, bool *out_fault);
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE if bandgap_raw is out of range.
  * @req REQ-SAF-004
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
+// DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage
 // cppcheck-suppress misra-c2012-8.7
 gg_status_t diag_bandgap_ok(uint16_t bandgap_raw, bool *out_ok);
 
