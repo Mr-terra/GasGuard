@@ -28,6 +28,16 @@
 #define UART_TX_SIZE 64u
 #define UART_TX_MASK (UART_TX_SIZE - 1u)
 
+/** @brief Receive ring buffer size. A byte arrives every 0.26 ms at 38400 baud; the loop polls every 10 ms. */
+#define UART_RX_SIZE 32u
+#define UART_RX_MASK (UART_RX_SIZE - 1u)
+
+/* Receive ring: the receive interrupt stores bytes, the main loop takes them out. */
+static volatile uint8_t v_rx_buf[UART_RX_SIZE];
+static volatile uint8_t v_rx_head;
+static volatile uint8_t v_rx_tail;
+static volatile uint8_t v_rx_count;
+
 /** @brief UBRR for 38400 baud at 16 MHz: 16e6 / (16 * 38400) - 1 = 25. */
 #define UART_UBRR_38400 25u
 
@@ -49,10 +59,13 @@ gg_status_t hal_uart_init(void)
     UBRR0L = (uint8_t)(UART_UBRR_38400 % 256u);    /* low byte */
     UCSR0A = 0u;                                         /* normal speed */
     UCSR0C = (uint8_t)((1u << UCSZ01) | (1u << UCSZ00)); /* 8 data bits, no parity, 1 stop */
-    UCSR0B = (uint8_t)((1u << RXEN0) | (1u << TXEN0));   /* receiver and transmitter on */
+    UCSR0B = (uint8_t)((1u << RXEN0) | (1u << TXEN0) | (1u << RXCIE0));   /* receiver (with interrupt) and transmitter on */
     v_tx_head = 0u;
     v_tx_tail = 0u;
     v_tx_count = 0u;
+    v_rx_head = 0u;
+    v_rx_tail = 0u;
+    v_rx_count = 0u;
     return GG_OK;
 }
 
@@ -98,12 +111,35 @@ gg_status_t hal_uart_read_byte(uint8_t *out_byte)
 
     if (out_byte == NULL) {
         status = GG_ERR_NULL;
-    } else if ((UCSR0A & (1u << RXC0)) == 0u) {
-        status = GG_ERR_TIMEOUT;                       /* no byte waiting */
     } else {
-        *out_byte = UDR0;
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            if (v_rx_count == 0u) {
+                status = GG_ERR_TIMEOUT;               /* no byte waiting */
+            } else {
+                *out_byte = v_rx_buf[v_rx_tail];
+                v_rx_tail = (uint8_t)((v_rx_tail + 1u) & UART_RX_MASK);
+                v_rx_count--;
+            }
+        }
     }
     return status;
+}
+
+// DEV-07: avr-libc ISR() macro seen by cppcheck as an unused parameter
+// cppcheck-suppress misra-c2012-2.7
+// cppcheck-suppress misra-c2012-8.2
+// cppcheck-suppress misra-c2012-8.4
+// cppcheck-suppress misra-c2012-8.6
+ISR(USART_RX_vect)
+{
+    uint8_t byte = UDR0;                  /* reading UDR0 also clears the receive flag */
+
+    if (v_rx_count < UART_RX_SIZE) {
+        v_rx_buf[v_rx_head] = byte;
+        v_rx_head = (uint8_t)((v_rx_head + 1u) & UART_RX_MASK);
+        v_rx_count++;
+    }
+    /* Full ring: the byte is dropped. The command line takes lines far slower than they arrive. */
 }
 
 // DEV-07: avr-libc ISR() macro seen by cppcheck as an unused parameter

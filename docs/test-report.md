@@ -21,6 +21,13 @@ analyser or the serial monitor.
 | `log` command | Dump over the UART at 38400 baud, complete, with the reset and config entries | REQ-LOG-004 |
 | Bandgap | Raw value of the bandgap against AVcc (expected near 0xED at 4.75 V) | REQ-SAF-004 |
 | Second MQ sensor | Wiring and reading on A1 | REQ-FUN-001 |
+| Watchdog reset cause | After a watchdog reset, WDRF is seen (the bootloader can clear the reset flags first) | REQ-SAF-006 |
+| Stuck sensor | Freeze one input for 10 minutes: its channel is excluded and the alarm clears | REQ-SAF-003 |
+| Bandgap | Measured at start-up and every 60 s; the value is within 202..248 | REQ-SAF-004 |
+| Display time | Longest display task on the board (I2C): stays well under 100 ms per cycle | REQ-SAF-008 |
+| UART input | Paste a 16-character command: no byte lost | REQ-LOG-004 |
+| Relay pull-down | Relay state at reset, with and without the proposed 10 kΩ pull-down | REQ-SAF-001, FMEA F21 |
+| Buzzer rate | Alarm 2 measured on the buzzer pin: 4 beeps per second | REQ-HMI-003 |
 | Simulation build | `make avr-sim`: the potentiometer on A2 drives the MQ-5 channel | REQ-FUN-006 |
 
 ## Day 3 — first bench session (2026-11-05)

@@ -59,14 +59,14 @@ process is the point:
 | Foundations | Build, unit test, static analysis and memory budget gates | Done (Day 1) |
 | Foundations | Hardware interfaces (ADC, timer, GPIO, EEPROM, UART, I2C, watchdog, reset cause), each with a PC fake and unit tests | Done (Day 1); AVR drivers Day 3 |
 | Sensing | Moving average over the last 8 samples per channel (`services/filter`) | Done (Day 2); 100 ms sampling loop Day 4 |
-| Sensing | Linear calibration to %LEL in Q8 fixed point, temperature compensation when the sensor is valid | Done (Day 2) |
-| Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) | Done (Day 2) |
-| Diagnostics | Bandgap raw read against AVcc (`hal_adc_read_bandgap`), for the bandgap check | Done (Day 3); check wired on Day 4 |
+| Sensing | Linear calibration to %LEL in Q8 fixed point, temperature compensation when the sensor is valid | Calibration done (Day 2); temperature compensation not wired: A3 is not read yet (see limitations) |
+| Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) | Done: tested on the PC (Day 2); wired into the firmware on Day 5 |
+| Diagnostics | Bandgap raw read against AVcc, checked at start-up and every 60 s (REQ-SAF-004) | Done (Day 5) |
 | Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) | Done (Day 4); stack measurement on the bench in Day 5 |
 | Alarms | Two-level alarm with hysteresis, latched ALARM_2, warm-up inhibition, max of valid channels | Done (Day 2) |
 | Alarms | Relay normally energised: energised in WARMUP and NORMAL only, de-energised on alarm and fault (state logic done; driving the pin is Day 3) | Logic done (Day 2); pin Day 3 |
 | Storage | A/B configuration with CRC-16 and safe defaults, repair of the other copy (REQ-CFG-001..004) | Done (Day 4) |
-| Storage | Event log in a 32-entry EEPROM ring buffer, written on events only (REQ-LOG-001..003) | Done (Day 4) |
+| Storage | Event log in a 32-entry EEPROM ring buffer, CRC-16 per entry, written on events only (REQ-LOG-001..003) | Done (Day 4); CRC-16 on Day 5 |
 | Interface | 16×2 LCD driver: two lines of text and backlight colour (`drivers/lcd_rgb`), verified on the board | Done (Day 3) |
 | Interface | Buzzer and button drivers (`drivers/buzzer`, `drivers/button` with 30 ms debounce) | Done (Day 3); patterns and actions Day 4 |
 | Interface | Buzzer patterns (1 Hz, 4 Hz, 1 beep / 5 s), short-press silence, long-press reset and functional test, debounce (REQ-HMI-003..007) | Done (Day 4) |
@@ -403,6 +403,9 @@ selected by file name in the Makefile, so the layout can grow without editing it
   line, the buzzer patterns, the button and touch actions, the `log` dump over UART
   and the relay state at reset. The open steps are listed in
   [`docs/test-report.md`](docs/test-report.md).
+- **Temperature compensation is off**: the temperature input (A3) is not read yet,
+  so the coefficient is zero.
+- **Relay pull-down at reset** (FMEA F21) is proposed in docs/02, not yet fitted.
 - **`status` and `cfg` commands** of the UART interface are not implemented;
   only `log` is (REQ-LOG-004).
 
