@@ -21,7 +21,7 @@ void setUp(void)
 void tearDown(void) {}
 
 /** @brief Build an event and append it, as the application will do. */
-static gg_status_t log_event(uint32_t uptime_s, eventlog_code_t code, uint16_t arg)
+static gg_status_t eventlog_test_append(uint32_t uptime_s, eventlog_code_t code, uint16_t arg)
 {
     eventlog_entry_t entry;
 
@@ -46,7 +46,7 @@ static void test_eventlog_append_stores_timestamp_code_and_argument(void)
     eventlog_entry_t entry;
     uint8_t head = 0u;
 
-    TEST_ASSERT_EQUAL_INT(GG_OK, log_event(10u, EVENTLOG_MODE_CHANGE, 1u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append(10u, EVENTLOG_MODE_CHANGE, 1u));
     TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_head(&head));
     TEST_ASSERT_EQUAL_UINT8(1u, head);
     TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(0u, &entry));
@@ -62,7 +62,7 @@ static void test_eventlog_ring_overwrites_the_oldest_entry_after_32_appends(void
     uint8_t i;
 
     for (i = 0u; i < 33u; i++) {
-        TEST_ASSERT_EQUAL_INT(GG_OK, log_event((uint32_t)i, EVENTLOG_FAULT, 0u));
+        TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append((uint32_t)i, EVENTLOG_FAULT, 0u));
     }
     /* Append 32 went to slot 0, which held append 0: slot 0 now holds 32. */
     TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(0u, &entry));
@@ -87,7 +87,7 @@ static void test_eventlog_corrupted_entry_is_detected_by_its_checksum(void)
     uint8_t byte = 0u;
     uint16_t addr = EVENTLOG_ADDR_ENTRIES;
 
-    TEST_ASSERT_EQUAL_INT(GG_OK, log_event(7u, EVENTLOG_RESET, 3u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append(7u, EVENTLOG_RESET, 3u));
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_read(addr, &byte, 1u));
     byte = (uint8_t)(byte ^ 0x08u);
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_write(addr, &byte, 1u));
@@ -111,8 +111,8 @@ static void test_eventlog_rejects_unknown_codes_and_bad_arguments(void)
 {
     eventlog_entry_t entry;
 
-    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, log_event(0u, (eventlog_code_t)0, 0u));
-    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, log_event(0u, (eventlog_code_t)99, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, eventlog_test_append(0u, (eventlog_code_t)0, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, eventlog_test_append(0u, (eventlog_code_t)99, 0u));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, eventlog_append(NULL));
     TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, eventlog_read_slot(EVENTLOG_ENTRIES, &entry));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, eventlog_read_slot(0u, NULL));
