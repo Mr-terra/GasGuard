@@ -78,6 +78,9 @@ static firmware_t fw;
 static scheduler_t sched;
 static cli_t cli;
 
+/** @brief True when the display answered at boot. Without it the display task is skipped. */
+static bool display_present;
+
 /**
  * @brief Busy-wait until at least @p ms milliseconds have passed.
  * @param ms  Delay in milliseconds.
@@ -218,6 +221,9 @@ static bool same_text(const char *a, const char *b)
 static gg_status_t task_display(uint32_t now_ms)
 {
     detector_state_t state = firmware_state(&fw);
+    if (!display_present) {
+        return GG_OK;   /* No display: the detector runs without it (REQ-HMI-001 is logged at boot). */
+    }
     bool test = firmware_test_running(&fw);
     uint8_t red = 0u;
     uint8_t green = 0u;
@@ -321,13 +327,17 @@ static gg_status_t boot(void)
     /* The UART transmit and the timer tick both run in interrupts. */
     sei();
     if (status == GG_OK) {
-        status = lcd_rgb_init(wait_ms);
+        /* The display is not safety-critical: a missing display is logged, and the boot goes on. */
+        display_present = (lcd_rgb_init(wait_ms) == GG_OK);
     }
     if (status == GG_OK) {
         status = hal_stack_paint();
     }
     if (status == GG_OK) {
         status = firmware_boot(&fw, hal_reset_cause_get(), 0u);
+    }
+    if (status == GG_OK) {
+        status = firmware_report_display(&fw, display_present, 0u);
     }
     if (status == GG_OK) {
         status = cli_init(&cli);
@@ -441,6 +451,14 @@ int main(void)
     gg_status_t status = boot();
     uint32_t now_ms = 0u;
 
+    if (status != GG_OK) {
+        /* The watchdog is not armed yet: arm it, and do not service it. The MCU resets,
+         * and the boot is tried again from a known state with the relay low (F21). */
+        (void)hal_wdt_enable();
+        for (;;) {
+            /* Wait for the watchdog reset. */
+        }
+    }
     for (;;) {
         if (status == GG_OK) {
             status = hal_timer_get_ms(&now_ms);
@@ -448,7 +466,8 @@ int main(void)
         if (status == GG_OK) {
             status = cycle(now_ms);
         }
-        /* After an error the loop stops servicing the watchdog: it resets the MCU,
-         * and the reset starts from a known state with the relay low (F21). */
+        /* After a cycle error the loop stops servicing the watchdog: it resets the MCU
+         * (the watchdog is armed at the end of the boot), and the reset starts from a
+         * known state with the relay low (F21). */
     }
 }

@@ -93,13 +93,6 @@ static gg_status_t lcd_text_command(uint8_t command)
  * @param character  Character to display at the cursor.
  * @return Status of the I2C write.
  */
-static gg_status_t lcd_text_data(uint8_t character)
-{
-    uint8_t bytes[2] = { LCD_CTRL_DATA, character };
-
-    return hal_i2c_write(LCD_TEXT_ADDR, bytes, (uint8_t)sizeof(bytes));
-}
-
 /**
  * @brief Write one register of the backlight chip.
  * @param reg    Register address.
@@ -216,11 +209,19 @@ gg_status_t lcd_rgb_write_line(uint8_t row, const char *text)
         if (text[len] != '\0') {
             status = GG_ERR_RANGE;
         } else {
+            /* One transfer for the whole line: the control byte 0x40 is followed by the
+             * characters, which the controller takes as data. One I2C transfer instead of
+             * one per character keeps the display task short (REQ-SAF-008). */
+            uint8_t bytes[LCD_LINE_LEN + 1u];
             uint8_t i;
 
+            bytes[0] = LCD_CTRL_DATA;
+            for (i = 0u; i < len; i++) {
+                bytes[i + 1u] = (uint8_t)text[i];
+            }
             status = lcd_text_command(lcd_row_command(row));
-            for (i = 0u; (status == GG_OK) && (i < len); i++) {
-                status = lcd_text_data((uint8_t)text[i]);
+            if (status == GG_OK) {
+                status = hal_i2c_write(LCD_TEXT_ADDR, bytes, (uint8_t)(len + 1u));
             }
         }
     }

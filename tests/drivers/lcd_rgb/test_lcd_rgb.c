@@ -129,10 +129,10 @@ static void test_lcd_rgb_write_line_zero_sets_cursor_and_sends_characters(void)
     TEST_ASSERT_EQUAL_INT(GG_OK, lcd_rgb_write_line(0u, "AB"));
     TEST_ASSERT_EQUAL_UINT8(0x80u, hal_i2c_fake_log_byte(0u));
     TEST_ASSERT_EQUAL_UINT8(0x80u, hal_i2c_fake_log_byte(1u));
+    /* One data transfer: the control byte once, then the characters. */
     TEST_ASSERT_EQUAL_UINT8(0x40u, hal_i2c_fake_log_byte(2u));
     TEST_ASSERT_EQUAL_UINT8((uint8_t)'A', hal_i2c_fake_log_byte(3u));
-    TEST_ASSERT_EQUAL_UINT8(0x40u, hal_i2c_fake_log_byte(4u));
-    TEST_ASSERT_EQUAL_UINT8((uint8_t)'B', hal_i2c_fake_log_byte(5u));
+    TEST_ASSERT_EQUAL_UINT8((uint8_t)'B', hal_i2c_fake_log_byte(4u));
 }
 
 /* @verifies REQ-HMI-001 */
