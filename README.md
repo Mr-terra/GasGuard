@@ -288,6 +288,9 @@ If PowerShell refuses to run a script (execution policy), start it with
 `powershell -ExecutionPolicy Bypass -File tools\flash-monitor.ps1 -Port COM3`.
 The flash needs `avrdude` in the `Path` (see `tools/flash.ps1`).
 
+The simulation image (`make avr-sim`, `gasguard_sim.hex`) has no real gas sensor, so
+`flash.ps1` refuses it unless `-Bench` is given (FMEA F41).
+
 ## Verification and quality gates
 
 Verification follows four levels, defined in
@@ -403,6 +406,11 @@ selected by file name in the Makefile, so the layout can grow without editing it
   line, the buzzer patterns, the button and touch actions, the `log` dump over UART
   and the relay state at reset. The open steps are listed in
   [`docs/test-report.md`](docs/test-report.md).
+- **A gas channel that becomes faulty stays excluded until the next power-on.** The fault
+  is written to the event log (`CHANNEL`), but there is no automatic recovery. Whether a
+  channel may come back is a decision for the author.
+- **No display, no stop**: the boot goes on without the LCD and logs a `DISPLAY` event.
+  A failed boot arms the watchdog, so the board resets and tries again.
 - **Temperature compensation is off**: the temperature input (A3) is not read yet,
   so the coefficient is zero.
 - **Relay pull-down at reset** (FMEA F21) is proposed in docs/02, not yet fitted.

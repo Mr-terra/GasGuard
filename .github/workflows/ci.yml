@@ -26,7 +26,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential gcc-avr avr-libc binutils-avr \
             cppcheck clang-tidy gcovr python3-pip
-          sudo python3 -m pip install lizard
+          sudo python3 -m pip install lizard==1.24.3
 
       - name: Show tool versions
         run: |
