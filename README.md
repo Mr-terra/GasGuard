@@ -406,9 +406,11 @@ selected by file name in the Makefile, so the layout can grow without editing it
   line, the buzzer patterns, the button and touch actions, the `log` dump over UART
   and the relay state at reset. The open steps are listed in
   [`docs/test-report.md`](docs/test-report.md).
-- **A gas channel that becomes faulty stays excluded until the next power-on.** The fault
-  is written to the event log (`CHANNEL`), but there is no automatic recovery. Whether a
-  channel may come back is a decision for the author.
+- **A faulty gas channel is excluded from the detection.** It is written to the event log
+  (`CHANNEL`). It comes back into service (`RECOVERED`) after 60 s of valid readings
+  (open or short circuit), or as soon as a frozen value moves again. Both rules are
+  proposed: REQ-SAF-002 and REQ-SAF-003 do not state the recovery, so the author has to
+  confirm them.
 - **No display, no stop**: the boot goes on without the LCD and logs a `DISPLAY` event.
   A failed boot arms the watchdog, so the board resets and tries again.
 - **Temperature compensation is off**: the temperature input (A3) is not read yet,
