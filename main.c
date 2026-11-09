@@ -7,13 +7,16 @@
  *
  * Boot order matters for fail-safety (F21): the GPIO driver sets the relay low
  * before anything else. Then the reset cause, the configuration and the
- * detector are started (firmware_boot), and the watchdog is enabled.
+ * detector are started (firmware_boot), the stack is painted (REQ-SAF-009), and
+ * the watchdog is enabled.
  *
- * Each pass of the loop is one scheduler cycle. Every task is either run (when
- * due) or reported as serviced; the watchdog is kicked only when all of them
- * were serviced (REQ-SAF-005).
+ * Each pass of the loop is one scheduler cycle. The tasks run in the order of
+ * their identifiers; each is run when due and reported as serviced. The cycle
+ * reports overruns to the firmware, and the watchdog is kicked only when every
+ * task was serviced and the scheduler is healthy (REQ-SAF-005, REQ-SAF-008).
  *
- * @req REQ-SAF-001 REQ-SAF-005 REQ-SAF-006 REQ-HMI-001 REQ-HMI-002
+ * @req REQ-SAF-001 REQ-SAF-005 REQ-SAF-006 REQ-SAF-008 REQ-SAF-009
+ * @req REQ-HMI-001 REQ-HMI-002 REQ-HMI-003 REQ-LOG-004
  */
 #include <stdbool.h>
 #include <stddef.h>
@@ -21,44 +24,59 @@
 
 #include <avr/interrupt.h>
 
+#include "app/cli/cli.h"
 #include "app/firmware/firmware.h"
+#include "app/hmi/hmi.h"
 #include "common/gg_types/gg_types.h"
 #include "drivers/lcd_rgb/lcd_rgb.h"
 #include "hal/gpio/gpio.h"
 #include "hal/i2c/i2c.h"
 #include "hal/reset_cause/reset_cause.h"
+#include "hal/stack/stack.h"
 #include "hal/timer/timer.h"
 #include "hal/uart/uart.h"
 #include "hal/wdt/wdt.h"
 #include "services/scheduler/scheduler.h"
 
-/** @brief Scheduler tasks. */
+/** @brief Scheduler tasks, in the order they run in each cycle. */
 #define TASK_SAMPLE  0u
-#define TASK_OUTPUT  1u
-#define TASK_DISPLAY 2u
-#define TASK_COUNT   3u
+#define TASK_HMI     1u
+#define TASK_OUTPUT  2u
+#define TASK_DISPLAY 3u
+#define TASK_HEALTH  4u
+#define TASK_CLI     5u
+#define TASK_COUNT   6u
 
-/** @brief Periods of the tasks, in milliseconds. */
+/** @brief Periods of the tasks, in milliseconds, in the order of the task identifiers. */
 #define PERIOD_SAMPLE_MS  100u
+#define PERIOD_HMI_MS     50u
 #define PERIOD_OUTPUT_MS  100u
 #define PERIOD_DISPLAY_MS 500u
+#define PERIOD_HEALTH_MS  1000u
+#define PERIOD_CLI_MS     10u
 
-/** @brief Backlight colours per state (REQ-HMI-002), in 0..255 levels. */
+/** @brief Backlight levels per state (REQ-HMI-002), in 0..255 levels. */
 #define LEVEL_OFF   0x00u
 #define LEVEL_FULL  0xFFu
 #define LEVEL_HALF  0x80u
 
-/** @brief Number of rows and characters of the display. */
+/** @brief Rows of the state text and of the concentration, and the period of the amber blink of FAULT. */
 #define DISPLAY_ROW_STATE 0u
+#define DISPLAY_ROW_CONC  1u
+#define DISPLAY_BLINK_MS  500u
+
+/** @brief Bytes read from the UART per cycle: the command line never blocks the loop. */
+#define CLI_BYTES_PER_CYCLE 8u
 
 /** @brief Scheduler periods, in the order of the task identifiers. */
 static const uint32_t k_periods[TASK_COUNT] = {
-    PERIOD_SAMPLE_MS, PERIOD_OUTPUT_MS, PERIOD_DISPLAY_MS
+    PERIOD_SAMPLE_MS, PERIOD_HMI_MS, PERIOD_OUTPUT_MS, PERIOD_DISPLAY_MS, PERIOD_HEALTH_MS, PERIOD_CLI_MS
 };
 
-/** @brief Firmware state and scheduler, one instance each for the whole program. */
+/** @brief Firmware state, scheduler and command line: one instance each for the whole program. */
 static firmware_t fw;
 static scheduler_t sched;
+static cli_t cli;
 
 /**
  * @brief Busy-wait until at least @p ms milliseconds have passed.
@@ -76,7 +94,7 @@ static void wait_ms(uint32_t ms)
 }
 
 /**
- * @brief Text shown on the first row for a detector state.
+ * @brief Text shown on the first row for a detector state (REQ-HMI-001).
  * @param state  Detector state.
  * @return A zero-terminated text.
  */
@@ -100,6 +118,9 @@ static const char *state_text(detector_state_t state)
         case DET_STATE_FAULT:
             text = "FAULT";
             break;
+        case DET_STATE_MAINTENANCE:
+            text = "MAINT";
+            break;
         default:
             text = "FAULT";
             break;
@@ -110,7 +131,7 @@ static const char *state_text(detector_state_t state)
 /**
  * @brief Backlight colour for a detector state (REQ-HMI-002).
  *
- * NORMAL green, WARMUP and ALARM_1 yellow, ALARM_2 red, FAULT amber.
+ * NORMAL green; WARMUP, ALARM_1 and MAINTENANCE yellow; ALARM_2 red; FAULT amber.
  * @param state  Detector state.
  * @param red    Receives the red level.
  * @param green  Receives the green level.
@@ -128,6 +149,7 @@ static void state_colour(detector_state_t state, uint8_t *red, uint8_t *green, u
             break;
         case DET_STATE_WARMUP:
         case DET_STATE_ALARM_1:
+        case DET_STATE_MAINTENANCE:
             *green = LEVEL_FULL;
             break;
         case DET_STATE_ALARM_2:
@@ -143,17 +165,75 @@ static void state_colour(detector_state_t state, uint8_t *red, uint8_t *green, u
 
 /**
  * @brief Refresh the display with the current state (REQ-HMI-001, REQ-HMI-002).
+ *
+ * The display is not safety-critical: a failed write does not stop the watchdog,
+ * so its error is not returned (the relay and the buzzer do not depend on it).
+ *
+ * @param now_ms  Current time, for the blink of FAULT.
  */
-static void task_display(void)
+static gg_status_t task_display(uint32_t now_ms)
 {
     detector_state_t state = firmware_state(&fw);
     uint8_t red = 0u;
     uint8_t green = 0u;
     uint8_t blue = 0u;
+    bool blink_off = (state == DET_STATE_FAULT) && (((now_ms / DISPLAY_BLINK_MS) % 2u) == 1u);
+    char conc_text[HMI_LEL_TEXT_MAX];
 
-    (void)lcd_rgb_write_line(DISPLAY_ROW_STATE, state_text(state));
+    (void)lcd_rgb_write_line(DISPLAY_ROW_STATE, firmware_test_running(&fw) ? "TEST" : state_text(state));
+    if (hmi_format_lel(firmware_concentration(&fw), conc_text, HMI_LEL_TEXT_MAX) == GG_OK) {
+        (void)lcd_rgb_write_line(DISPLAY_ROW_CONC, conc_text);
+    }
     state_colour(state, &red, &green, &blue);
+    if (blink_off) {
+        red = LEVEL_OFF;
+        green = LEVEL_OFF;
+    }
     (void)lcd_rgb_set_colour(red, green, blue);
+    return GG_OK;
+}
+
+/**
+ * @brief Read the operator inputs and run the HMI logic (REQ-HMI-004..008).
+ * @param now_ms  Current time.
+ * @return The first error, or GG_OK.
+ */
+static gg_status_t task_hmi(uint32_t now_ms)
+{
+    bool button_high = false;
+    bool touch_high = false;
+    gg_status_t status = hal_gpio_read(HAL_GPIO_PIN_BUTTON, &button_high);
+
+    if (status == GG_OK) {
+        status = hal_gpio_read(HAL_GPIO_PIN_TOUCH, &touch_high);
+    }
+    if (status == GG_OK) {
+        status = firmware_inputs(&fw, now_ms, button_high, touch_high);
+    }
+    return status;
+}
+
+/**
+ * @brief Read the command line from the UART, without blocking (REQ-LOG-004).
+ *
+ * An error of a command does not stop the watchdog: only the safety tasks do.
+ * @return GG_OK.
+ */
+static gg_status_t task_cli(void)
+{
+    uint8_t byte = 0u;
+    uint8_t n;
+
+    for (n = 0u; n < CLI_BYTES_PER_CYCLE; n++) {
+        if (hal_uart_read_byte(&byte) == GG_OK) {
+            (void)cli_feed(&cli, byte, hal_uart_write);
+        } else {
+            break;   /* No byte waiting: the rest waits for the next cycle. */
+        }
+    }
+    /* One step of a running dump per cycle: the transmit buffer is only 64 bytes (REQ-LOG-004). */
+    (void)cli_poll(&cli, hal_uart_write);
+    return GG_OK;
 }
 
 /**
@@ -179,7 +259,13 @@ static gg_status_t boot(void)
         status = lcd_rgb_init(wait_ms);
     }
     if (status == GG_OK) {
+        status = hal_stack_paint();
+    }
+    if (status == GG_OK) {
         status = firmware_boot(&fw, hal_reset_cause_get(), 0u);
+    }
+    if (status == GG_OK) {
+        status = cli_init(&cli);
     }
     if (status == GG_OK) {
         status = scheduler_init(&sched, TASK_COUNT, k_periods, 0u);
@@ -191,47 +277,82 @@ static gg_status_t boot(void)
 }
 
 /**
- * @brief Run every due task, then report the cycle and kick the watchdog if it is healthy.
+ * @brief Run one task body, identified by its task number.
+ * @param task    Task identifier.
+ * @param now_ms  Current time.
+ * @return The status of the task.
+ */
+static gg_status_t run_task_body(uint8_t task, uint32_t now_ms)
+{
+    gg_status_t status = GG_ERR_RANGE;
+
+    switch (task) {
+        case TASK_SAMPLE:
+            status = firmware_sample(&fw, now_ms);
+            break;
+        case TASK_HMI:
+            status = task_hmi(now_ms);
+            break;
+        case TASK_OUTPUT:
+            status = firmware_output(&fw, now_ms);
+            break;
+        case TASK_DISPLAY:
+            status = task_display(now_ms);
+            break;
+        case TASK_HEALTH:
+            status = firmware_health(&fw);
+            break;
+        case TASK_CLI:
+            status = task_cli();
+            break;
+        default:
+            status = GG_ERR_RANGE;   /* Unknown task: the cycle stops, the watchdog is not kicked. */
+            break;
+    }
+    return status;
+}
+
+/**
+ * @brief Run one task if it is due, then report it as serviced.
+ * @param task    Task identifier.
+ * @param now_ms  Current time.
+ * @return The first error, or GG_OK.
+ */
+static gg_status_t run_task(uint8_t task, uint32_t now_ms)
+{
+    bool due = false;
+    gg_status_t status = scheduler_task_due(&sched, task, now_ms, &due);
+
+    if ((status == GG_OK) && due) {
+        status = run_task_body(task, now_ms);
+    }
+    if (status == GG_OK) {
+        status = scheduler_task_done(&sched, task);
+    }
+    return status;
+}
+
+/**
+ * @brief Run every task of one cycle, report the cycle, and kick the watchdog if it is healthy.
  * @param now_ms  Current time.
  * @return The first error of the cycle, or GG_OK.
  */
 static gg_status_t cycle(uint32_t now_ms)
 {
     gg_status_t status = scheduler_begin_cycle(&sched, now_ms);
-    bool due = false;
     bool overrun = false;
     bool fault = false;
     bool kick = false;
+    uint8_t task;
 
-    if (status == GG_OK) {
-        status = scheduler_task_due(&sched, TASK_SAMPLE, now_ms, &due);
-    }
-    if ((status == GG_OK) && due) {
-        status = firmware_sample(&fw, now_ms);
-    }
-    if (status == GG_OK) {
-        status = scheduler_task_done(&sched, TASK_SAMPLE);
-    }
-    if (status == GG_OK) {
-        status = scheduler_task_due(&sched, TASK_OUTPUT, now_ms, &due);
-    }
-    if ((status == GG_OK) && due) {
-        status = firmware_output(&fw);
-    }
-    if (status == GG_OK) {
-        status = scheduler_task_done(&sched, TASK_OUTPUT);
-    }
-    if (status == GG_OK) {
-        status = scheduler_task_due(&sched, TASK_DISPLAY, now_ms, &due);
-    }
-    if ((status == GG_OK) && due) {
-        task_display();
-    }
-    if (status == GG_OK) {
-        status = scheduler_task_done(&sched, TASK_DISPLAY);
+    for (task = 0u; (status == GG_OK) && (task < TASK_COUNT); task++) {
+        status = run_task(task, now_ms);
     }
     if (status == GG_OK) {
         status = scheduler_end_cycle(&sched, now_ms, &overrun, &fault);
+    }
+    if (status == GG_OK) {
+        status = firmware_report_timing(&fw, overrun, fault, now_ms);
     }
     if (status == GG_OK) {
         status = scheduler_watchdog_ok(&sched, &kick);

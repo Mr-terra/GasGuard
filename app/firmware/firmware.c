@@ -11,10 +11,17 @@
  * at the rails is never used. Valid channels go through the moving average and
  * the calibration; the maximum of the valid channels is the detector input
  * (REQ-FUN-005). No valid channel is a fault. Every change of mode and every new
- * fault is written to the event log. The output step drives the relay from the
- * detector and the buzzer from the state.
+ * fault is written to the event log.
  *
- * @req REQ-SAF-006 REQ-SAF-007 REQ-ALM-001 REQ-SAF-001
+ * The operator inputs are debounced and classified in firmware_inputs(). The
+ * requests they make (ALARM_2 reset, maintenance) reach the detector at the next
+ * sample, so the detector stays the only place that changes the state. The
+ * output step drives the relay from the detector, and the buzzer from the
+ * state and the silence; the functional test can only release the relay, never
+ * energise it, so a real alarm is never hidden by a test.
+ *
+ * @req REQ-SAF-006 REQ-SAF-007 REQ-SAF-008 REQ-SAF-009 REQ-ALM-001 REQ-SAF-001
+ * @req REQ-HMI-004 REQ-HMI-005 REQ-HMI-006 REQ-HMI-007 REQ-HMI-008 REQ-HMI-009 REQ-HMI-010
  */
 #include <stdbool.h>
 #include <stddef.h>
@@ -22,10 +29,13 @@
 
 #include "app/channel_select/channel_select.h"
 #include "app/firmware/firmware.h"
+#include "app/hmi/hmi.h"
 #include "common/gg_types/gg_types.h"
 #include "drivers/buzzer/buzzer.h"
+#include "drivers/button/button.h"
 #include "drivers/relay/relay.h"
 #include "hal/adc/adc.h"
+#include "hal/stack/stack.h"
 #include "services/config/config.h"
 #include "services/eventlog/eventlog.h"
 
@@ -33,6 +43,12 @@
 #define FIRMWARE_ZERO_RAW 0u
 #define FIRMWARE_TEMP_REF_RAW 0u
 #define FIRMWARE_TEMP_COEF_Q8 0
+
+/** @brief Result of one reading of the gas channels. */
+typedef struct {
+    gg_conc_t max_conc;  /**< Maximum concentration of the valid channels. */
+    bool any_valid;      /**< True when at least one channel is valid. */
+} firmware_gas_t;
 
 /**
  * @brief Read, check and convert one gas channel.
@@ -78,7 +94,7 @@ static void sample_channel(firmware_t *fw, uint8_t ch, gg_conc_t *conc, bool *va
 }
 
 /**
- * @brief Log the reset cause, then load the configuration and log it if the defaults are used.
+ * @brief Log the reset cause, then load the configuration and log it unless copy A was used.
  * @param cfg    Receives the configuration.
  * @param cause  Reset cause.
  * @param now_ms Current time.
@@ -94,7 +110,8 @@ static gg_status_t boot_load_config(config_t *cfg, hal_reset_cause_t cause, uint
     if (status == GG_OK) {
         status = config_load(cfg, &source);
     }
-    if ((status == GG_OK) && (source == CONFIG_SRC_DEFAULTS)) {
+    /* Logged whenever the primary copy was not the one used: copy B or the defaults (SC-11, SC-12). */
+    if ((status == GG_OK) && (source != CONFIG_SRC_COPY_A)) {
         eventlog_entry_t config_event = { now_ms / FIRMWARE_MS_PER_S, EVENTLOG_CONFIG, (uint16_t)source };
 
         status = eventlog_append(&config_event);
@@ -151,11 +168,36 @@ static gg_status_t boot_init_channels(firmware_t *fw)
     return status;
 }
 
-/** @brief Result of one reading of the gas channels. */
-typedef struct {
-    gg_conc_t max_conc;  /**< Maximum concentration of the valid channels. */
-    bool any_valid;      /**< True when at least one channel is valid. */
-} firmware_gas_t;
+/**
+ * @brief Initialise the operator inputs: debounce, press tracking, silence, pending requests.
+ * @param fw  Firmware state.
+ * @return The first error, or GG_OK.
+ */
+static gg_status_t boot_init_inputs(firmware_t *fw)
+{
+    gg_status_t status = button_init(&fw->button_db);
+
+    if (status == GG_OK) {
+        status = button_init(&fw->touch_db);
+    }
+    if (status == GG_OK) {
+        status = hmi_press_init(&fw->button_press);
+    }
+    if (status == GG_OK) {
+        status = hmi_press_init(&fw->touch_press);
+    }
+    if (status == GG_OK) {
+        status = hmi_silence_init(&fw->silence);
+    }
+    fw->reset_pending = false;
+    fw->maint_pending = false;
+    fw->maint_start_ms = 0u;
+    fw->test_running = false;
+    fw->test_start_ms = 0u;
+    fw->pending_fault = DET_FAULT_NONE;
+    fw->last_conc = 0;
+    return status;
+}
 
 /**
  * @brief Read the gas channels and select the maximum of the valid ones.
@@ -176,6 +218,32 @@ static gg_status_t sample_gas(firmware_t *fw, firmware_gas_t *gas)
 }
 
 /**
+ * @brief Fill the detector input of one sample, and clear the requests it carries.
+ *
+ * A maintenance request and a system fault are given once; the next sample starts
+ * without them. A reset request is given once too.
+ *
+ * @param fw      Firmware state.
+ * @param now_ms  Current time.
+ * @param gas     Selection of this sample.
+ * @param in      Receives the input.
+ */
+static void sample_fill_input(firmware_t *fw, uint32_t now_ms, const firmware_gas_t *gas, detector_input_t *in)
+{
+    bool maint_time_over = (now_ms - fw->maint_start_ms) >= FIRMWARE_MAINT_MAX_MS;
+
+    in->conc = gas->max_conc;
+    in->fault = !gas->any_valid;
+    in->reset_requested = fw->reset_pending;
+    in->maint_requested = fw->maint_pending;
+    in->maint_expired = (firmware_state(fw) == DET_STATE_MAINTENANCE) && maint_time_over;
+    in->system_fault = fw->pending_fault;
+    fw->reset_pending = false;
+    fw->maint_pending = false;
+    fw->pending_fault = DET_FAULT_NONE;
+}
+
+/**
  * @brief Run the detector on one sample and log a change of mode.
  * @param fw      Firmware state.
  * @param now_ms  Current time.
@@ -193,9 +261,7 @@ static gg_status_t sample_detector_step(firmware_t *fw, uint32_t now_ms, const f
         status = detector_end_warmup(&fw->det);
     }
     if (status == GG_OK) {
-        input.conc = gas->max_conc;
-        input.fault = !gas->any_valid;
-        input.reset_requested = false;
+        sample_fill_input(fw, now_ms, gas, &input);
         status = detector_step(&fw->det, &input);
     }
     if (status == GG_OK) {
@@ -231,6 +297,100 @@ static gg_status_t sample_report_fault(firmware_t *fw, uint32_t now_ms)
 }
 
 /**
+ * @brief Act on a push-button event: acknowledge, reset request or functional test.
+ *
+ * A short press silences an alarm (REQ-HMI-004). A long press in ALARM_2 asks for
+ * the latch reset (REQ-HMI-005); in NORMAL it starts the functional test (REQ-HMI-006).
+ * Other states ignore a long press.
+ *
+ * @param fw      Firmware state.
+ * @param event   Event of the push button.
+ * @param now_ms  Current time.
+ * @return GG_OK or the error of the silence.
+ */
+static gg_status_t act_button(hmi_press_event_t event, firmware_t *fw, uint32_t now_ms)
+{
+    detector_state_t state = firmware_state(fw);
+    gg_status_t status = GG_OK;
+
+    if (event == HMI_PRESS_SHORT) {
+        status = hmi_acknowledge(state, &fw->silence, now_ms);
+    } else if (event == HMI_PRESS_LONG) {
+        if (state == DET_STATE_ALARM_2) {
+            fw->reset_pending = true;
+        } else if (state == DET_STATE_NORMAL) {
+            fw->test_running = true;
+            fw->test_start_ms = now_ms;
+        } else {
+            /* No long-press action in the other states. */
+        }
+    } else {
+        /* No event: nothing to do. */
+    }
+    return status;
+}
+
+/**
+ * @brief A touch of 3 s in NORMAL asks for MAINTENANCE (REQ-HMI-008).
+ * @param fw      Firmware state.
+ * @param event   Event of the touch sensor.
+ * @param now_ms  Current time.
+ */
+static void act_touch(hmi_press_event_t event, firmware_t *fw, uint32_t now_ms)
+{
+    if ((event == HMI_PRESS_LONG) && (firmware_state(fw) == DET_STATE_NORMAL)) {
+        fw->maint_pending = true;
+        fw->maint_start_ms = now_ms;
+    }
+}
+
+/**
+ * @brief End the functional test when its time is over (REQ-HMI-006).
+ * @param fw      Firmware state.
+ * @param now_ms  Current time.
+ */
+static void expire_test(firmware_t *fw, uint32_t now_ms)
+{
+    if (fw->test_running && ((now_ms - fw->test_start_ms) >= HMI_TEST_TOTAL_MS)) {
+        fw->test_running = false;
+    }
+}
+
+/** @brief Output levels for one instant. */
+typedef struct {
+    bool relay;    /**< Relay coil level: true = energised. */
+    bool buzzer;   /**< Buzzer level: true = sounding. */
+} firmware_levels_t;
+
+/**
+ * @brief Relay and buzzer levels for this instant (REQ-SAF-001, REQ-HMI-003, REQ-HMI-006).
+ *
+ * The detector decides first. The buzzer adds the test beep while the test runs.
+ * The test can only release the relay, never energise it.
+ *
+ * @param fw      Firmware state.
+ * @param now_ms  Current time.
+ * @param levels  Receives the levels.
+ * @return GG_OK, or the detector error.
+ */
+static gg_status_t output_levels(const firmware_t *fw, uint32_t now_ms, firmware_levels_t *levels)
+{
+    gg_status_t status = detector_relay_energised(&fw->det, &levels->relay);
+    hmi_test_out_t test;
+    bool running = false;
+
+    if (status == GG_OK) {
+        status = hmi_buzzer_on(firmware_state(fw), &fw->silence, now_ms, &levels->buzzer);
+    }
+    if ((status == GG_OK) && fw->test_running) {
+        status = hmi_test_outputs(now_ms - fw->test_start_ms, &test, &running);
+        levels->relay = levels->relay && test.relay_energised;
+        levels->buzzer = levels->buzzer || test.buzzer;
+    }
+    return status;
+}
+
+/**
  * @brief Boot: log the reset cause, load the configuration, start the detector.
  *
  * The full contract is in the header.
@@ -251,6 +411,9 @@ gg_status_t firmware_boot(firmware_t *fw, hal_reset_cause_t cause, uint32_t now_
         }
         if (status == GG_OK) {
             status = boot_init_channels(fw);
+        }
+        if (status == GG_OK) {
+            status = boot_init_inputs(fw);
         }
         if (status == GG_OK) {
             status = relay_init();
@@ -279,6 +442,7 @@ gg_status_t firmware_sample(firmware_t *fw, uint32_t now_ms)
 
         status = sample_gas(fw, &gas);
         if (status == GG_OK) {
+            fw->last_conc = gas.max_conc;
             status = sample_detector_step(fw, now_ms, &gas);
         }
         if (status == GG_OK) {
@@ -289,38 +453,124 @@ gg_status_t firmware_sample(firmware_t *fw, uint32_t now_ms)
 }
 
 /**
- * @brief Drive the outputs from the detector state.
- *
- * The full contract is in the header.
- * @req REQ-SAF-001 REQ-HMI-003
+ * @brief Debounce both inputs and run their press tracking.
+ * @param fw          Firmware state.
+ * @param now_ms      Current time.
+ * @param button_raw  Raw button level, true when high (active low).
+ * @param touch_raw   Raw touch level, true when touched.
+ * @return The first error, or GG_OK.
  */
-gg_status_t firmware_output(const firmware_t *fw)
+static gg_status_t inputs_update(firmware_t *fw, uint32_t now_ms, bool button_raw, bool touch_raw)
+{
+    bool button_pressed = false;
+    bool touch_pressed = false;
+    hmi_press_event_t button_event = HMI_PRESS_NONE;
+    hmi_press_event_t touch_event = HMI_PRESS_NONE;
+    gg_status_t status = button_step(&fw->button_db, !button_raw, now_ms, &button_pressed);
+
+    if (status == GG_OK) {
+        status = button_step(&fw->touch_db, touch_raw, now_ms, &touch_pressed);
+    }
+    if (status == GG_OK) {
+        status = hmi_press_step(&fw->button_press, button_pressed, now_ms, &button_event);
+    }
+    if (status == GG_OK) {
+        status = hmi_press_step(&fw->touch_press, touch_pressed, now_ms, &touch_event);
+    }
+    if (status == GG_OK) {
+        status = act_button(button_event, fw, now_ms);
+    }
+    if (status == GG_OK) {
+        act_touch(touch_event, fw, now_ms);
+        expire_test(fw, now_ms);
+    }
+    return status;
+}
+
+/**
+ * @brief Operator inputs. The full contract is in the header.
+ * @req REQ-HMI-004 REQ-HMI-005 REQ-HMI-006 REQ-HMI-007 REQ-HMI-008
+ */
+gg_status_t firmware_inputs(firmware_t *fw, uint32_t now_ms, bool button_raw, bool touch_raw)
 {
     gg_status_t status = GG_OK;
-    bool energised = false;
 
     if (fw == NULL) {
         status = GG_ERR_NULL;
     } else {
-        status = detector_relay_energised(&fw->det, &energised);
+        status = inputs_update(fw, now_ms, button_raw, touch_raw);
+    }
+    return status;
+}
+
+/**
+ * @brief Drive the outputs from the detector state. The full contract is in the header.
+ * @req REQ-SAF-001 REQ-HMI-003 REQ-HMI-006
+ */
+gg_status_t firmware_output(const firmware_t *fw, uint32_t now_ms)
+{
+    gg_status_t status = GG_OK;
+    firmware_levels_t levels;
+
+    if (fw == NULL) {
+        status = GG_ERR_NULL;
+    } else {
+        status = output_levels(fw, now_ms, &levels);
         if (status == GG_OK) {
-            status = relay_set(energised);
+            status = relay_set(levels.relay);
         }
         if (status == GG_OK) {
-            detector_state_t state = firmware_state(fw);
-            bool sound = (state == DET_STATE_ALARM_1) || (state == DET_STATE_ALARM_2) ||
-                         (state == DET_STATE_FAULT);
-
-            status = buzzer_set(sound);
+            status = buzzer_set(levels.buzzer);
         }
     }
     return status;
 }
 
 /**
- * @brief Current detector state.
- *
- * The full contract is in the header.
+ * @brief Stack watermark check. The full contract is in the header.
+ * @req REQ-SAF-009
+ */
+gg_status_t firmware_health(firmware_t *fw)
+{
+    gg_status_t status = GG_OK;
+    uint16_t free_bytes = 0u;
+
+    if (fw == NULL) {
+        status = GG_ERR_NULL;
+    } else {
+        status = hal_stack_free_bytes(&free_bytes);
+        if ((status == GG_OK) && (free_bytes < FIRMWARE_STACK_MIN_FREE)) {
+            fw->pending_fault = DET_FAULT_STACK;
+        }
+    }
+    return status;
+}
+
+/**
+ * @brief Scheduler cycle report. The full contract is in the header.
+ * @req REQ-SAF-008
+ */
+gg_status_t firmware_report_timing(firmware_t *fw, bool overrun, bool fault, uint32_t now_ms)
+{
+    gg_status_t status = GG_OK;
+
+    if (fw == NULL) {
+        status = GG_ERR_NULL;
+    } else {
+        if (overrun) {
+            eventlog_entry_t event = { now_ms / FIRMWARE_MS_PER_S, EVENTLOG_OVERRUN, 0u };
+
+            status = eventlog_append(&event);
+        }
+        if ((status == GG_OK) && fault) {
+            fw->pending_fault = DET_FAULT_TIMING;
+        }
+    }
+    return status;
+}
+
+/**
+ * @brief Current detector state. The full contract is in the header.
  * @req REQ-ALM-001
  */
 detector_state_t firmware_state(const firmware_t *fw)
@@ -336,9 +586,35 @@ detector_state_t firmware_state(const firmware_t *fw)
 }
 
 /**
- * @brief Whether the relay coil should be energised now.
- *
- * The full contract is in the header.
+ * @brief Concentration of the last sample. The full contract is in the header.
+ * @req REQ-HMI-001
+ */
+gg_conc_t firmware_concentration(const firmware_t *fw)
+{
+    gg_conc_t conc = 0;
+
+    if (fw != NULL) {
+        conc = fw->last_conc;
+    }
+    return conc;
+}
+
+/**
+ * @brief Whether the functional test is running. The full contract is in the header.
+ * @req REQ-HMI-006
+ */
+bool firmware_test_running(const firmware_t *fw)
+{
+    bool running = false;
+
+    if (fw != NULL) {
+        running = fw->test_running;
+    }
+    return running;
+}
+
+/**
+ * @brief Whether the relay coil should be energised now. The full contract is in the header.
  * @req REQ-SAF-001
  */
 gg_status_t firmware_relay_energised(const firmware_t *fw, bool *energised)
