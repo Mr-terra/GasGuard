@@ -27,6 +27,9 @@
 /** @brief Consecutive out-of-range samples that make a range fault (REQ-SAF-002). */
 #define DIAG_RANGE_SAMPLES 5u
 
+/** @brief Valid samples in a row before a range fault is cleared: 60 s at 100 ms (recovery). */
+#define DIAG_RECOVER_SAMPLES 600u
+
 /** @brief Time without change that makes a channel stuck: 10 minutes (REQ-SAF-003). */
 #define DIAG_STUCK_MS 600000u
 
@@ -55,12 +58,13 @@
  */
 typedef struct {
     uint8_t range_count;        /**< Consecutive out-of-range samples. */
-    bool range_fault;           /**< Latched open/short fault. */
+    uint16_t range_ok_count;     /**< Consecutive valid samples while the range fault is set (recovery). */
+    bool range_fault;           /**< Open/short fault: set after DIAG_RANGE_SAMPLES, cleared after DIAG_RECOVER_SAMPLES valid samples. */
     uint16_t window_min;        /**< Lowest raw value since the window started. */
     uint16_t window_max;        /**< Highest raw value since the window started. */
     uint32_t window_start_ms;   /**< Time the current stuck window started. */
     bool window_started;        /**< False until the first stuck-check sample. */
-    bool stuck_fault;           /**< Latched stuck-at fault. */
+    bool stuck_fault;           /**< Stuck-at fault: set after DIAG_STUCK_MS, cleared when the value moves again. */
 } diag_t;
 
 /**

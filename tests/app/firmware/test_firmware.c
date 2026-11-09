@@ -430,6 +430,30 @@ static void test_firmware_missing_display_is_logged(void)
     TEST_ASSERT_EQUAL_INT(EVENTLOG_DISPLAY_FAULT, entry.code);
 }
 
+/* @verifies REQ-SAF-002 */
+static void test_firmware_channel_recovery_is_logged(void)
+{
+    uint32_t i;
+    eventlog_entry_t entry;
+
+    boot_defaults();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, 0u));
+    for (i = 0u; i < 6u; i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, i * TICK_MS));
+    }
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(2u, &entry));
+    TEST_ASSERT_EQUAL_INT(EVENTLOG_CHANNEL_FAULT, entry.code);
+    /* The MQ-5 reads clean again: after 60 s of valid samples the channel is back. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, CLEAN_RAW));
+    for (i = 6u; i < (6u + DIAG_RECOVER_SAMPLES); i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, i * TICK_MS));
+    }
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(3u, &entry));
+    TEST_ASSERT_EQUAL_INT(EVENTLOG_CHANNEL_RECOVERED, entry.code);
+    TEST_ASSERT_EQUAL_UINT16(0u, entry.arg);
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -455,6 +479,7 @@ int main(void)
     RUN_TEST(test_firmware_alarm_2_buzzer_beeps_four_times_a_second_at_the_output_rate);
     RUN_TEST(test_firmware_channel_fault_is_logged_once);
     RUN_TEST(test_firmware_missing_display_is_logged);
+    RUN_TEST(test_firmware_channel_recovery_is_logged);
     RUN_TEST(test_firmware_null_arguments_are_rejected);
     return UNITY_END();
 }

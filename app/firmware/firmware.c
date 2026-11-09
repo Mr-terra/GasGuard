@@ -270,10 +270,10 @@ static void sample_fill_input(firmware_t *fw, uint32_t now_ms, const firmware_ga
 }
 
 /**
- * @brief Log each channel that became faulty since the last sample (REQ-SAF-002, REQ-SAF-003).
+ * @brief Log each change of the fault state of a channel since the last sample (REQ-SAF-002, REQ-SAF-003).
  *
- * A channel fault is latched, so it is logged once. The channel stays excluded
- * until the next power-on: the log is the only trace of it.
+ * A channel that becomes faulty is logged (CHANNEL), and one that comes back
+ * into service is logged (RECOVERED). Each change is logged once.
  *
  * @param fw      Firmware state.
  * @param now_ms  Current time.
@@ -288,9 +288,16 @@ static gg_status_t sample_report_channels(firmware_t *fw, uint32_t now_ms)
         bool faulty = false;
 
         status = diag_is_faulty(&fw->diag[ch], &faulty);
-        if ((status == GG_OK) && faulty && !fw->channel_faulty[ch]) {
-            eventlog_entry_t event = { now_ms / FIRMWARE_MS_PER_S, EVENTLOG_CHANNEL_FAULT, (uint16_t)ch };
+        if ((status == GG_OK) && (faulty != fw->channel_faulty[ch])) {
+            eventlog_code_t code = EVENTLOG_CHANNEL_RECOVERED;
+            eventlog_entry_t event;
 
+            if (faulty) {
+                code = EVENTLOG_CHANNEL_FAULT;
+            }
+            event.uptime_s = now_ms / FIRMWARE_MS_PER_S;
+            event.code = code;
+            event.arg = (uint16_t)ch;
             status = eventlog_append(&event);
         }
         if (status == GG_OK) {

@@ -20,9 +20,9 @@ void setUp(void)
 void tearDown(void) {}
 
 /* Feed n range checks of the same raw value. Timing is not involved here. */
-static void feed_range(uint16_t raw, uint8_t n)
+static void feed_range(uint16_t raw, uint16_t n)
 {
-    uint8_t i;
+    uint16_t i;
 
     for (i = 0u; i < n; i++) {
         TEST_ASSERT_EQUAL_INT(GG_OK, diag_check_range(&s_diag, raw));
@@ -161,6 +161,37 @@ static void test_diag_bandgap_rejects_null_and_out_of_range(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, diag_bandgap_ok(HAL_ADC_RAW_MAX + 1u, &ok));
 }
 
+/* @verifies REQ-SAF-002 */
+static void test_diag_open_circuit_recovers_after_sixty_seconds_of_valid_samples(void)
+{
+    feed_range(0u, DIAG_RANGE_SAMPLES);
+    TEST_ASSERT_TRUE(is_faulty());
+    feed_range(500u, DIAG_RECOVER_SAMPLES - 1u);
+    TEST_ASSERT_TRUE(is_faulty());
+    feed_range(500u, 1u);
+    TEST_ASSERT_FALSE(is_faulty());
+}
+
+/* @verifies REQ-SAF-002 */
+static void test_diag_range_recovery_restarts_when_the_fault_comes_back(void)
+{
+    feed_range(0u, DIAG_RANGE_SAMPLES);
+    feed_range(500u, DIAG_RECOVER_SAMPLES - 1u);
+    feed_range(0u, 1u);
+    feed_range(500u, DIAG_RECOVER_SAMPLES - 1u);
+    TEST_ASSERT_TRUE(is_faulty());
+}
+
+/* @verifies REQ-SAF-003 */
+static void test_diag_stuck_channel_recovers_when_the_value_moves(void)
+{
+    TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(500u, 0u, false));
+    TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(500u, DIAG_STUCK_MS, false));
+    TEST_ASSERT_TRUE(is_faulty());
+    TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(510u, DIAG_STUCK_MS + 100u, false));
+    TEST_ASSERT_FALSE(is_faulty());
+}
+
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
@@ -177,5 +208,8 @@ int main(void)
     RUN_TEST(test_diag_bandgap_within_ten_percent_is_ok);
     RUN_TEST(test_diag_bandgap_outside_ten_percent_is_fault);
     RUN_TEST(test_diag_bandgap_rejects_null_and_out_of_range);
+    RUN_TEST(test_diag_open_circuit_recovers_after_sixty_seconds_of_valid_samples);
+    RUN_TEST(test_diag_range_recovery_restarts_when_the_fault_comes_back);
+    RUN_TEST(test_diag_stuck_channel_recovers_when_the_value_moves);
     return UNITY_END();
 }

@@ -41,7 +41,7 @@
 
 /** @brief Smallest and largest event code. */
 #define EVENTLOG_CODE_MIN EVENTLOG_MODE_CHANGE
-#define EVENTLOG_CODE_MAX EVENTLOG_DISPLAY_FAULT
+#define EVENTLOG_CODE_MAX EVENTLOG_CHANNEL_RECOVERED
 
 /**
  * @brief Check that a code is one of the defined event codes.

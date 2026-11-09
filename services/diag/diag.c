@@ -36,6 +36,7 @@ gg_status_t diag_init(diag_t *diag)
         status = GG_ERR_NULL;
     } else {
         diag->range_count = 0u;
+        diag->range_ok_count = 0u;
         diag->range_fault = false;
         diag->window_min = 0u;
         diag->window_max = 0u;
@@ -64,8 +65,19 @@ gg_status_t diag_check_range(diag_t *diag, uint16_t raw)
             if (diag->range_count >= DIAG_RANGE_SAMPLES) {
                 diag->range_fault = true;
             }
+            diag->range_ok_count = 0u;
         } else {
             diag->range_count = 0u;
+            if (diag->range_fault) {
+                /* Recovery: the channel is back in service only after a long run of valid readings. */
+                if (diag->range_ok_count < DIAG_RECOVER_SAMPLES) {
+                    diag->range_ok_count++;
+                }
+                if (diag->range_ok_count >= DIAG_RECOVER_SAMPLES) {
+                    diag->range_fault = false;
+                    diag->range_ok_count = 0u;
+                }
+            }
         }
     }
     return status;
@@ -88,7 +100,9 @@ static void stuck_window_update(diag_t *diag, const diag_stuck_sample_t *sample)
     bool moved = ((int32_t)new_max - (int32_t)new_min) > (int32_t)DIAG_STUCK_LSB;
 
     if (moved) {
+        /* The value moves again: the sensor is not stuck any more (recovery). */
         stuck_window_restart(diag, sample);
+        diag->stuck_fault = false;
     } else {
         diag->window_min = new_min;
         diag->window_max = new_max;

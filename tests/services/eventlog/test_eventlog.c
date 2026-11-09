@@ -113,7 +113,7 @@ static void test_eventlog_rejects_unknown_codes_and_bad_arguments(void)
 
     TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, eventlog_test_append(0u, (eventlog_code_t)0, 0u));
     TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, eventlog_test_append(0u, (eventlog_code_t)99, 0u));
-    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, eventlog_test_append(0u, (eventlog_code_t)8, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, eventlog_test_append(0u, (eventlog_code_t)9, 0u));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, eventlog_append(NULL));
     TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, eventlog_read_slot(EVENTLOG_ENTRIES, &entry));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, eventlog_read_slot(0u, NULL));
