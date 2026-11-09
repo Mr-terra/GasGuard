@@ -72,7 +72,7 @@ static detector_state_t current_state(void)
 }
 
 /* One 100 ms sample of the whole detector. Returns the state after the sample. */
-static detector_state_t tick(uint16_t raw0, uint16_t raw1, bool reset)
+static detector_state_t sc_tick(uint16_t raw0, uint16_t raw1, bool reset)
 {
     uint16_t raw[SC_CHANNELS] = {raw0, raw1};
     gg_conc_t conc[SC_CHANNELS] = {0, 0};
@@ -93,6 +93,9 @@ static detector_state_t tick(uint16_t raw0, uint16_t raw1, bool reset)
     in.conc = max;
     in.fault = !any;
     in.reset_requested = reset;
+    in.maint_requested = false;
+    in.maint_expired = false;
+    in.system_fault = DET_FAULT_NONE;
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&sc_det, &in));
 
     sc_now_ms += SC_SAMPLE_MS;
@@ -106,7 +109,7 @@ static detector_state_t run(uint16_t raw0, uint16_t raw1, uint32_t n)
     uint32_t i;
 
     for (i = 0u; i < n; i++) {
-        state = tick(raw0, raw1, false);
+        state = sc_tick(raw0, raw1, false);
     }
     return state;
 }
@@ -162,7 +165,7 @@ static void test_sc02_gas_ramp_enters_alarm_1_then_alarm_2(void)
     for (i = 0u; i < 60u; i++) {
         uint16_t raw = (uint16_t)(SC_ZERO_RAW + ((i < 30u) ? i : 30u));
 
-        state = tick(raw, raw, false);
+        state = sc_tick(raw, raw, false);
         if ((state == DET_STATE_ALARM_1) && (first_alarm_1 == 0u)) {
             first_alarm_1 = i + 1u;
         }
@@ -179,7 +182,7 @@ static void test_sc02_gas_ramp_enters_alarm_1_then_alarm_2(void)
 static void test_sc03_single_spike_does_not_alarm(void)
 {
     boot_to_normal();
-    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, tick(SC_ZERO_RAW + 50u, SC_ZERO_RAW + 50u, false));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, sc_tick(SC_ZERO_RAW + 50u, SC_ZERO_RAW + 50u, false));
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, run(SC_ZERO_RAW, SC_ZERO_RAW, 20u));
 }
 
@@ -201,7 +204,7 @@ static void test_sc04_oscillation_does_not_chatter(void)
             raw = SC_OSC_LOW_RAW;
         }
 
-        state = tick(raw, raw, false);
+        state = sc_tick(raw, raw, false);
         if ((state == DET_STATE_ALARM_1) && (previous != DET_STATE_ALARM_1)) {
             entries++;
         }
@@ -227,7 +230,7 @@ static void test_sc06_long_press_resets_alarm_2_when_gas_gone(void)
     boot_to_normal();
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, run(SC_ZERO_RAW + 30u, SC_ZERO_RAW + 30u, 20u));
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, run(SC_ZERO_RAW, SC_ZERO_RAW, 20u));
-    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, tick(SC_ZERO_RAW, SC_ZERO_RAW, true));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, sc_tick(SC_ZERO_RAW, SC_ZERO_RAW, true));
 }
 
 /* SC-07: ALARM_2, gas still present, long press: ALARM_2 stays. */
@@ -237,7 +240,7 @@ static void test_sc07_long_press_refused_while_gas_present(void)
     boot_to_normal();
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, run(SC_ZERO_RAW + 30u, SC_ZERO_RAW + 30u, 20u));
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2,
-                          tick(SC_ZERO_RAW + 30u, SC_ZERO_RAW + 30u, true));
+                          sc_tick(SC_ZERO_RAW + 30u, SC_ZERO_RAW + 30u, true));
 }
 
 /* SC-08: MQ5 unplugged (raw 0). Its channel is faulty, MQ2 still reads, no FAULT. */
@@ -281,7 +284,7 @@ static void test_sc10_stuck_sensor_is_channel_fault(void)
     /* Channel 1 keeps moving by 2 LSB, so it is not stuck. Channel 0 is frozen. */
     state = DET_STATE_NORMAL;
     for (i = 0u; i < 6100u; i++) {
-        state = tick(SC_ZERO_RAW, ((i % 2u) == 0u) ? SC_ZERO_RAW : SC_JITTER_RAW, false);
+        state = sc_tick(SC_ZERO_RAW, ((i % 2u) == 0u) ? SC_ZERO_RAW : SC_JITTER_RAW, false);
     }
     TEST_ASSERT_TRUE(state != DET_STATE_FAULT);
     TEST_ASSERT_EQUAL_INT(GG_OK, diag_is_faulty(&sc_channels[0].diag, &faulty));
@@ -298,7 +301,7 @@ static void test_sc13_gas_during_warmup_raises_no_alarm(void)
     detector_state_t state;
 
     for (i = 0u; i < 500u; i++) {
-        state = tick(SC_ZERO_RAW + 150u, SC_ZERO_RAW + 150u, false);
+        state = sc_tick(SC_ZERO_RAW + 150u, SC_ZERO_RAW + 150u, false);
         TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, state);
     }
 }

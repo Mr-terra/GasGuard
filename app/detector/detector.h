@@ -7,7 +7,8 @@
  * hardware dependency: this file includes no AVR header (R20).
  *
  * @req REQ-ALM-001 REQ-ALM-002 REQ-ALM-003 REQ-ALM-004 REQ-ALM-005 REQ-ALM-006
- * @req REQ-SAF-001 REQ-SAF-007 REQ-FUN-005
+ * @req REQ-SAF-001 REQ-SAF-007 REQ-FUN-005 REQ-HMI-008 REQ-HMI-009 REQ-HMI-010
+ * @req REQ-SAF-008 REQ-SAF-009
  */
 #ifndef DETECTOR_H
 // DEV-02: include guard, not an unused macro
@@ -43,7 +44,8 @@ typedef enum {
     DET_STATE_NORMAL,      /**< Healthy, no alarm. Relay energised (REQ-SAF-001). */
     DET_STATE_ALARM_1,     /**< First-level alarm, clears automatically (REQ-ALM-003). */
     DET_STATE_ALARM_2,     /**< Second-level alarm, latched until operator reset (REQ-ALM-004). */
-    DET_STATE_FAULT        /**< Latched fault. Relay de-energised (REQ-SAF-007). */
+    DET_STATE_FAULT,       /**< Latched fault. Relay de-energised (REQ-SAF-007). */
+    DET_STATE_MAINTENANCE  /**< Operator inhibition, 10 min at most. Relay held, alarms not output (REQ-HMI-008..010). */
 } detector_state_t;
 
 /** @brief Alarm thresholds, in 0.1 %LEL. Validated by detector_init(). */
@@ -57,7 +59,9 @@ typedef struct {
 typedef enum {
     DET_FAULT_NONE = 0,     /**< No fault latched. */
     DET_FAULT_INPUT,        /**< Sensors faulty: all channels, or the ADC (REQ-SAF-007). */
-    DET_FAULT_INTERNAL      /**< Impossible internal state (coding standard: default -> diag_raise). */
+    DET_FAULT_INTERNAL,     /**< Impossible internal state (coding standard: default -> diag_raise). */
+    DET_FAULT_TIMING,       /**< Three consecutive task overruns (REQ-SAF-008). */
+    DET_FAULT_STACK         /**< Stack watermark below its limit (REQ-SAF-009). */
 } detector_fault_code_t;
 
 /** @brief One sample for the state machine. */
@@ -65,6 +69,9 @@ typedef struct {
     gg_conc_t conc;         /**< Maximum concentration of the valid channels (REQ-FUN-005). */
     bool fault;             /**< True if all channels are faulty or the ADC is faulty (REQ-SAF-007). */
     bool reset_requested;   /**< True if the operator long-pressed to reset ALARM_2 (REQ-HMI-005). */
+    bool maint_requested;   /**< True on a touch of 3 s, from the HMI (REQ-HMI-008). Only NORMAL acts on it. */
+    bool maint_expired;     /**< True when the 10 minutes of MAINTENANCE are over (REQ-HMI-010). */
+    detector_fault_code_t system_fault; /**< DET_FAULT_NONE, or a system fault: timing or stack (REQ-SAF-008, REQ-SAF-009). */
 } detector_input_t;
 
 /** @brief State of the detector. Owned by the caller. */
@@ -85,7 +92,7 @@ typedef struct {
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE if the ordering or the limits are broken.
  * @req REQ-ALM-005
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
+// DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage
 // cppcheck-suppress misra-c2012-8.7
 gg_status_t detector_thresholds_check(const detector_thresholds_t *thresholds);
 
@@ -97,8 +104,6 @@ gg_status_t detector_thresholds_check(const detector_thresholds_t *thresholds);
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE if the thresholds are rejected.
  * @req REQ-ALM-005 REQ-ALM-006
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t detector_init(detector_t *det, const detector_thresholds_t *thresholds);
 
 /**
@@ -108,8 +113,6 @@ gg_status_t detector_init(detector_t *det, const detector_thresholds_t *threshol
  * @return GG_OK or GG_ERR_NULL.
  * @req REQ-ALM-006
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t detector_end_warmup(detector_t *det);
 
 /**
@@ -123,8 +126,6 @@ gg_status_t detector_end_warmup(detector_t *det);
  * @return GG_OK or GG_ERR_NULL.
  * @req REQ-ALM-001 REQ-ALM-002 REQ-ALM-003 REQ-ALM-004 REQ-ALM-006 REQ-SAF-007
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t detector_step(detector_t *det, const detector_input_t *in);
 
 /**
@@ -135,8 +136,6 @@ gg_status_t detector_step(detector_t *det, const detector_input_t *in);
  * @return GG_OK or GG_ERR_NULL.
  * @req REQ-ALM-006
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t detector_state(const detector_t *det, detector_state_t *state);
 
 /**
@@ -151,8 +150,6 @@ gg_status_t detector_state(const detector_t *det, detector_state_t *state);
  * @return GG_OK or GG_ERR_NULL.
  * @req REQ-SAF-001
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t detector_relay_energised(const detector_t *det, bool *energised);
 
 /**
@@ -163,7 +160,7 @@ gg_status_t detector_relay_energised(const detector_t *det, bool *energised);
  * @return GG_OK or GG_ERR_NULL.
  * @req REQ-SAF-007
  */
-// DEV-05: service API, called by app/ and tests; cppcheck sees one caller at this stage
+// DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage
 // cppcheck-suppress misra-c2012-8.7
 gg_status_t detector_fault_code(const detector_t *det, detector_fault_code_t *code);
 
@@ -180,8 +177,6 @@ gg_status_t detector_fault_code(const detector_t *det, detector_fault_code_t *co
  * @return GG_OK or GG_ERR_NULL.
  * @req REQ-SAF-007
  */
-// DEV-05: app API, called by the main loop from Day 4; cppcheck sees no caller in the build yet
-// cppcheck-suppress misra-c2012-8.7
 gg_status_t detector_take_new_fault(detector_t *det, bool *out_new, detector_fault_code_t *out_code);
 
 #endif /* DETECTOR_H */

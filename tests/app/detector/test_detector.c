@@ -26,7 +26,7 @@ void tearDown(void) {}
 /* Run one sample through the detector, with no fault and no reset request. */
 static void step(gg_conc_t conc)
 {
-    detector_input_t in = {conc, false, false};
+    detector_input_t in = {conc, false, false, false, false, DET_FAULT_NONE};
 
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
 }
@@ -170,7 +170,7 @@ static void test_detector_alarm_2_is_latched_when_gas_drops(void)
 /* @verifies REQ-ALM-004 */
 static void test_detector_alarm_2_reset_refused_while_gas_present(void)
 {
-    detector_input_t reset = {DETECTOR_AL2_DEFAULT, false, true};
+    detector_input_t reset = {DETECTOR_AL2_DEFAULT, false, true, false, false, DET_FAULT_NONE};
 
     finish_warmup();
     step_n(DETECTOR_AL2_DEFAULT, 6u);
@@ -181,7 +181,7 @@ static void test_detector_alarm_2_reset_refused_while_gas_present(void)
 /* @verifies REQ-ALM-004 */
 static void test_detector_alarm_2_reset_accepted_when_gas_gone(void)
 {
-    detector_input_t reset = {0, false, true};
+    detector_input_t reset = {0, false, true, false, false, DET_FAULT_NONE};
 
     finish_warmup();
     step_n(DETECTOR_AL2_DEFAULT, 6u);
@@ -211,8 +211,8 @@ static void test_detector_relay_energised_only_in_healthy_normal_state(void)
 /* @verifies REQ-SAF-007 */
 static void test_detector_fault_latches_and_drops_relay(void)
 {
-    detector_input_t fault_in = {0, true, false};
-    detector_input_t clear_in = {0, false, false};
+    detector_input_t fault_in = {0, true, false, false, false, DET_FAULT_NONE};
+    detector_input_t clear_in = {0, false, false, false, false, DET_FAULT_NONE};
     bool energised = true;
 
     finish_warmup();
@@ -229,7 +229,7 @@ static void test_detector_fault_latches_and_drops_relay(void)
 /* @verifies REQ-SAF-007 */
 static void test_detector_fault_during_warmup_is_not_hidden(void)
 {
-    detector_input_t fault_in = {0, true, false};
+    detector_input_t fault_in = {0, true, false, false, false, DET_FAULT_NONE};
 
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &fault_in));
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
@@ -238,7 +238,7 @@ static void test_detector_fault_during_warmup_is_not_hidden(void)
 /* @verifies REQ-NFR-002 */
 static void test_detector_step_and_getters_reject_null(void)
 {
-    detector_input_t in = {0, false, false};
+    detector_input_t in = {0, false, false, false, false, DET_FAULT_NONE};
     detector_state_t state = DET_STATE_NORMAL;
     bool energised = false;
 
@@ -266,7 +266,7 @@ static void test_detector_rejects_hysteresis_not_between_zero_and_al1(void)
 /* @verifies REQ-SAF-007 */
 static void test_detector_input_fault_records_its_reason(void)
 {
-    detector_input_t fault_in = {0, true, false};
+    detector_input_t fault_in = {0, true, false, false, false, DET_FAULT_NONE};
     detector_fault_code_t code = DET_FAULT_NONE;
 
     finish_warmup();
@@ -279,7 +279,7 @@ static void test_detector_input_fault_records_its_reason(void)
 /* @verifies REQ-SAF-007 */
 static void test_detector_impossible_state_raises_internal_fault(void)
 {
-    detector_input_t in = {0, false, false};
+    detector_input_t in = {0, false, false, false, false, DET_FAULT_NONE};
     detector_fault_code_t code = DET_FAULT_NONE;
 
     det_test_state.state = (detector_state_t)99;
@@ -295,7 +295,7 @@ static void test_detector_new_fault_is_reported_once_for_the_event_log(void)
     bool is_new = false;
     detector_fault_code_t code = DET_FAULT_NONE;
 
-    detector_input_t in = {0, true, false};
+    detector_input_t in = {0, true, false, false, false, DET_FAULT_NONE};
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
 
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_take_new_fault(&det_test_state, &is_new, &code));
@@ -311,7 +311,7 @@ static void test_detector_repeated_fault_samples_are_not_reported_again(void)
 {
     bool is_new = false;
     detector_fault_code_t code = DET_FAULT_NONE;
-    detector_input_t in = {0, true, false};
+    detector_input_t in = {0, true, false, false, false, DET_FAULT_NONE};
 
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_take_new_fault(&det_test_state, &is_new, &code));
@@ -325,7 +325,7 @@ static void test_detector_impossible_state_is_reported_as_a_new_internal_fault(v
 {
     bool is_new = false;
     detector_fault_code_t code = DET_FAULT_NONE;
-    detector_input_t in = {0, false, false};
+    detector_input_t in = {0, false, false, false, false, DET_FAULT_NONE};
 
     det_test_state.state = (detector_state_t)99;
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
@@ -343,6 +343,117 @@ static void test_detector_take_new_fault_rejects_null(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_take_new_fault(NULL, &is_new, &code));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_take_new_fault(&det_test_state, NULL, &code));
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_take_new_fault(&det_test_state, &is_new, NULL));
+}
+
+/** @brief Build one sample with the maintenance and system inputs set. */
+static detector_input_t input_with(gg_conc_t conc, bool maint_req, bool maint_exp, detector_fault_code_t sys)
+{
+    detector_input_t in;
+
+    in.conc = conc;
+    in.fault = false;
+    in.reset_requested = false;
+    in.maint_requested = maint_req;
+    in.maint_expired = maint_exp;
+    in.system_fault = sys;
+    return in;
+}
+
+/* @verifies REQ-HMI-008 */
+static void test_detector_touch_in_normal_enters_maintenance(void)
+{
+    detector_input_t in = input_with(0, true, false, DET_FAULT_NONE);
+
+    finish_warmup();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, state_now());
+}
+
+/* @verifies REQ-HMI-008 */
+static void test_detector_touch_is_ignored_during_warmup_and_alarms(void)
+{
+    detector_input_t in = input_with(0, true, false, DET_FAULT_NONE);
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, state_now());
+    finish_warmup();
+    step_n(DETECTOR_AL1_DEFAULT, DETECTOR_ENTER_SAMPLES);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, state_now());
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, state_now());
+}
+
+/* @verifies REQ-HMI-009 */
+static void test_detector_maintenance_keeps_relay_and_ignores_alarms(void)
+{
+    bool energised = false;
+    detector_input_t enter = input_with(0, true, false, DET_FAULT_NONE);
+    detector_input_t high = input_with(DETECTOR_AL2_DEFAULT, false, false, DET_FAULT_NONE);
+
+    finish_warmup();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &enter));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &high));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &high));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &high));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &high));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, state_now());
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_relay_energised(&det_test_state, &energised));
+    TEST_ASSERT_TRUE(energised);
+}
+
+/* @verifies REQ-HMI-010 */
+static void test_detector_maintenance_ends_when_timer_expires(void)
+{
+    detector_input_t enter = input_with(0, true, false, DET_FAULT_NONE);
+    detector_input_t expired = input_with(0, false, true, DET_FAULT_NONE);
+
+    finish_warmup();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &enter));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &expired));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
+}
+
+/* @verifies REQ-SAF-007 */
+static void test_detector_fault_overrides_maintenance(void)
+{
+    bool energised = true;
+    detector_input_t enter = input_with(0, true, false, DET_FAULT_NONE);
+    detector_input_t broken = input_with(0, false, false, DET_FAULT_NONE);
+
+    finish_warmup();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &enter));
+    broken.fault = true;
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &broken));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_relay_energised(&det_test_state, &energised));
+    TEST_ASSERT_FALSE(energised);
+}
+
+/* @verifies REQ-SAF-008 */
+static void test_detector_timing_fault_latches_with_its_reason(void)
+{
+    detector_fault_code_t code = DET_FAULT_NONE;
+    detector_input_t in = input_with(0, false, false, DET_FAULT_TIMING);
+
+    finish_warmup();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_fault_code(&det_test_state, &code));
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_TIMING, code);
+}
+
+/* @verifies REQ-SAF-009 */
+static void test_detector_stack_fault_latches_with_its_reason(void)
+{
+    detector_fault_code_t code = DET_FAULT_NONE;
+    detector_input_t in = input_with(0, false, false, DET_FAULT_STACK);
+
+    finish_warmup();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_fault_code(&det_test_state, &code));
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_STACK, code);
 }
 
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
@@ -374,5 +485,12 @@ int main(void)
     RUN_TEST(test_detector_repeated_fault_samples_are_not_reported_again);
     RUN_TEST(test_detector_impossible_state_is_reported_as_a_new_internal_fault);
     RUN_TEST(test_detector_take_new_fault_rejects_null);
+    RUN_TEST(test_detector_touch_in_normal_enters_maintenance);
+    RUN_TEST(test_detector_touch_is_ignored_during_warmup_and_alarms);
+    RUN_TEST(test_detector_maintenance_keeps_relay_and_ignores_alarms);
+    RUN_TEST(test_detector_maintenance_ends_when_timer_expires);
+    RUN_TEST(test_detector_fault_overrides_maintenance);
+    RUN_TEST(test_detector_timing_fault_latches_with_its_reason);
+    RUN_TEST(test_detector_stack_fault_latches_with_its_reason);
     return UNITY_END();
 }

@@ -65,10 +65,24 @@ static void update_counters(detector_t *det, gg_conc_t conc)
     }
 }
 
-static void step_normal(detector_t *det)
+/* REQ-HMI-008: a touch of 3 s in NORMAL starts MAINTENANCE; an alarm level starts ALARM_1. */
+static void step_normal(detector_t *det, const detector_input_t *in)
 {
-    if (det->above_al1 >= DETECTOR_ENTER_SAMPLES) {
+    if (in->maint_requested) {
+        det->state = DET_STATE_MAINTENANCE;
+    } else if (det->above_al1 >= DETECTOR_ENTER_SAMPLES) {
         det->state = DET_STATE_ALARM_1;
+    } else {
+        /* No alarm and no request: stay in NORMAL. */
+    }
+}
+
+/* REQ-HMI-009: alarms are neither counted nor output in MAINTENANCE. REQ-HMI-010: the timer ends it. */
+static void step_maintenance(detector_t *det, const detector_input_t *in)
+{
+    if (in->maint_expired) {
+        det->state = DET_STATE_NORMAL;
+        reset_counters(det);
     }
 }
 
@@ -173,7 +187,7 @@ static void step_state(detector_t *det, const detector_input_t *in)
         case DET_STATE_WARMUP:
             break;
         case DET_STATE_NORMAL:
-            step_normal(det);
+            step_normal(det, in);
             break;
         case DET_STATE_ALARM_1:
             step_alarm_1(det);
@@ -183,6 +197,9 @@ static void step_state(detector_t *det, const detector_input_t *in)
             break;
         case DET_STATE_FAULT:
             break;                /* Handled in detector_step(); listed for -Wswitch-enum. */
+        case DET_STATE_MAINTENANCE:
+            step_maintenance(det, in);
+            break;
         default:
             /* Impossible state: fail safe. The main loop takes this fault with
              * detector_take_new_fault() and writes it to the event log. */
@@ -199,6 +216,8 @@ gg_status_t detector_step(detector_t *det, const detector_input_t *in)
         status = GG_ERR_NULL;
     } else if (in->fault) {
         diag_raise(det, DET_FAULT_INPUT);
+    } else if (in->system_fault != DET_FAULT_NONE) {
+        diag_raise(det, in->system_fault);   /* REQ-SAF-008, REQ-SAF-009: the reason is kept. */
     } else if (det->state == DET_STATE_FAULT) {
         /* Latched: only a new initialisation clears it. */
     } else {
@@ -243,7 +262,9 @@ gg_status_t detector_relay_energised(const detector_t *det, bool *energised)
     if ((det == NULL) || (energised == NULL)) {
         status = GG_ERR_NULL;
     } else {
-        *energised = (det->state == DET_STATE_WARMUP) || (det->state == DET_STATE_NORMAL);
+        /* MAINTENANCE holds the last healthy state: it is only entered from NORMAL (REQ-HMI-009). */
+        *energised = (det->state == DET_STATE_WARMUP) || (det->state == DET_STATE_NORMAL)
+                     || (det->state == DET_STATE_MAINTENANCE);
     }
     return status;
 }
