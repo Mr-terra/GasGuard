@@ -25,7 +25,6 @@ task timing, stack usage and EEPROM integrity.
 - [Hardware](#hardware)
 - [Getting started](#getting-started)
 - [Verification and quality gates](#verification-and-quality-gates)
-- [Repository layout](#repository-layout)
 - [Development workflow](#development-workflow)
 - [Roadmap](#roadmap)
 - [Known limitations](#known-limitations)
@@ -320,39 +319,6 @@ failure and task overruns.
 
 Accepted deviations from the coding standard are listed in
 [`docs/04-coding-standard.md`](docs/04-coding-standard.md#5-deviations-register).
-
-## Repository layout
-
-One folder per module, grouped by layer. Each module folder holds its header,
-its source, and (for `hal/`) its board driver and its PC fake.
-
-```
-common/
-  gg_types/        gg_types.h            status codes, 0.1 %LEL type
-hal/                                     one folder per peripheral
-  adc/             adc.h  adc_avr.c*  adc_fake.c  adc_fake.h
-  timer/  gpio/  eeprom/  uart/  i2c/  wdt/  reset_cause/   (same pattern)
-services/                                pure logic, no AVR headers
-  filter/          filter.c  filter.h    8-sample moving average     (Day 2)
-  calib/           calib.c   calib.h     raw -> %LEL, temperature   (Day 2)
-  diag/            diag.c    diag.h      open/short, stuck, bandgap (Day 2)
-  config/  eventlog/                     configuration, event log   (Day 4)
-app/                                     pure logic, no AVR headers
-  detector/        detector.c detector.h state machine, alarms      (Day 2)
-  channel_select/  channel_select.c channel_select.h max of channels (Day 2)
-drivers/                                 LCD, buzzer, relay, button  (Day 3)
-main.c                                   boot sequence and scheduler (Day 4)
-tests/                                   mirrors the layout above
-  common/  hal/<peripheral>/  services/<module>/  app/<module>/
-  scenarios/       test_scenarios.c     whole-chain scenarios
-docs/            requirements, architecture, FMEA, coding standard, verification plan
-tools/           trace.py, size_check.awk, hook guard, flash script
-.claude/         project rules and Claude Code skills
-third_party/     vendored Unity
-```
-
-`*_avr.c` is built only for the board; `*_fake.c` only for the PC. Both are
-selected by file name in the Makefile, so the layout can grow without editing it.
 
 ## Development workflow
 
