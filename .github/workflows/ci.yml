@@ -1,6 +1,5 @@
-# Continuous integration: runs `make check` (see CLAUDE.md, "Branches and CI").
-# Runs on every push to main, and on demand on other branches:
-# either from the Actions tab (workflow_dispatch) or by pushing a tag ci-*.
+# Runs `make check` on every push to main, and on demand on other branches
+# (Actions tab, or a tag `ci-*`).
 name: ci
 
 on:
@@ -14,9 +13,7 @@ permissions:
 
 jobs:
   check:
-    # Pinned to the Ubuntu release the project is validated on (WSL2 Ubuntu 22.04):
-    # cppcheck 2.7, clang-tidy 14, gcc 11, gcovr 5. Moving to a newer runner changes
-    # the analysers, so the same code can pass locally and fail in CI.
+    # Pinned: a newer runner changes the analyser versions (cppcheck, clang-tidy, gcc).
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -27,15 +24,6 @@ jobs:
           sudo apt-get install -y build-essential gcc-avr avr-libc binutils-avr \
             cppcheck clang-tidy gcovr python3-pip
           sudo python3 -m pip install lizard==1.24.3
-
-      - name: Show tool versions
-        run: |
-          gcc --version | head -1
-          avr-gcc --version | head -1
-          cppcheck --version
-          clang-tidy --version | head -2
-          gcovr --version | head -1
-          lizard --version
 
       - name: make check
         run: make check
