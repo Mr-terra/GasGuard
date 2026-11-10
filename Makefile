@@ -64,9 +64,8 @@ $(BUILD)/test/%: %.c $(LIB_SRCS) $(UNITY_SRCS)
 	@mkdir -p $(dir $@)
 	$(CC) $(HOST_CFLAGS) $^ -o $@
 
-# Static analysis gates (docs/04-coding-standard.md §6). Any finding fails the build.
-# Static gates (docs/04-coding-standard.md §6): MISRA and clang-tidy (NFR-002), no AVR header in
-# app/services (NFR-001, R20), no dynamic memory (SAF-010).
+# Static gates (docs/04-coding-standard.md §6): MISRA and clang-tidy, no AVR header in
+# app/services (R20), no dynamic memory. Any finding fails the build.
 # @req REQ-NFR-001 REQ-NFR-002 REQ-SAF-010
 # @verifies REQ-NFR-001 REQ-NFR-002 REQ-SAF-010
 lint:
@@ -80,7 +79,7 @@ lint:
 	@for h in $(HEADERS); do \
 	    printf '#include "%s"\n' "$$h" | $(CC) $(HOST_CFLAGS) -fsyntax-only -x c - || exit 1; done
 
-# Line coverage report (REQ-NFR-004). The 90 % gate is enabled on Day 2.
+# Line coverage report (REQ-NFR-004).
 # @req REQ-NFR-004
 # @verifies REQ-NFR-004
 coverage: test
@@ -122,8 +121,9 @@ size: $(AVR_ELF)
 	avr-size --format=berkeley $(AVR_ELF) | \
 	    awk -v flash_max=$(FLASH_BUDGET) -v ram_max=$(RAM_BUDGET) -f tools/size_check.awk
 
-# Requirement traceability. --allow-gaps until Day 5 of PLAN.md.
-TRACE_FLAGS ?= --allow-gaps
+# Requirement traceability: fails on any requirement without code or test.
+# TRACE_FLAGS is empty by default; pass --allow-gaps only for a work-in-progress check.
+TRACE_FLAGS ?=
 trace:
 	$(PYTHON) tools/trace.py $(TRACE_FLAGS)
 
