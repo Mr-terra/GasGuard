@@ -4,7 +4,6 @@
 
 #include <stdint.h>
 
-/* Called by Unity around every test; prototypes keep -Wmissing-prototypes quiet. */
 // DEV-03: Unity hooks, called by the framework; MISRA 8.6 and unusedFunction do not apply.
 // cppcheck-suppress misra-c2012-8.6
 void setUp(void);

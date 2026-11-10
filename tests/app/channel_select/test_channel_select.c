@@ -9,6 +9,7 @@ void setUp(void);
 // cppcheck-suppress misra-c2012-8.6
 void tearDown(void);
 
+// DEV-03: Unity hooks, called by the framework; MISRA 8.6 and unusedFunction do not apply.
 // cppcheck-suppress unusedFunction
 void setUp(void) {}
 // cppcheck-suppress unusedFunction

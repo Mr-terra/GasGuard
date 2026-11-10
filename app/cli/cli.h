@@ -34,7 +34,7 @@ typedef gg_status_t (*cli_write_fn)(const uint8_t *data, uint8_t len);
 /** @brief Parser and dump state. Owned by the caller. */
 typedef struct {
     uint8_t line[CLI_LINE_MAX];  /**< Bytes of the current line, not zero-terminated. */
-    uint8_t len;                 /**< Number of bytes in line. */
+    uint8_t len;                 /**< Bytes in use, at most CLI_LINE_MAX. */
     bool dumping;                /**< True while a log dump is in progress. */
     uint8_t dump_head;           /**< Ring head taken when the dump started. */
     uint8_t dump_index;          /**< Next position of the dump, 0 .. EVENTLOG_ENTRIES. */

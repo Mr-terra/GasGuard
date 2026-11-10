@@ -19,7 +19,6 @@
 #include "hal/timer/timer.h"
 #include "hal/timer/timer_fake.h"
 
-/** @brief State of the fake clock. */
 typedef struct {
     uint32_t ms;
 } timer_fake_state_t;

@@ -141,8 +141,6 @@ static bool read_valid_copy(uint16_t addr, uint8_t *bytes, config_t *cfg)
 
 /**
  * @brief Fill a configuration with the compiled-in defaults.
- *
- * The full contract is in the header.
  * @req REQ-CFG-004
  */
 gg_status_t config_defaults(config_t *cfg)
@@ -162,8 +160,6 @@ gg_status_t config_defaults(config_t *cfg)
 
 /**
  * @brief Check a configuration against the stored-value rules.
- *
- * The full contract is in the header.
  * @req REQ-CFG-003 REQ-ALM-005
  */
 gg_status_t config_validate(const config_t *cfg)
@@ -184,8 +180,6 @@ gg_status_t config_validate(const config_t *cfg)
 
 /**
  * @brief Load the configuration from the first valid EEPROM copy.
- *
- * The full contract is in the header.
  * @req REQ-CFG-001 REQ-CFG-002 REQ-CFG-003
  */
 /**
@@ -201,7 +195,7 @@ gg_status_t config_validate(const config_t *cfg)
 static void repair_copy(uint16_t addr, const uint8_t *copy)
 {
     if (hal_eeprom_write(addr, copy, CONFIG_COPY_SIZE) != GG_OK) {
-        /* Not fatal, see above: nothing else to do now. */
+        /* A failed repair is not fatal: the valid copy is already in use. */
     }
 }
 
@@ -241,8 +235,6 @@ gg_status_t config_load(config_t *cfg, config_source_t *out_source)
 
 /**
  * @brief Validate a configuration, then write copy A and then copy B.
- *
- * The full contract is in the header.
  * @req REQ-CFG-001 REQ-CFG-003
  */
 gg_status_t config_store(const config_t *cfg)

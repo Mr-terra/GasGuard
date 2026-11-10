@@ -18,7 +18,6 @@
 #include "hal/wdt/wdt.h"
 #include "hal/wdt/wdt_fake.h"
 
-/** @brief State of the fake watchdog. */
 typedef struct {
     bool enabled;
     uint16_t kicks;

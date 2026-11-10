@@ -73,7 +73,7 @@ static void step_normal(detector_t *det, const detector_input_t *in)
     } else if (det->above_al1 >= DETECTOR_ENTER_SAMPLES) {
         det->state = DET_STATE_ALARM_1;
     } else {
-        /* No alarm and no request: stay in NORMAL. */
+        /* Below the alarm level and no request: the state does not change. */
     }
 }
 
@@ -93,7 +93,7 @@ static void step_alarm_1(detector_t *det)
     } else if (det->below_clear >= DETECTOR_CLEAR_SAMPLES) {
         det->state = DET_STATE_NORMAL;
     } else {
-        /* Still in ALARM_1: nothing to change. */
+        /* Still above the clear level: ALARM_1 is held (hysteresis). */
     }
 }
 

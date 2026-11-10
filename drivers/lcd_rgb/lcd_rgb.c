@@ -89,11 +89,6 @@ static gg_status_t lcd_text_command(uint8_t command)
 }
 
 /**
- * @brief Send one character to the text controller.
- * @param character  Character to display at the cursor.
- * @return Status of the I2C write.
- */
-/**
  * @brief Write one register of the backlight chip.
  * @param reg    Register address.
  * @param value  Value to write.
@@ -123,8 +118,6 @@ static uint8_t lcd_row_command(uint8_t row)
 
 /**
  * @brief Initialise the text controller and the backlight chip, backlight white.
- *
- * The full contract is in the header.
  * @req REQ-HMI-001 REQ-HMI-002
  */
 gg_status_t lcd_rgb_init(lcd_rgb_delay_fn delay_ms)
@@ -170,8 +163,6 @@ gg_status_t lcd_rgb_init(lcd_rgb_delay_fn delay_ms)
 
 /**
  * @brief Set the backlight colour.
- *
- * The full contract is in the header.
  * @req REQ-HMI-002
  */
 gg_status_t lcd_rgb_set_colour(uint8_t red, uint8_t green, uint8_t blue)
@@ -189,8 +180,6 @@ gg_status_t lcd_rgb_set_colour(uint8_t red, uint8_t green, uint8_t blue)
 
 /**
  * @brief Write one line of text, starting at column 0 of the given row.
- *
- * The full contract is in the header.
  * @req REQ-HMI-001
  */
 gg_status_t lcd_rgb_write_line(uint8_t row, const char *text)

@@ -8,8 +8,7 @@
  * are inputs: the code under test can read them, and the test sets them with
  * hal_gpio_fake_set_input(). The relay and the buzzer are outputs: the code
  * writes them, and the test reads them back with hal_gpio_fake_level(). A
- * switch over the enum checks the direction, so writing an input (or reading
- * an output) returns GG_ERR_RANGE, just as the board driver must.
+ * Writing an input, or reading an output, returns GG_ERR_RANGE, as on the board.
  *
  * @req REQ-SAF-001 REQ-HMI-007
  */
@@ -20,7 +19,6 @@
 #include "hal/gpio/gpio.h"
 #include "hal/gpio/gpio_fake.h"
 
-/** @brief Number of pins in hal_gpio_pin_t. */
 #define GPIO_FAKE_PIN_COUNT 4u
 
 /** @brief Level of every pin, indexed by hal_gpio_pin_t. */

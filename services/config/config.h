@@ -4,7 +4,7 @@
  *
  * Load takes the first valid copy (A, then B), repairs the other one, and falls
  * back to the compiled-in defaults when neither copy is valid. Store validates
- * the values first, then writes copy A and copy B. A values are in 0.1 %LEL
+ * the values first, then writes copy A and copy B. The thresholds are in 0.1 %LEL
  * (REQ-ALM-005), the warm-up in seconds (REQ-CFG-004).
  *
  * @req REQ-CFG-001 REQ-CFG-002 REQ-CFG-003 REQ-CFG-004

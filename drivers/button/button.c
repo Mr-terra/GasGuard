@@ -23,8 +23,6 @@
 
 /**
  * @brief Reset a button to "released", with no pending change.
- *
- * The full contract is in the header.
  * @req REQ-HMI-007
  */
 gg_status_t button_init(button_t *button)
@@ -43,8 +41,6 @@ gg_status_t button_init(button_t *button)
 
 /**
  * @brief Feed one raw sample and get the debounced state.
- *
- * The full contract is in the header.
  * @req REQ-HMI-007
  */
 gg_status_t button_step(button_t *button, bool raw_pressed, uint32_t now_ms, bool *out_pressed)

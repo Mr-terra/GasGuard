@@ -20,8 +20,6 @@
 
 /**
  * @brief Set the relay coil to the de-energised state.
- *
- * The full contract is in the header.
  * @req REQ-SAF-001
  */
 gg_status_t relay_init(void)
@@ -31,8 +29,6 @@ gg_status_t relay_init(void)
 
 /**
  * @brief Energise or de-energise the relay coil.
- *
- * The full contract is in the header.
  * @req REQ-SAF-001
  */
 gg_status_t relay_set(bool energised)

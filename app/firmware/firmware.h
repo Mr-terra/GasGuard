@@ -79,9 +79,9 @@ typedef struct {
     hmi_silence_t silence;                   /**< Buzzer silence granted by a short press. */
     bool reset_pending;                      /**< A long press asked for the ALARM_2 reset, for the next sample. */
     bool maint_pending;                      /**< A touch of 3 s asked for MAINTENANCE, for the next sample. */
-    uint32_t maint_start_ms;                 /**< Time of the maintenance request. */
+    uint32_t maint_start_ms;                 /**< Start of MAINTENANCE: its 10-minute limit counts from here. */
     bool test_running;                       /**< The functional test is running (REQ-HMI-006). */
-    uint32_t test_start_ms;                  /**< Start of the functional test. */
+    uint32_t test_start_ms;                  /**< The six test steps are timed from here. */
     detector_fault_code_t pending_fault;     /**< System fault to give the detector at the next sample. */
     gg_conc_t last_conc;                     /**< Concentration of the last sample, for the display (REQ-HMI-001). */
 } firmware_t;

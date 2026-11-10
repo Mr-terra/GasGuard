@@ -55,8 +55,6 @@ static gg_status_t twi_command(uint8_t control)
 
 /**
  * @brief Enable the TWI peripheral at 100 kHz.
- *
- * The full contract is in the header.
  * @req REQ-HMI-001
  */
 gg_status_t hal_i2c_init(void)
@@ -117,8 +115,6 @@ static gg_status_t twi_wait_stop(void)
 
 /**
  * @brief Write bytes to a 7-bit device address, with a STOP at the end.
- *
- * The full contract is in the header.
  * @req REQ-HMI-002
  */
 gg_status_t hal_i2c_write(uint8_t addr7, const uint8_t *data, uint8_t len)

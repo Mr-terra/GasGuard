@@ -41,8 +41,8 @@
 
 /** @brief Calibration used until a calibration is stored: one raw LSB is one unit (0.1 %LEL). */
 #define FIRMWARE_ZERO_RAW 0u
-/* Temperature compensation is OFF: the temperature input (A3) is not read yet, so the
- * coefficient is zero and calib_temp_correct() is not called (README, limitations). */
+/* Temperature compensation is off: the temperature input (A3) is not read, so the
+ * coefficient is zero and calib_temp_correct() is not called. */
 #define FIRMWARE_TEMP_REF_RAW 0u
 #define FIRMWARE_TEMP_COEF_Q8 0
 
@@ -456,8 +456,6 @@ static gg_status_t output_levels(const firmware_t *fw, uint32_t now_ms, firmware
 
 /**
  * @brief Boot: log the reset cause, load the configuration, start the detector.
- *
- * The full contract is in the header.
  * @req REQ-SAF-006 REQ-CFG-002
  */
 gg_status_t firmware_boot(firmware_t *fw, hal_reset_cause_t cause, uint32_t now_ms)
@@ -491,8 +489,6 @@ gg_status_t firmware_boot(firmware_t *fw, hal_reset_cause_t cause, uint32_t now_
 
 /**
  * @brief One sampling step.
- *
- * The full contract is in the header.
  * @req REQ-ALM-001 REQ-SAF-007
  */
 gg_status_t firmware_sample(firmware_t *fw, uint32_t now_ms)
@@ -555,7 +551,7 @@ static gg_status_t inputs_update(firmware_t *fw, uint32_t now_ms, bool button_ra
 }
 
 /**
- * @brief Operator inputs. The full contract is in the header.
+ * @brief Operator inputs.
  * @req REQ-HMI-004 REQ-HMI-005 REQ-HMI-006 REQ-HMI-007 REQ-HMI-008
  */
 gg_status_t firmware_inputs(firmware_t *fw, uint32_t now_ms, bool button_raw, bool touch_raw)
@@ -571,7 +567,7 @@ gg_status_t firmware_inputs(firmware_t *fw, uint32_t now_ms, bool button_raw, bo
 }
 
 /**
- * @brief Drive the outputs from the detector state. The full contract is in the header.
+ * @brief Drive the outputs from the detector state.
  * @req REQ-SAF-001 REQ-HMI-003 REQ-HMI-006
  */
 gg_status_t firmware_output(const firmware_t *fw, uint32_t now_ms)
@@ -594,12 +590,9 @@ gg_status_t firmware_output(const firmware_t *fw, uint32_t now_ms)
 }
 
 /**
- * @brief Stack watermark check. The full contract is in the header.
- * @req REQ-SAF-009
- */
-/**
  * @brief Stack check: a fault when the free stack is low, or when it cannot be measured.
  * @param fw  Firmware state.
+ * @req REQ-SAF-009
  */
 static void health_stack(firmware_t *fw)
 {
@@ -644,7 +637,7 @@ gg_status_t firmware_health(firmware_t *fw, uint32_t now_ms)
 }
 
 /**
- * @brief Scheduler cycle report. The full contract is in the header.
+ * @brief Scheduler cycle report.
  * @req REQ-SAF-008
  */
 gg_status_t firmware_report_timing(firmware_t *fw, bool overrun, bool fault, uint32_t now_ms)
@@ -667,7 +660,7 @@ gg_status_t firmware_report_timing(firmware_t *fw, bool overrun, bool fault, uin
 }
 
 /**
- * @brief Current detector state. The full contract is in the header.
+ * @brief Current detector state.
  * @req REQ-ALM-001
  */
 detector_state_t firmware_state(const firmware_t *fw)
@@ -683,7 +676,7 @@ detector_state_t firmware_state(const firmware_t *fw)
 }
 
 /**
- * @brief Log a display that did not answer at boot. The full contract is in the header.
+ * @brief Log a display that did not answer at boot.
  * @req REQ-HMI-001
  */
 gg_status_t firmware_report_display(const firmware_t *fw, bool present, uint32_t now_ms)
@@ -703,7 +696,7 @@ gg_status_t firmware_report_display(const firmware_t *fw, bool present, uint32_t
 }
 
 /**
- * @brief Concentration of the last sample. The full contract is in the header.
+ * @brief Concentration of the last sample.
  * @req REQ-HMI-001
  */
 gg_conc_t firmware_concentration(const firmware_t *fw)
@@ -717,7 +710,7 @@ gg_conc_t firmware_concentration(const firmware_t *fw)
 }
 
 /**
- * @brief Whether the functional test is running. The full contract is in the header.
+ * @brief Whether the functional test is running.
  * @req REQ-HMI-006
  */
 bool firmware_test_running(const firmware_t *fw)
@@ -731,7 +724,7 @@ bool firmware_test_running(const firmware_t *fw)
 }
 
 /**
- * @brief Whether the relay coil should be energised now. The full contract is in the header.
+ * @brief Whether the relay coil should be energised now.
  * @req REQ-SAF-001
  */
 gg_status_t firmware_relay_energised(const firmware_t *fw, bool *energised)

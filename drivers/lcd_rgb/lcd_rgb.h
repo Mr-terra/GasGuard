@@ -21,7 +21,7 @@
 
 #include "common/gg_types/gg_types.h"
 
-/** @brief Number of characters per row. */
+/** @brief Characters per row: the display has two rows of this length. */
 #define LCD_LINE_LEN 16u
 
 /** @brief Delay function supplied by the caller, in milliseconds. */

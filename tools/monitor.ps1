@@ -22,7 +22,7 @@ try {
         try {
             Write-Host $serial.ReadLine()
         } catch [System.TimeoutException] {
-            # No line within the timeout: keep waiting.
+            # Empty on purpose: a timeout only means no data yet.
         }
     }
 } finally {

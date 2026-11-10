@@ -30,8 +30,6 @@ static bool eeprom_block_ok(uint16_t addr, uint16_t len)
 
 /**
  * @brief Read a block of bytes.
- *
- * The full contract is in the header.
  * @req REQ-CFG-001
  */
 gg_status_t hal_eeprom_read(uint16_t addr, uint8_t *data, uint16_t len)
@@ -54,8 +52,6 @@ gg_status_t hal_eeprom_read(uint16_t addr, uint8_t *data, uint16_t len)
 
 /**
  * @brief Write a block of bytes. Blocks until the write has completed.
- *
- * The full contract is in the header.
  * @req REQ-LOG-001
  */
 gg_status_t hal_eeprom_write(uint16_t addr, const uint8_t *data, uint16_t len)

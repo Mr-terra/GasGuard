@@ -2,8 +2,7 @@
  * @file main.c
  * @brief Firmware entry point: boot, cooperative loop, watchdog.
  *
- * The bring-up program that checked the board (scan, banner) is kept in the
- * history at commit 5c578c0. This file runs the firmware.
+ * This file runs the firmware; the bring-up checks are in the git history.
  *
  * Boot order matters for fail-safety (F21): the GPIO driver sets the relay low
  * before anything else. Then the reset cause, the configuration and the
@@ -60,7 +59,7 @@
 #define LEVEL_FULL  0xFFu
 #define LEVEL_HALF  0x80u
 
-/** @brief Rows of the state text and of the concentration, and the period of the amber blink of FAULT. */
+/** @brief Display rows: state text on the first, concentration on the second. */
 #define DISPLAY_ROW_STATE 0u
 #define DISPLAY_ROW_CONC  1u
 #define DISPLAY_BLINK_MS  500u
@@ -68,7 +67,7 @@
 /** @brief Bytes read from the UART per cycle: the command line never blocks the loop. */
 #define CLI_BYTES_PER_CYCLE 8u
 
-/** @brief Scheduler periods, in the order of the task identifiers. */
+/** @brief Period of each task, indexed by task identifier. */
 static const uint32_t k_periods[TASK_COUNT] = {
     PERIOD_SAMPLE_MS, PERIOD_HMI_MS, PERIOD_OUTPUT_MS, PERIOD_DISPLAY_MS, PERIOD_HEALTH_MS, PERIOD_CLI_MS
 };
@@ -166,14 +165,6 @@ static void state_colour(detector_state_t state, uint8_t *red, uint8_t *green, u
     }
 }
 
-/**
- * @brief Refresh the display with the current state (REQ-HMI-001, REQ-HMI-002).
- *
- * The display is not safety-critical: a failed write does not stop the watchdog,
- * so its error is not returned (the relay and the buzzer do not depend on it).
- *
- * @param now_ms  Current time, for the blink of FAULT.
- */
 /** @brief What the display shows now, so that only the changes are sent over I2C. */
 typedef struct {
     bool valid;                       /**< False until the first full refresh. */
@@ -299,7 +290,7 @@ static gg_status_t task_cli(void)
         if (hal_uart_read_byte(&byte) == GG_OK) {
             (void)cli_feed(&cli, byte, hal_uart_write);
         } else {
-            break;   /* No byte waiting: the rest waits for the next cycle. */
+            break;   /* The rest waits for the next cycle. */
         }
     }
     /* One step of a running dump per cycle: the transmit buffer is only 64 bytes (REQ-LOG-004). */

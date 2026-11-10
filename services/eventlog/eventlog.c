@@ -100,8 +100,6 @@ static gg_status_t read_head(uint8_t *head)
 
 /**
  * @brief Append one event at the ring head, then advance the head.
- *
- * The full contract is in the header.
  * @req REQ-LOG-001 REQ-LOG-002 REQ-LOG-003
  */
 gg_status_t eventlog_append(const eventlog_entry_t *entry)
@@ -147,8 +145,6 @@ gg_status_t eventlog_append(const eventlog_entry_t *entry)
 
 /**
  * @brief Read the entry stored in one slot.
- *
- * The full contract is in the header.
  * @req REQ-LOG-002
  */
 gg_status_t eventlog_read_slot(uint8_t slot, eventlog_entry_t *out)
@@ -187,8 +183,6 @@ gg_status_t eventlog_read_slot(uint8_t slot, eventlog_entry_t *out)
 
 /**
  * @brief Read the ring head.
- *
- * The full contract is in the header.
  * @req REQ-LOG-001
  */
 gg_status_t eventlog_head(uint8_t *out_head)

@@ -1,8 +1,8 @@
 /*
  * Scenario tests (L3, docs/05-verification-plan.md §3): scripted ADC sequences run through the
  * whole chain: diagnostics -> filter -> calibration -> channel selection -> detector.
- * Sample period 100 ms, as REQ-FUN-001. Scenarios SC-11, SC-12, SC-14..SC-16 need the
- * configuration, event log, maintenance and overrun modules (Day 4) and are not here yet.
+ * Sample period 100 ms, as REQ-FUN-001. The Day 4 scenarios (SC-11, SC-12, SC-14, SC-16)
+ * are in test_scenarios_day4.c.
  */
 #include <stdbool.h>
 #include <stdint.h>

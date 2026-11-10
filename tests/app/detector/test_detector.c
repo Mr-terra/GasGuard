@@ -123,7 +123,7 @@ static void test_detector_alarm_2_after_three_samples_at_threshold(void)
 /* @verifies REQ-ALM-003 */
 static void test_detector_alarm_1_clears_after_ten_samples_below_hysteresis(void)
 {
-    /* Clear level is AL1 - hysteresis = 80 units. */
+    /* Clear level: AL1 - hysteresis (80 units with the defaults). */
     finish_warmup();
     step_n(DETECTOR_AL1_DEFAULT, 3u);
     step_n(0, 9u);

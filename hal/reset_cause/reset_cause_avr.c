@@ -22,8 +22,6 @@
 
 /**
  * @brief Return the cause of the last reset and clear the status flags.
- *
- * The full contract is in the header.
  * @req REQ-SAF-006
  */
 hal_reset_cause_t hal_reset_cause_get(void)

@@ -14,7 +14,6 @@
  *
  * The heap start and the stack pointer are addresses, so their pointer and
  * integer conversions are the deviation DEV-09 (docs/04-coding-standard.md §5).
- * Not measured on the bench yet (Day 5 test report).
  *
  * @req REQ-SAF-009
  */
@@ -51,7 +50,7 @@ gg_status_t hal_stack_paint(void)
         uint16_t addr;
 
         for (addr = heap; addr < (uint16_t)(sp - STACK_MARGIN_BYTES); addr++) {
-            // DEV-09: write through the address computed above
+            // DEV-09: pointer write from an integer address
             // cppcheck-suppress misra-c2012-11.4
             *((uint8_t *)(uintptr_t)addr) = STACK_PAINT_BYTE;
         }

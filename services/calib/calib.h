@@ -80,7 +80,7 @@ gg_status_t calib_to_lel(const calib_t *calib, uint16_t raw, gg_conc_t *out);
  * @param reading   Sample to correct. Must not be NULL.
  * @param out_raw   Receives the corrected raw value. Must not be NULL.
  * @return GG_OK, GG_ERR_NULL, or GG_ERR_RANGE if the raw value is out of range.
- * @note Not called by the firmware yet: the temperature input is not wired (see README, limitations).
+ * @note Not called by the firmware: the temperature input is not wired.
  * @req REQ-FUN-004
  */
 // DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage

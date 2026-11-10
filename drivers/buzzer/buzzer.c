@@ -19,8 +19,6 @@
 
 /**
  * @brief Silence the buzzer.
- *
- * The full contract is in the header.
  * @req REQ-HMI-003
  */
 gg_status_t buzzer_init(void)
@@ -30,8 +28,6 @@ gg_status_t buzzer_init(void)
 
 /**
  * @brief Sound or silence the buzzer.
- *
- * The full contract is in the header.
  * @req REQ-HMI-003
  */
 gg_status_t buzzer_set(bool on)

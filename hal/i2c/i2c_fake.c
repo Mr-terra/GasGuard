@@ -28,7 +28,6 @@
 /** @brief Number of data bytes kept in the log of successful writes. */
 #define I2C_FAKE_LOG_MAX 64u
 
-/** @brief State of the fake bus. */
 typedef struct {
     bool present[I2C_FAKE_ADDR_MAX + 1u];
     uint8_t last_addr;

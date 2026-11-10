@@ -32,8 +32,6 @@
 
 /**
  * @brief Compute the CRC-16/CCITT-FALSE of a byte buffer.
- *
- * The full contract is in the header.
  * @req REQ-CFG-001
  */
 gg_status_t crc16_compute(const uint8_t *data, uint16_t len, uint16_t *out_crc)

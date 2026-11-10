@@ -23,7 +23,7 @@
 /** @brief State of one channel's filter. Owned by the caller, one per channel. */
 typedef struct {
     uint16_t samples[FILTER_WINDOW]; /**< Ring buffer of raw samples. */
-    uint16_t sum;                    /**< Sum of the samples currently held. */
+    uint16_t sum;                    /**< Running sum of the window, updated per sample. */
     uint8_t next;                    /**< Index where the next sample is written. */
     uint8_t count;                   /**< Number of valid samples, up to FILTER_WINDOW. */
 } filter_t;

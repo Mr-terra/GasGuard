@@ -41,8 +41,6 @@ static bool task_in_range(const scheduler_t *sched, uint8_t task)
 
 /**
  * @brief Set up the scheduler with a list of task periods.
- *
- * The full contract is in the header.
  * @req REQ-SAF-005
  */
 gg_status_t scheduler_init(scheduler_t *sched, uint8_t count, const uint32_t *periods, uint32_t now_ms)
@@ -70,8 +68,6 @@ gg_status_t scheduler_init(scheduler_t *sched, uint8_t count, const uint32_t *pe
 
 /**
  * @brief Start a cycle: clear the "ran" flags and record the start time.
- *
- * The full contract is in the header.
  * @req REQ-SAF-005
  */
 gg_status_t scheduler_begin_cycle(scheduler_t *sched, uint32_t now_ms)
@@ -93,8 +89,6 @@ gg_status_t scheduler_begin_cycle(scheduler_t *sched, uint32_t now_ms)
 
 /**
  * @brief Check whether a task is due, and advance its next due time if it is.
- *
- * The full contract is in the header.
  * @req REQ-SAF-005
  */
 gg_status_t scheduler_task_due(scheduler_t *sched, uint8_t task, uint32_t now_ms, bool *due)
@@ -120,8 +114,6 @@ gg_status_t scheduler_task_due(scheduler_t *sched, uint8_t task, uint32_t now_ms
 
 /**
  * @brief Report that a task ran in this cycle.
- *
- * The full contract is in the header.
  * @req REQ-SAF-005
  */
 gg_status_t scheduler_task_done(scheduler_t *sched, uint8_t task)
@@ -140,8 +132,6 @@ gg_status_t scheduler_task_done(scheduler_t *sched, uint8_t task)
 
 /**
  * @brief End a cycle: measure it and count overruns.
- *
- * The full contract is in the header.
  * @req REQ-SAF-008
  */
 gg_status_t scheduler_end_cycle(scheduler_t *sched, uint32_t now_ms, bool *out_overrun, bool *out_fault)
@@ -168,8 +158,6 @@ gg_status_t scheduler_end_cycle(scheduler_t *sched, uint32_t now_ms, bool *out_o
 
 /**
  * @brief Tell whether the watchdog may be kicked now.
- *
- * The full contract is in the header.
  * @req REQ-SAF-005
  */
 gg_status_t scheduler_watchdog_ok(const scheduler_t *sched, bool *out_kick)

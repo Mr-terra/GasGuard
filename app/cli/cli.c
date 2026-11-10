@@ -43,7 +43,7 @@
 /** @brief Output line being built. */
 typedef struct {
     uint8_t buf[CLI_OUT_MAX];  /**< Bytes of the line. */
-    uint8_t len;               /**< Number of bytes in buf. */
+    uint8_t len;               /**< Bytes in use, at most CLI_OUT_MAX. */
 } cli_out_t;
 
 /** @brief Append one byte, if there is room. */

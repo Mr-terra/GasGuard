@@ -29,7 +29,6 @@ static void feed_range(uint16_t raw, uint16_t n)
     }
 }
 
-/* Build the sample struct for the stuck check, then run it on the channel under test. */
 static gg_status_t check_stuck(uint16_t raw, uint32_t now_ms, bool in_warmup)
 {
     diag_stuck_sample_t sample = {raw, now_ms, in_warmup};

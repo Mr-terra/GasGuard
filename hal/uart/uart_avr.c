@@ -49,8 +49,6 @@ static volatile uint8_t v_tx_count;
 
 /**
  * @brief Configure the UART at 38400 baud, 8N1.
- *
- * The full contract is in the header.
  * @req REQ-LOG-004
  */
 gg_status_t hal_uart_init(void)
@@ -71,8 +69,6 @@ gg_status_t hal_uart_init(void)
 
 /**
  * @brief Queue bytes for transmission without waiting for the line.
- *
- * The full contract is in the header.
  * @req REQ-LOG-004
  */
 gg_status_t hal_uart_write(const uint8_t *data, uint8_t len)
@@ -85,14 +81,14 @@ gg_status_t hal_uart_write(const uint8_t *data, uint8_t len)
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             /* Casts of plain variables only: the free-space test stays readable. */
             if ((unsigned int)len > (UART_TX_SIZE - (unsigned int)v_tx_count)) {
-                status = GG_ERR_TIMEOUT;               /* nothing queued */
+                status = GG_ERR_TIMEOUT;
             } else {
                 for (uint8_t i = 0u; i < len; i++) {
                     v_tx_buf[v_tx_head] = data[i];
                     v_tx_head = (uint8_t)((v_tx_head + 1u) & UART_TX_MASK);
                 }
                 v_tx_count = (uint8_t)(v_tx_count + len);
-                UCSR0B = (uint8_t)(UCSR0B | (1u << UDRIE0));   /* start the interrupt */
+                UCSR0B = (uint8_t)(UCSR0B | (1u << UDRIE0));
             }
         }
     }
@@ -101,8 +97,6 @@ gg_status_t hal_uart_write(const uint8_t *data, uint8_t len)
 
 /**
  * @brief Read one received byte, if any.
- *
- * The full contract is in the header.
  * @req REQ-LOG-004
  */
 gg_status_t hal_uart_read_byte(uint8_t *out_byte)
@@ -114,7 +108,7 @@ gg_status_t hal_uart_read_byte(uint8_t *out_byte)
     } else {
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             if (v_rx_count == 0u) {
-                status = GG_ERR_TIMEOUT;               /* no byte waiting */
+                status = GG_ERR_TIMEOUT;
             } else {
                 *out_byte = v_rx_buf[v_rx_tail];
                 v_rx_tail = (uint8_t)((v_rx_tail + 1u) & UART_RX_MASK);
@@ -150,7 +144,7 @@ ISR(USART_RX_vect)
 ISR(USART_UDRE_vect)
 {
     if (v_tx_count == 0u) {
-        UCSR0B = (uint8_t)(UCSR0B & (uint8_t)~(1u << UDRIE0));   /* nothing left: stop */
+        UCSR0B = (uint8_t)(UCSR0B & (uint8_t)~(1u << UDRIE0));
     } else {
         UDR0 = v_tx_buf[v_tx_tail];
         v_tx_tail = (uint8_t)((v_tx_tail + 1u) & UART_TX_MASK);

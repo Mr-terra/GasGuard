@@ -23,8 +23,6 @@
 
 /**
  * @brief Enable the watchdog with a 500 ms timeout.
- *
- * The full contract is in the header.
  * @req REQ-SAF-005
  */
 gg_status_t hal_wdt_enable(void)
@@ -35,8 +33,7 @@ gg_status_t hal_wdt_enable(void)
 
 /**
  * @brief Restart the watchdog countdown. Called once per main-loop pass,
- *
- * The full contract is in the header.
+ *        and only after every periodic task has returned.
  * @req REQ-SAF-005
  */
 gg_status_t hal_wdt_kick(void)

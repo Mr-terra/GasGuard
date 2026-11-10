@@ -25,7 +25,6 @@
 /** @brief Capacity of the receive queue, in bytes. */
 #define UART_FAKE_RX_CAPACITY 8u
 
-/** @brief State of the fake UART. */
 typedef struct {
     uint8_t tx[UART_FAKE_TX_CAPACITY];
     uint8_t tx_count;

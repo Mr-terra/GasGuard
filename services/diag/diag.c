@@ -83,7 +83,6 @@ gg_status_t diag_check_range(diag_t *diag, uint16_t raw)
     return status;
 }
 
-/* Start a new stuck window at the current sample. */
 static void stuck_window_restart(diag_t *diag, const diag_stuck_sample_t *sample)
 {
     diag->window_started = true;
@@ -92,7 +91,7 @@ static void stuck_window_restart(diag_t *diag, const diag_stuck_sample_t *sample
     diag->window_max = sample->raw;
 }
 
-/* Widen the window with one sample. Restart it if the value moved, latch a fault if it did not move for too long. */
+/* Restart the window when the value moves; latch a fault when it has not moved for too long. */
 static void stuck_window_update(diag_t *diag, const diag_stuck_sample_t *sample)
 {
     uint16_t new_min = (sample->raw < diag->window_min) ? sample->raw : diag->window_min;

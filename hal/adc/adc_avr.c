@@ -39,7 +39,7 @@ static gg_status_t adc_convert(uint16_t *out_raw)
     gg_status_t status = GG_OK;
     uint16_t waited = 0u;
 
-    ADCSRA = (uint8_t)(ADCSRA | (1u << ADSC));              /* start one conversion */
+    ADCSRA = (uint8_t)(ADCSRA | (1u << ADSC));
     while (((ADCSRA & (1u << ADSC)) != 0u) && (waited < ADC_WAIT_LOOPS)) {
         waited++;
     }
@@ -51,14 +51,6 @@ static gg_status_t adc_convert(uint16_t *out_raw)
     return status;
 }
 
-/**
- * @brief Read one analog channel as a raw 10-bit value.
- *
- * @param channel  Channel index, 0 .. HAL_ADC_CHANNEL_COUNT - 1.
- * @param out_raw  Receives the raw value. Must not be NULL.
- * @return GG_OK, GG_ERR_NULL, GG_ERR_RANGE for a bad channel, or GG_ERR_TIMEOUT.
- * @req REQ-FUN-001
- */
 /**
  * @brief Select a multiplexer input against AVcc and read it, discarding the first conversion.
  * @param mux_bits  Value for the MUX bits of ADMUX: a channel 0..7, or ADC_MUX_BANDGAP.
@@ -79,6 +71,14 @@ static gg_status_t adc_read_mux(uint8_t mux_bits, uint16_t *out_raw)
     return status;
 }
 
+/**
+ * @brief Read one analog channel as a raw 10-bit value.
+ *
+ * @param channel  Channel index, 0 .. HAL_ADC_CHANNEL_COUNT - 1.
+ * @param out_raw  Receives the raw value. Must not be NULL.
+ * @return GG_OK, GG_ERR_NULL, GG_ERR_RANGE for a bad channel, or GG_ERR_TIMEOUT.
+ * @req REQ-FUN-001
+ */
 gg_status_t hal_adc_read(uint8_t channel, uint16_t *out_raw)
 {
     gg_status_t status = GG_OK;

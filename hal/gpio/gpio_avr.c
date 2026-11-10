@@ -28,7 +28,6 @@
 #define GPIO_BIT_RELAY  5u   /* D5, relay coil: high = energised. */
 #define GPIO_BIT_BUZZER 6u   /* D6, buzzer (PD6 is also OC0A, driven by the timer later). */
 
-/* Bit mask of a pin, as a byte. */
 #define GPIO_MASK(bit) ((uint8_t)(1u << (bit)))
 
 /* Set or clear bits of a register. The explicit cast is needed: C promotes the
@@ -75,8 +74,6 @@ static gg_status_t gpio_lookup(hal_gpio_pin_t pin, uint8_t *bit, bool *is_input)
 
 /**
  * @brief Configure every pin with its direction and idle level.
- *
- * The full contract is in the header.
  * @req REQ-SAF-001
  */
 gg_status_t hal_gpio_init(void)
@@ -84,7 +81,7 @@ gg_status_t hal_gpio_init(void)
     /* Set the output levels before the directions: no glitch on the relay. */
     REG_CLEAR(PORTD, GPIO_MASK(GPIO_BIT_RELAY));     /* relay de-energised (REQ-SAF-001) */
     REG_CLEAR(PORTD, GPIO_MASK(GPIO_BIT_BUZZER));
-    REG_SET(PORTD, GPIO_MASK(GPIO_BIT_BUTTON));              /* pull-up on the button */
+    REG_SET(PORTD, GPIO_MASK(GPIO_BIT_BUTTON));
     REG_CLEAR(PORTD, GPIO_MASK(GPIO_BIT_TOUCH));
 
     REG_SET(DDRD, GPIO_MASK(GPIO_BIT_RELAY));
@@ -96,8 +93,6 @@ gg_status_t hal_gpio_init(void)
 
 /**
  * @brief Set an output pin.
- *
- * The full contract is in the header.
  * @req REQ-SAF-001
  */
 gg_status_t hal_gpio_write(hal_gpio_pin_t pin, bool high)
@@ -122,8 +117,6 @@ gg_status_t hal_gpio_write(hal_gpio_pin_t pin, bool high)
 
 /**
  * @brief Read an input pin.
- *
- * The full contract is in the header.
  * @req REQ-HMI-007
  */
 gg_status_t hal_gpio_read(hal_gpio_pin_t pin, bool *out_high)
