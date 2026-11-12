@@ -19,7 +19,7 @@
 
 /** @brief Logical names of the digital pins, independent of the AVR port. */
 typedef enum {
-    HAL_GPIO_PIN_BUTTON = 0, /**< D2, active low, pulled up. */
+    HAL_GPIO_PIN_BUTTON = 0, /**< D2, button module SIG: high when pressed. */
     HAL_GPIO_PIN_TOUCH,      /**< D3, touch sensor input. */
     HAL_GPIO_PIN_RELAY,      /**< D5, alarm relay output. */
     HAL_GPIO_PIN_BUZZER      /**< D6, buzzer output (timer driven). */

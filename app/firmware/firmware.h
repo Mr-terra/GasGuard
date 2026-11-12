@@ -114,7 +114,7 @@ gg_status_t firmware_sample(firmware_t *fw, uint32_t now_ms);
  *
  * @param fw         Firmware state. Must not be NULL.
  * @param now_ms     Current time.
- * @param button_raw Raw level of the push button: true when the pin reads high (active low).
+ * @param button_raw Raw level of the push button: true when the pin reads high, which is pressed (active high module).
  * @param touch_raw  Raw level of the touch sensor: true when touched.
  * @return GG_OK or GG_ERR_NULL.
  * @req REQ-HMI-004 REQ-HMI-005 REQ-HMI-006 REQ-HMI-007 REQ-HMI-008

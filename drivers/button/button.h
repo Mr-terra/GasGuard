@@ -1,6 +1,6 @@
 /**
  * @file button.h
- * @brief Debounce the push button (D2, active low): a level counts only once it is stable.
+ * @brief Debounce the push button (D2): a level counts only once it is stable.
  *
  * The caller reads the raw level from the GPIO HAL and passes it in with the
  * current time. This keeps the logic free of hardware and testable on the PC.

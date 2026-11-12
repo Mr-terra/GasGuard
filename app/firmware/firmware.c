@@ -519,7 +519,7 @@ gg_status_t firmware_sample(firmware_t *fw, uint32_t now_ms)
  * @brief Debounce both inputs and run their press tracking.
  * @param fw          Firmware state.
  * @param now_ms      Current time.
- * @param button_raw  Raw button level, true when high (active low).
+ * @param button_raw  Raw button level, true when high: the button module drives high when pressed.
  * @param touch_raw   Raw touch level, true when touched.
  * @return The first error, or GG_OK.
  */
@@ -529,7 +529,7 @@ static gg_status_t inputs_update(firmware_t *fw, uint32_t now_ms, bool button_ra
     bool touch_pressed = false;
     hmi_press_event_t button_event = HMI_PRESS_NONE;
     hmi_press_event_t touch_event = HMI_PRESS_NONE;
-    gg_status_t status = button_step(&fw->button_db, !button_raw, now_ms, &button_pressed);
+    gg_status_t status = button_step(&fw->button_db, button_raw, now_ms, &button_pressed);
 
     if (status == GG_OK) {
         status = button_step(&fw->touch_db, touch_raw, now_ms, &touch_pressed);

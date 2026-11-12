@@ -23,7 +23,7 @@
 #include "hal/gpio/gpio.h"
 
 /* Bit of each pin inside port D. Pin mapping: docs/02-architecture.md §2. */
-#define GPIO_BIT_BUTTON 2u   /* D2, active low, pulled up. */
+#define GPIO_BIT_BUTTON 2u   /* D2, button module SIG: high when pressed. */
 #define GPIO_BIT_TOUCH  3u   /* D3, touch sensor output. */
 #define GPIO_BIT_RELAY  5u   /* D5, relay coil: high = energised. */
 #define GPIO_BIT_BUZZER 6u   /* D6, buzzer (PD6 is also OC0A, driven by the timer later). */

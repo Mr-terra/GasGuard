@@ -66,13 +66,13 @@ static void boot_defaults(void)
 /**
  * @brief One pass of the main loop at 100 ms: sample, HMI inputs, outputs (as main.c does).
  *
- * The arguments say whether each input is pressed. The button is active low, so
- * the raw pin level passed to firmware_inputs() is the opposite.
+ * The arguments say whether each input is pressed. The button module is active
+ * high, so the raw pin level passed to firmware_inputs() is the same as pressed.
  */
 static void fw_tick(bool button_pressed, bool touch_pressed)
 {
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, now_test));
-    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_inputs(&fw, now_test, !button_pressed, touch_pressed));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_inputs(&fw, now_test, button_pressed, touch_pressed));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_output(&fw, now_test));
     now_test += TICK_MS;
 }
