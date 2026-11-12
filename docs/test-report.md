@@ -21,6 +21,7 @@ analyser or the serial monitor.
 | `log` command | Dump over the UART at 38400 baud, complete, with the reset and config entries | REQ-LOG-004 |
 | Bandgap | Raw value of the bandgap against AVcc (expected near 0xED at 4.75 V) | REQ-SAF-004 |
 | Second MQ sensor | Wiring and reading on A1 | REQ-FUN-001 |
+| MQ5 baseline | Clean-air voltage on A0 once it is stable, after 24 to 48 h of continuous power (datasheet preheat). Then fix `zero_raw` from it. Not yet measured: the voltage was still drifting after about 4 h | REQ-FUN-003, REQ-SAF-003 |
 | Watchdog reset cause | After a watchdog reset, WDRF is seen (the bootloader can clear the reset flags first) | REQ-SAF-006 |
 | Stuck sensor | Freeze one input for 10 minutes: its channel is excluded and the alarm clears | REQ-SAF-003 |
 | Bandgap | Measured at start-up and every 60 s; the value is within 202..248 | REQ-SAF-004 |
@@ -51,7 +52,7 @@ with the I²C STOP fix from `day-3-fix-i2c-stop` (`2d0d056`).
 | A0 to GND with the 100 kΩ pull-down, no sensor | 0 V |
 | A1 to GND with the 100 kΩ pull-down, no sensor | 0 V |
 | A0 with the MQ5 AO wire removed | 0 V |
-| A0 with the MQ5 AO wire connected | stable voltage (value depends on the gas) |
+| A0 with the MQ5 AO wire connected | Responds, but still drifting after about 4 h of power: 1.41 V at 13:57, 0.63 V at 17:30 (clean air). Baseline open, see the open steps |
 
 ### I²C bus (REQ-HMI-001, REQ-HMI-002)
 
