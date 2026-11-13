@@ -89,6 +89,17 @@ static void test_hal_adc_fake_reset_clears_bandgap(void)
     TEST_ASSERT_EQUAL_UINT16(225u, raw);   /* Back to nominal, not to zero. */
 }
 
+/* @verifies REQ-SAF-004 */
+static void test_hal_adc_fake_failed_bandgap_read_returns_timeout_until_reset(void)
+{
+    uint16_t raw = 0u;
+
+    hal_adc_fake_fail_bandgap(true);
+    TEST_ASSERT_EQUAL_INT(GG_ERR_TIMEOUT, hal_adc_read_bandgap(&raw));
+    hal_adc_fake_reset();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_read_bandgap(&raw));
+}
+
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
@@ -101,5 +112,6 @@ int main(void)
     RUN_TEST(test_hal_adc_read_bandgap_unset_reads_zero);
     RUN_TEST(test_hal_adc_read_bandgap_rejects_null_output);
     RUN_TEST(test_hal_adc_fake_reset_clears_bandgap);
+    RUN_TEST(test_hal_adc_fake_failed_bandgap_read_returns_timeout_until_reset);
     return UNITY_END();
 }

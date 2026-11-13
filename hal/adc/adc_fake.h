@@ -7,6 +7,7 @@
 // cppcheck-suppress misra-c2012-2.5
 #define HAL_ADC_FAKE_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "common/gg_types/gg_types.h"
@@ -40,5 +41,14 @@ gg_status_t hal_adc_fake_set_value(uint8_t channel, uint16_t raw);
 // DEV-04: test-only control API, used from tests
 // cppcheck-suppress misra-c2012-8.7
 gg_status_t hal_adc_fake_set_bandgap(uint16_t raw);
+
+/**
+ * @brief Make hal_adc_read_bandgap() fail with GG_ERR_TIMEOUT, as a stuck ADC would.
+ * @param fail  true to fail every bandgap read, false to read the scripted value again.
+ * @req REQ-SAF-004
+ */
+// DEV-04: test-only control API, used from tests
+// cppcheck-suppress misra-c2012-8.7
+void hal_adc_fake_fail_bandgap(bool fail);
 
 #endif /* HAL_ADC_FAKE_H */

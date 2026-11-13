@@ -14,6 +14,7 @@
  *
  * @req REQ-FUN-001
  */
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -28,6 +29,7 @@
 typedef struct {
     uint16_t raw[HAL_ADC_CHANNEL_COUNT];
     uint16_t bandgap_raw;
+    bool bandgap_fails;   /**< hal_adc_read_bandgap() returns GG_ERR_TIMEOUT, as a stuck ADC would. */
 } adc_fake_state_t;
 
 static adc_fake_state_t s_adc_fake;
@@ -40,6 +42,12 @@ void hal_adc_fake_reset(void)
         s_adc_fake.raw[channel] = 0u;
     }
     s_adc_fake.bandgap_raw = ADC_FAKE_BANDGAP_NOMINAL;
+    s_adc_fake.bandgap_fails = false;
+}
+
+void hal_adc_fake_fail_bandgap(bool fail)
+{
+    s_adc_fake.bandgap_fails = fail;
 }
 
 gg_status_t hal_adc_fake_set_bandgap(uint16_t raw)
@@ -60,6 +68,8 @@ gg_status_t hal_adc_read_bandgap(uint16_t *out_raw)
 
     if (out_raw == NULL) {
         status = GG_ERR_NULL;
+    } else if (s_adc_fake.bandgap_fails) {
+        status = GG_ERR_TIMEOUT;
     } else {
         *out_raw = s_adc_fake.bandgap_raw;
     }

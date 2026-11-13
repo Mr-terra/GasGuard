@@ -372,6 +372,94 @@ static void test_firmware_bandgap_out_of_tolerance_raises_fault(void)
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
 }
 
+/** @brief Number of BANDGAP entries in the whole event log. */
+static uint8_t count_bandgap_entries(void)
+{
+    eventlog_entry_t entry;
+    uint8_t slot;
+    uint8_t count = 0u;
+
+    for (slot = 0u; slot < EVENTLOG_ENTRIES; slot++) {
+        if ((eventlog_read_slot(slot, &entry) == GG_OK) && (entry.code == EVENTLOG_BANDGAP)) {
+            count++;
+        }
+    }
+    return count;
+}
+
+/* @verifies REQ-SAF-004 */
+static void test_firmware_bandgap_out_of_tolerance_logs_its_raw_value_once(void)
+{
+    eventlog_entry_t entry;
+
+    boot_defaults();
+    set_gas_raw(CLEAN_RAW);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(150u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(2u, &entry));
+    TEST_ASSERT_EQUAL_INT(EVENTLOG_BANDGAP, entry.code);
+    TEST_ASSERT_EQUAL_UINT16(150u, entry.arg);
+    /* Still out of tolerance at the next measurement: no second entry (REQ-LOG-003). */
+    fw_ticks(600u, false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    TEST_ASSERT_EQUAL_UINT8(1u, count_bandgap_entries());
+}
+
+/* @verifies REQ-SAF-004 */
+static void test_firmware_bandgap_within_tolerance_logs_nothing(void)
+{
+    boot_defaults();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(DIAG_BANDGAP_NOMINAL));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    TEST_ASSERT_EQUAL_UINT8(0u, count_bandgap_entries());
+}
+
+/* @verifies REQ-SAF-004 */
+static void test_firmware_failed_bandgap_read_is_logged_as_zero_and_raises_fault(void)
+{
+    eventlog_entry_t entry;
+
+    boot_defaults();
+    set_gas_raw(CLEAN_RAW);
+    hal_adc_fake_fail_bandgap(true);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(2u, &entry));
+    TEST_ASSERT_EQUAL_INT(EVENTLOG_BANDGAP, entry.code);
+    TEST_ASSERT_EQUAL_UINT16(0u, entry.arg);
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-004 */
+static void test_firmware_bandgap_fault_latches_even_when_the_log_write_fails(void)
+{
+    bool energised = true;
+
+    boot_defaults();
+    set_gas_raw(CLEAN_RAW);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(150u));
+    hal_eeprom_fake_fail_writes(true);
+    /* The log entry is a diagnostic: its failure must not stop the fault (FMEA F44). */
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    /* The mode-change entry fails too, so the sample reports an error; the state is what matters. */
+    (void)firmware_sample(&fw, now_test);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
+    TEST_ASSERT_FALSE(energised);
+}
+
+/* @verifies REQ-SAF-004 */
+static void test_firmware_bandgap_is_logged_again_after_a_reset(void)
+{
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(150u));
+    boot_defaults();
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    /* Second boot on the same EEPROM: the first bad value of this boot is logged too. */
+    boot_defaults();
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    TEST_ASSERT_EQUAL_UINT8(2u, count_bandgap_entries());
+}
+
 /* @verifies REQ-HMI-003 */
 static void test_firmware_alarm_2_buzzer_beeps_four_times_a_second_at_the_output_rate(void)
 {
@@ -476,6 +564,11 @@ int main(void)
     RUN_TEST(test_firmware_stack_below_64_bytes_latches_fault);
     RUN_TEST(test_firmware_frozen_channel_is_excluded_after_ten_minutes);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_raises_fault);
+    RUN_TEST(test_firmware_bandgap_out_of_tolerance_logs_its_raw_value_once);
+    RUN_TEST(test_firmware_bandgap_within_tolerance_logs_nothing);
+    RUN_TEST(test_firmware_failed_bandgap_read_is_logged_as_zero_and_raises_fault);
+    RUN_TEST(test_firmware_bandgap_fault_latches_even_when_the_log_write_fails);
+    RUN_TEST(test_firmware_bandgap_is_logged_again_after_a_reset);
     RUN_TEST(test_firmware_alarm_2_buzzer_beeps_four_times_a_second_at_the_output_rate);
     RUN_TEST(test_firmware_channel_fault_is_logged_once);
     RUN_TEST(test_firmware_missing_display_is_logged);
