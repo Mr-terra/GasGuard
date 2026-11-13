@@ -52,7 +52,8 @@ with the I²C STOP fix from `day-3-fix-i2c-stop` (`2d0d056`).
 | A0 to GND with the 100 kΩ pull-down, no sensor | 0 V |
 | A1 to GND with the 100 kΩ pull-down, no sensor | 0 V |
 | A0 with the MQ5 AO wire removed | 0 V |
-| A0 with the MQ5 AO wire connected | Responds, but still drifting after about 4 h of power: 1.41 V at 13:57, 0.63 V at 17:30 (clean air). Baseline open, see the open steps |
+| A0 with the MQ5 AO wire connected | Responds. Still drifting during the preheat: 1.41 V at 13:57 the first day, 0.63 V at 18:00, 0.71 V at 23:09 (night), 0.56 V at 11:08 and 12:10 next day, 0.52 to 0.55 V from 15:26 to 16:38. Temperature recorded from 11:08 the next day: 17.3 to 20.4 °C. Earlier readings were at about 20 °C (estimate, not recorded) |
+| MQ5 baseline (provisional) | **Provisional, not validated**: 0.56 V (about 115 on the ADC), at 20 °C, after about 17 h of preheat. Used to follow the drift only. `zero_raw` stays at 0 in the code until a validated baseline exists. Confirm after 24 to 48 h of continuous power | REQ-FUN-003 |
 
 ### I²C bus (REQ-HMI-001, REQ-HMI-002)
 
