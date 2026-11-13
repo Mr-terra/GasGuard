@@ -173,7 +173,7 @@ static void test_firmware_mq5_channel_reads_the_mapped_adc_input(void)
     TEST_ASSERT_EQUAL_INT(ALARM_1_RAW, firmware_concentration(&fw));
 }
 
-/* @verifies REQ-FUN-003 */
+/* @verifies REQ-FUN-003 REQ-FUN-005 */
 static void test_firmware_each_channel_subtracts_its_own_zero(void)
 {
     boot_defaults();
@@ -192,11 +192,29 @@ static void test_firmware_each_channel_subtracts_its_own_zero(void)
 /* @verifies REQ-FUN-003 */
 static void test_firmware_mq5_below_its_zero_reads_zero(void)
 {
+#ifdef GG_SIM_POT
+    /* The simulation build has no MQ-5 offset: raw 0 would be an open circuit, not a clamp. */
+    TEST_IGNORE_MESSAGE("no MQ-5 offset in the simulation build");
+#endif
     boot_defaults();
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5));
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, MQ2_LOW_RAW));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, 130000u));
     TEST_ASSERT_EQUAL_INT(10, firmware_concentration(&fw));
+}
+
+/* @verifies REQ-FUN-003 REQ-FUN-005 */
+static void test_firmware_mq5_alone_above_al2_raises_alarm_2(void)
+{
+    bool energised = true;
+
+    boot_and_reach_normal();
+    /* MQ-2 stays clean: the alarm comes from the MQ-5 path, offset included. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, ALARM_2_RAW + FIRMWARE_ZERO_RAW_MQ5));
+    fw_ticks(10u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
+    TEST_ASSERT_FALSE(energised);
 }
 
 /* @verifies REQ-HMI-001 */
@@ -384,6 +402,10 @@ static void test_firmware_frozen_channel_is_excluded_after_ten_minutes(void)
         }
         TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, mq2_raw));
         fw_tick(false, false);
+        if (i == 1300u) {
+            /* 130 s: warm-up over, the frozen MQ-5 reading holds ALARM_1. */
+            TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
+        }
     }
     /* Without the stuck check the frozen MQ-5 would keep ALARM_1 on. */
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
@@ -584,6 +606,7 @@ int main(void)
     RUN_TEST(test_firmware_mq5_channel_reads_the_mapped_adc_input);
     RUN_TEST(test_firmware_each_channel_subtracts_its_own_zero);
     RUN_TEST(test_firmware_mq5_below_its_zero_reads_zero);
+    RUN_TEST(test_firmware_mq5_alone_above_al2_raises_alarm_2);
     RUN_TEST(test_firmware_concentration_is_the_last_sample_for_the_display);
     RUN_TEST(test_firmware_both_channels_short_raise_fault_and_drop_the_relay);
     RUN_TEST(test_firmware_touch_for_three_seconds_enters_maintenance);

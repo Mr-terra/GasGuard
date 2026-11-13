@@ -28,6 +28,7 @@
 
 /** @brief ADC channels of the two gas sensors (docs/02-architecture.md §2). */
 #define FIRMWARE_CHANNEL_MQ5 0u
+#define FIRMWARE_CHANNEL_MQ2 1u
 /**
  * @brief ADC inputs of the sensors. In the simulation build the MQ-5 channel reads
  * the potentiometer on A2 instead of A0 (REQ-FUN-006, bench tests without gas).
@@ -38,6 +39,23 @@
 #define FIRMWARE_ADC_MQ5 0u
 #endif
 #define FIRMWARE_ADC_MQ2 1u
+
+/**
+ * @brief Zero offset of each gas channel: the raw clean-air value, read as 0 %LEL (REQ-FUN-003).
+ *
+ * Provisional bench values (Day 5), compiled in until the calibration is stored in
+ * the configuration. MQ-5: 113, the low end of its clean-air drift seen by the ADC
+ * after about 27 h of power. MQ-2: 0, until its own preheat is over. The
+ * potentiometer of the simulation build has no offset.
+ *
+ * @req REQ-FUN-003
+ */
+#ifdef GG_SIM_POT
+#define FIRMWARE_ZERO_RAW_MQ5 0u
+#else
+#define FIRMWARE_ZERO_RAW_MQ5 113u
+#endif
+#define FIRMWARE_ZERO_RAW_MQ2 0u
 
 /** @brief Number of gas channels. */
 #define FIRMWARE_CHANNELS 2u

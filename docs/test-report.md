@@ -30,6 +30,7 @@ analyser or the serial monitor.
 | Relay pull-down | Relay state at reset, with and without the proposed 10 kΩ pull-down | REQ-SAF-001, FMEA F21 |
 | Buzzer rate | Alarm 2 measured on the buzzer pin: 4 beeps per second | REQ-HMI-003 |
 | Simulation build | `make avr-sim`: the potentiometer on A2 drives the MQ-5 channel | REQ-FUN-006 |
+| Calibration in the configuration | REQ-FUN-003 is **only partly met**: the zero offsets are compiled in (`FIRMWARE_ZERO_RAW_*`), not stored in the configuration, and the span is not checked with a reference gas. The trace shows code and tests for REQ-FUN-003, not this gap | REQ-FUN-003 |
 
 ## Day 5 — full firmware on the board (2026-11-13)
 
@@ -65,7 +66,7 @@ with the I²C STOP fix from `day-3-fix-i2c-stop` (`2d0d056`).
 | 5V-GND on the Uno, USB port | Only USB | 4.53 V (other USB port: same) — below the 4.75 V USB minimum |
 | 5V-GND on the breadboard rail | Wall adapter, no sensor | 4.75 V |
 | 5V-GND with the MQ5 heater | Wall adapter, MQ5 on | **4.50 V** — the supply sags by 0.25 V with one heater |
-| Supply for the Uno | 9 V barrel jack, 1 A | **Open**: not yet bought, required before any gas measurement |
+| Supply for the Uno | 9 V barrel jack, 1 A | Fitted (Day 5): 5.12 to 5.15 V on the 5V pin with both heaters on |
 
 ### Hardware pull-downs and inputs (HW-001)
 
@@ -75,7 +76,7 @@ with the I²C STOP fix from `day-3-fix-i2c-stop` (`2d0d056`).
 | A1 to GND with the 100 kΩ pull-down, no sensor | 0 V |
 | A0 with the MQ5 AO wire removed | 0 V |
 | A0 with the MQ5 AO wire connected | Responds. Still drifting during the preheat: 1.41 V at 13:57 the first day, 0.63 V at 18:00, 0.71 V at 23:09 (night), 0.56 V at 11:08 and 12:10 next day, 0.52 to 0.55 V from 15:26 to 16:38. Temperature recorded from 11:08 the next day: 17.3 to 20.4 °C. Earlier readings were at about 20 °C (estimate, not recorded) |
-| MQ5 baseline (provisional) | **Provisional, not validated**: 0.56 V (about 115 on the ADC), at 20 °C, after about 17 h of preheat. Used to follow the drift only. `zero_raw` stays at 0 in the code until a validated baseline exists. Confirm after 24 to 48 h of continuous power | REQ-FUN-003 |
+| MQ5 baseline (provisional) | **Provisional, not validated**: 0.56 V (about 115 on the ADC), at 20 °C, after about 17 h of preheat. After about 27 h the board itself read about 122 (12.2 %LEL with no offset) for 0.56 V on the meter, about 10 LSB more than 0.56 V / 5.15 V × 1023 = 111. Cause not found (meter accuracy, or AVcc lower than the 5V pin under load); the offset is taken from the board reading, which is what the firmware uses. Offset set to 113 on the MQ-5 (`FIRMWARE_ZERO_RAW_MQ5`, Day 5, approved by the author), the low end of the drift; MQ-2 offset stays 0 (0.44 V, still in preheat). Confirm both after 48 h of continuous power (FMEA F45) | REQ-FUN-003 |
 
 ### I²C bus (REQ-HMI-001, REQ-HMI-002)
 

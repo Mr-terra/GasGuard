@@ -39,8 +39,6 @@
 #include "services/config/config.h"
 #include "services/eventlog/eventlog.h"
 
-/** @brief Calibration used until a calibration is stored: one raw LSB is one unit (0.1 %LEL). */
-#define FIRMWARE_ZERO_RAW 0u
 /* Temperature compensation is off: the temperature input (A3) is not read, so the
  * coefficient is zero and calib_temp_correct() is not called. */
 #define FIRMWARE_TEMP_REF_RAW 0u
@@ -166,9 +164,15 @@ static gg_status_t boot_start_detector(firmware_t *fw, const config_t *cfg, uint
  * @brief Initialise the filter, the diagnostic and the calibration of each channel.
  * @param fw  Firmware state.
  * @return The first error, or GG_OK.
+ * @req REQ-FUN-003
  */
 static gg_status_t boot_init_channels(firmware_t *fw)
 {
+    /* Zero offset of each channel. Above it, one raw LSB is 0.1 %LEL. */
+    static const uint16_t k_zero_raw[FIRMWARE_CHANNELS] = {
+        [FIRMWARE_CHANNEL_MQ5] = FIRMWARE_ZERO_RAW_MQ5,
+        [FIRMWARE_CHANNEL_MQ2] = FIRMWARE_ZERO_RAW_MQ2
+    };
     calib_config_t calib_cfg;
     gg_status_t status = GG_OK;
     uint8_t ch;
@@ -177,11 +181,11 @@ static gg_status_t boot_init_channels(firmware_t *fw)
         fw->channel_faulty[ch] = false;
     }
 
-    calib_cfg.zero_raw = FIRMWARE_ZERO_RAW;
     calib_cfg.gain_q8 = CALIB_GAIN_ONE;
     calib_cfg.temp_ref_raw = FIRMWARE_TEMP_REF_RAW;
     calib_cfg.temp_coef_q8 = FIRMWARE_TEMP_COEF_Q8;
     for (ch = 0u; (status == GG_OK) && (ch < FIRMWARE_CHANNELS); ch++) {
+        calib_cfg.zero_raw = k_zero_raw[ch];
         status = filter_init(&fw->filter[ch]);
         if (status == GG_OK) {
             status = diag_init(&fw->diag[ch]);

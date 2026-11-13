@@ -58,7 +58,7 @@ process is the point:
 | Foundations | Build, unit test, static analysis and memory budget gates | Done (Day 1) |
 | Foundations | Hardware interfaces (ADC, timer, GPIO, EEPROM, UART, I2C, watchdog, reset cause), each with a PC fake and unit tests | Done (Day 1); AVR drivers Day 3 |
 | Sensing | Moving average over the last 8 samples per channel (`services/filter`) | Done (Day 2); 100 ms sampling loop Day 4 |
-| Sensing | Linear calibration to %LEL in Q8 fixed point, temperature compensation when the sensor is valid | Calibration done (Day 2); temperature compensation not wired: A3 is not read yet (see limitations) |
+| Sensing | Linear calibration to %LEL in Q8 fixed point, temperature compensation when the sensor is valid | Calibration done (Day 2); zero offset per channel, provisional bench values compiled in (MQ-5 113, MQ-2 0, Day 5); temperature compensation not wired: A3 is not read yet (see limitations) |
 | Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) | Done: tested on the PC (Day 2); wired into the firmware on Day 5 |
 | Diagnostics | Bandgap raw read against AVcc, checked at start-up and every 60 s; ten conversions discarded first so the reference settles; the first bad raw value of each boot is logged as `BANDGAP` (REQ-SAF-004, FMEA F43) | Done (Day 5); settling fix to confirm on the board |
 | Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) | Done (Day 4); stack measurement on the bench in Day 5 |
@@ -384,6 +384,9 @@ Accepted deviations from the coding standard are listed in
   A failed boot arms the watchdog, so the board resets and tries again.
 - **Temperature compensation is off**: the temperature input (A3) is not read yet,
   so the coefficient is zero.
+- **Calibration is compiled in, not stored in the configuration** as REQ-FUN-003
+  asks. The zero offsets are provisional bench values (MQ-5 113, MQ-2 0) and the
+  span is one LSB per 0.1 %LEL, not checked with a reference gas (FMEA F05, F45).
 - **Relay pull-down at reset** (FMEA F21) is proposed in docs/02, not yet fitted.
 - **`status` and `cfg` commands** of the UART interface are not implemented;
   only `log` is (REQ-LOG-004).
