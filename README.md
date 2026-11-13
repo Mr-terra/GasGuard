@@ -70,7 +70,7 @@ process is the point:
 | Interface | Buzzer and button drivers (`drivers/buzzer`, `drivers/button` with 30 ms debounce) | Done (Day 3); patterns and actions Day 4 |
 | Interface | Buzzer patterns (1 Hz, 4 Hz, 1 beep / 5 s), short-press silence, long-press reset and functional test, debounce (REQ-HMI-003..007) | Done (Day 4) |
 | Interface | LCD: state text (MAINT, TEST), backlight colour per state, amber blink in FAULT, concentration on line 2, rows filled with spaces (REQ-HMI-001, REQ-HMI-002) | Done (Day 4); FAULT blink and line 2 seen on the board (Day 5) |
-| Interface | Maintenance mode from NORMAL by a 3 s touch, relay held, alarms not output, automatic exit after 10 minutes (REQ-HMI-008..010, FMEA F36) | Done (Day 4); decision on F36 pending |
+| Interface | Maintenance mode from NORMAL by a 3 s touch, relay held, alarms not output, automatic exit after 10 minutes (REQ-HMI-008..010, FMEA F36) | Done (Day 4), checked on the board (Day 5); F36 accepted by the author |
 | Interface | UART command line: `log` dumps the event log, one line per poll for the 64-byte transmit buffer (REQ-LOG-004) | `log` done (Day 4), checked on the board (Day 5); `status` and `cfg` planned |
 | Simulation | Potentiometer replaces the MQ-5 channel for bench tests | Day 3 |
 

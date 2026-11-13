@@ -21,7 +21,7 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 
 ## Day 3 — Hardware layer (board arrived)
 - [x] Board drivers `hal/<peripheral>/<peripheral>_avr.c`: timer tick 1 ms, ADC (+ bandgap), GPIO, UART, watchdog, reset cause, EEPROM, I2C (TWI)
-- [ ] Wire the MQ modules per `docs/02-architecture.md` §2.1 (pull-downs, white wire insulated). Partly done: MQ5 on A0 with its pull-down, A1 channel and MQ on A1 still to wire; the supply limit (4.5 V with MQ5 on USB) is open, see `docs/test-report.md`
+- [x] Wire the MQ modules per `docs/02-architecture.md` §2.1 (pull-downs, white wire insulated): MQ-5 on A0 and MQ-2 on A1, each with its 100 kΩ pull-down; 9 V jack fitted (5.12 V with both heaters, Day 5)
 - [x] I2C scan → confirm LCD RGB address: 0x3E and 0x62 answer (0x70 also answers, to be identified)
 - [x] `drivers/`: lcd_rgb, buzzer, relay, button (debounce), with host tests
 - [x] First flash: boot banner on UART, LCD shows "GasGuard" (green backlight)
@@ -30,17 +30,17 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 ## Day 4 — Integration and robustness
 - [x] `main.c` scheduler, watchdog kick policy, overrun + stack watermark — REQ-SAF-005..009 (stack painting and check: AVR code compiled, not yet measured on the board)
 - [x] `services/config` A/B + CRC-16, `services/eventlog` ring buffer, CLI `log` — REQ-CFG-*, REQ-LOG-* (`status` and `cfg` not done: not required by a REQ; planned)
-- [x] HMI: patterns, ack/reset, functional test, maintenance mode, LCD concentration — REQ-HMI-* (FMEA F36 decision pending)
+- [x] HMI: patterns, ack/reset, functional test, maintenance mode, LCD concentration — REQ-HMI-* (FMEA F36 accepted by the author)
 - [x] Scenario tests SC-11, SC-12, SC-14, SC-16 (SC-15 in unit tests)
-- [ ] Bench test with potentiometer (simulation build), then real gas sensors
+- [~] Bench test with potentiometer (simulation build), then real gas sensors: real sensors done on Day 5 (lighter gas, ALARM_1/ALARM_2, latch, silence, maintenance, functional test); the simulation build was never flashed
 - [ ] **Learn:** CRC, EEPROM wear, watchdog design, why fail-safe relay
 - [~] **Remove DEV-05** (docs/04 §5): removed where `app/` or the tests call the function; kept on the prototypes that only `main.c` calls (cppcheck does not lint `main.c`)
-- [ ] **Replace the TODO in `app/detector/detector.c`** (`default` branch of `step_state`) with `diag_raise()`, once the event log exists
+- [x] **Replace the TODO in `app/detector/detector.c`** (`default` branch of `step_state`) with `diag_raise()`, once the event log exists
 
 ## Day 5 — Evidence and presentation
 - [x] `make check` without `--allow-gaps`: 100 % traceability (45/45, strict run of `tools/trace.py`)
 - [~] `misra-review` on the whole tree: cppcheck MISRA and clang-tidy pass on every library and test file; `main.c` is outside the cppcheck scope and was reviewed by hand only
-- [ ] Hardware test report `docs/test-report.md` + logic-analyzer screenshots (open steps listed; needs the bench)
+- [~] Hardware test report `docs/test-report.md` + logic-analyzer screenshots: Day 5 board session recorded (alarms, latch, HMI, log, bandgap fix, calibration); open: relay, watchdog trip, stack value, screenshots
 - [ ] README: photo, demo GIF/video, quality badges (needs the bench for the photo and demo; wiring section exists)
 - [x] Short section "How this project was built with Claude Code" (the `.claude/` setup as quality system)
 - [ ] Tag `v1.0` (after the author validates Day 5)
