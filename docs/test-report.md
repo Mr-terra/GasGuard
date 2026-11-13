@@ -52,6 +52,9 @@ Firmware: `main` at `60ac2b2` (button read as active high), flashed with
 | Warm-up end | Pass: `MODE 1` (NORMAL) then `MODE 2` (ALARM_1) at 120 s, with the uncalibrated MQ-5 at about 11.5 %LEL | REQ-ALM-006 |
 | Button short press in ALARM_1 | Pass: the buzzer stops, the display stays on `ALARM 1` | REQ-HMI-004 |
 | Button long press in ALARM_1 | Pass: 3 s press, no change of state or buzzer (by design: the long press acts only in ALARM_2 and NORMAL) | REQ-HMI-005 |
+| Calibrated start (`298db0b`) | Pass: after the warm-up the detector reaches NORMAL with the MQ-5 offset at 113 | REQ-FUN-003 |
+| Touch 3 s in NORMAL | Pass: MAINTENANCE entered, yellow backlight (looks orange on this module), automatic return to NORMAL after 10 min | REQ-HMI-008, REQ-HMI-010 |
+| Button long press in NORMAL | Pass: the functional test runs, the buzzer beeps. Relay step not seen: no relay wired | REQ-HMI-006 |
 | Unexplained channel event | With `60ac2b2`, `CHANNEL 0` at 832 s then `RECOVERED 0` at 1111 s (MQ-5). A cable was replaced during that session, maybe at that time; not confirmed. The detector reacted as designed (channel excluded, then back in service). **Open**: watch for it again with the wiring untouched | REQ-SAF-002 |
 
 ## Day 3 — first bench session (2026-11-05)
