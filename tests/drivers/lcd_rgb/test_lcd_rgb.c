@@ -146,6 +146,23 @@ static void test_lcd_rgb_write_line_one_uses_the_second_row_address(void)
 }
 
 /* @verifies REQ-HMI-001 */
+static void test_lcd_rgb_write_line_pads_the_row_with_spaces(void)
+{
+    uint8_t i;
+
+    hal_i2c_fake_reset();
+    (void)hal_i2c_fake_set_present(LCD_TEXT_ADDR, true);
+    /* "FAULT" after "WARMUP" must not leave the last "P" on the display. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, lcd_rgb_write_line(0u, "FAULT"));
+    TEST_ASSERT_EQUAL_UINT8(LCD_LINE_LEN + 1u, hal_i2c_fake_last_len());
+    /* Log: 2 bytes of cursor command, the data control byte, then the 16 characters. */
+    TEST_ASSERT_EQUAL_UINT8((uint8_t)'T', hal_i2c_fake_log_byte(7u));
+    for (i = 8u; i < (2u + 1u + LCD_LINE_LEN); i++) {
+        TEST_ASSERT_EQUAL_UINT8((uint8_t)' ', hal_i2c_fake_log_byte(i));
+    }
+}
+
+/* @verifies REQ-HMI-001 */
 static void test_lcd_rgb_write_line_rejects_bad_arguments(void)
 {
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, lcd_rgb_write_line(0u, NULL));
@@ -167,6 +184,7 @@ int main(void)
     RUN_TEST(test_lcd_rgb_set_colour_writes_red_green_blue_registers);
     RUN_TEST(test_lcd_rgb_write_line_zero_sets_cursor_and_sends_characters);
     RUN_TEST(test_lcd_rgb_write_line_one_uses_the_second_row_address);
+    RUN_TEST(test_lcd_rgb_write_line_pads_the_row_with_spaces);
     RUN_TEST(test_lcd_rgb_write_line_rejects_bad_arguments);
     return UNITY_END();
 }
