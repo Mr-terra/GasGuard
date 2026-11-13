@@ -40,7 +40,7 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 ## Day 5 — Evidence and presentation
 - [x] `make check` without `--allow-gaps`: 100 % traceability (45/45, strict run of `tools/trace.py`)
 - [~] `misra-review` on the whole tree: cppcheck MISRA and clang-tidy pass on every library and test file; `main.c` is outside the cppcheck scope and was reviewed by hand only
-- [~] Hardware test report `docs/test-report.md` + logic-analyzer screenshots: Day 5 board session recorded (alarms, latch, HMI, log, bandgap fix, calibration); open: relay, watchdog trip, stack value, screenshots
+- [~] Hardware test report `docs/test-report.md` + logic-analyzer screenshots: Day 5 board session recorded (alarms, latch, HMI, log, bandgap fix, calibration); open: relay, watchdog trip, stack value. Screenshots dropped: no logic analyzer or oscilloscope available
 - [ ] README: photo, demo GIF/video, quality badges (needs the bench for the photo and demo; wiring section exists)
 - [x] Short section "How this project was built with Claude Code" (the `.claude/` setup as quality system)
 - [ ] Tag `v1.0` (after the author validates Day 5)
