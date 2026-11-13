@@ -30,6 +30,10 @@ void tearDown(void);
 #define ALARM_1_RAW 150u
 /** @brief Raw value above AL2 (25 %LEL). */
 #define ALARM_2_RAW 300u
+/** @brief Raw value on the MQ-5 alone that reads 15 %LEL after its zero offset. */
+#define MQ5_ALARM_1_RAW (ALARM_1_RAW + FIRMWARE_ZERO_RAW_MQ5)
+/** @brief Small MQ-2 reading (1 %LEL), above the open-circuit limit. */
+#define MQ2_LOW_RAW 10u
 /** @brief Hold time of a long press, and one step of the main loop, in milliseconds. */
 #define HOLD_LONG_TICKS 35u
 #define TICK_MS 100u
@@ -162,11 +166,37 @@ static void test_firmware_mq5_channel_reads_the_mapped_adc_input(void)
     other = 2u;
 #endif
     boot_defaults();
-    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, ALARM_1_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_1_RAW));
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW));
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(other, ALARM_2_RAW));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, 130000u));
     TEST_ASSERT_EQUAL_INT(ALARM_1_RAW, firmware_concentration(&fw));
+}
+
+/* @verifies REQ-FUN-003 */
+static void test_firmware_each_channel_subtracts_its_own_zero(void)
+{
+    boot_defaults();
+    /* MQ-5 at its clean-air value reads 0; the MQ-2 has no offset yet, so 10 raw is 1 %LEL. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5 + 20u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, MQ2_LOW_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, 130000u));
+    TEST_ASSERT_EQUAL_INT(20, firmware_concentration(&fw));
+    TEST_ASSERT_EQUAL_UINT16(0u, FIRMWARE_ZERO_RAW_MQ2);
+#ifndef GG_SIM_POT
+    /* Provisional clean-air value of the MQ-5 seen by the ADC (bench, Day 5). */
+    TEST_ASSERT_EQUAL_UINT16(113u, FIRMWARE_ZERO_RAW_MQ5);
+#endif
+}
+
+/* @verifies REQ-FUN-003 */
+static void test_firmware_mq5_below_its_zero_reads_zero(void)
+{
+    boot_defaults();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, MQ2_LOW_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, 130000u));
+    TEST_ASSERT_EQUAL_INT(10, firmware_concentration(&fw));
 }
 
 /* @verifies REQ-HMI-001 */
@@ -345,7 +375,7 @@ static void test_firmware_frozen_channel_is_excluded_after_ten_minutes(void)
 
     boot_defaults();
     /* MQ-5 frozen at a plausible gas level; MQ-2 moves by 2 LSB, so it is not stuck. */
-    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, ALARM_1_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_1_RAW));
     for (i = 0u; i < 7400u; i++) {
         uint16_t mq2_raw = CLEAN_RAW;
 
@@ -552,6 +582,8 @@ int main(void)
     RUN_TEST(test_firmware_boot_starts_in_warmup_and_the_output_follows_it);
     RUN_TEST(test_firmware_alarm_1_after_warmup_and_three_samples);
     RUN_TEST(test_firmware_mq5_channel_reads_the_mapped_adc_input);
+    RUN_TEST(test_firmware_each_channel_subtracts_its_own_zero);
+    RUN_TEST(test_firmware_mq5_below_its_zero_reads_zero);
     RUN_TEST(test_firmware_concentration_is_the_last_sample_for_the_display);
     RUN_TEST(test_firmware_both_channels_short_raise_fault_and_drop_the_relay);
     RUN_TEST(test_firmware_touch_for_three_seconds_enters_maintenance);
