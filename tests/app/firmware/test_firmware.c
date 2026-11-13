@@ -512,6 +512,115 @@ static void test_firmware_bandgap_is_logged_again_after_a_reset(void)
     TEST_ASSERT_EQUAL_UINT8(2u, count_bandgap_entries());
 }
 
+/** @brief Number of valid log entries with this code; any argument when arg is ANY_ARG. */
+#define ANY_ARG 0xFFFFu
+static uint8_t count_entries(eventlog_code_t code, uint16_t arg)
+{
+    eventlog_entry_t entry;
+    uint8_t slot;
+    uint8_t count = 0u;
+
+    for (slot = 0u; slot < EVENTLOG_ENTRIES; slot++) {
+        if ((eventlog_read_slot(slot, &entry) == GG_OK) && (entry.code == code)
+            && ((arg == ANY_ARG) || (entry.arg == arg))) {
+            count++;
+        }
+    }
+    return count;
+}
+
+/** @brief Start the firmware and run one loop pass, as a start cut short by a reset. */
+static void short_start(void)
+{
+    boot_defaults();
+    fw_tick(false, false);
+}
+
+/* @verifies REQ-SAF-011 */
+static void test_firmware_fourth_short_start_enters_fault_and_logs_it_once(void)
+{
+    uint8_t i;
+    bool energised = true;
+    detector_fault_code_t code = DET_FAULT_NONE;
+
+    set_gas_raw(CLEAN_RAW);
+    for (i = 0u; i < FIRMWARE_SHORT_STARTS_MAX; i++) {
+        short_start();
+        TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+    }
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_fault_code(&fw.det, &code));
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_RESET_LOOP, code);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
+    TEST_ASSERT_FALSE(energised);
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_FAULT, (uint16_t)DET_FAULT_RESET_LOOP));
+    /* The fourth start does not log its reset: the loop is the event. */
+    TEST_ASSERT_EQUAL_UINT8(FIRMWARE_SHORT_STARTS_MAX, count_entries(EVENTLOG_RESET, ANY_ARG));
+}
+
+/* @verifies REQ-SAF-011 */
+static void test_firmware_later_short_starts_stay_in_fault_and_write_nothing_to_the_log(void)
+{
+    uint8_t i;
+    uint8_t modes;
+
+    set_gas_raw(CLEAN_RAW);
+    for (i = 0u; i <= FIRMWARE_SHORT_STARTS_MAX; i++) {
+        short_start();
+    }
+    modes = count_entries(EVENTLOG_MODE_CHANGE, ANY_ARG);
+    short_start();
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_FAULT, ANY_ARG));
+    TEST_ASSERT_EQUAL_UINT8(FIRMWARE_SHORT_STARTS_MAX, count_entries(EVENTLOG_RESET, ANY_ARG));
+    TEST_ASSERT_EQUAL_UINT8(modes, count_entries(EVENTLOG_MODE_CHANGE, ANY_ARG));
+}
+
+/* @verifies REQ-SAF-011 */
+static void test_firmware_sixty_seconds_of_running_clears_the_start_count(void)
+{
+    uint8_t i;
+
+    set_gas_raw(CLEAN_RAW);
+    for (i = 0u; i < FIRMWARE_SHORT_STARTS_MAX; i++) {
+        short_start();
+    }
+    /* The third start runs for 60 s: the next start is a normal one. */
+    fw_ticks(600u, false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-011 */
+static void test_firmware_reset_loop_fault_clears_after_sixty_seconds_and_a_new_start(void)
+{
+    uint8_t i;
+
+    set_gas_raw(CLEAN_RAW);
+    for (i = 0u; i <= FIRMWARE_SHORT_STARTS_MAX; i++) {
+        short_start();
+    }
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+    fw_ticks(600u, false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-011 */
+static void test_firmware_corrupted_start_count_is_read_as_zero(void)
+{
+    static const uint8_t garbage[2] = { 7u, 7u };   /* The second byte is not the complement. */
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_write(FIRMWARE_ADDR_START_COUNT, garbage, 2u));
+    set_gas_raw(CLEAN_RAW);
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+}
+
 /* @verifies REQ-HMI-003 */
 static void test_firmware_alarm_2_buzzer_beeps_four_times_a_second_at_the_output_rate(void)
 {
@@ -625,6 +734,11 @@ int main(void)
     RUN_TEST(test_firmware_bandgap_fault_latches_even_when_the_log_write_fails);
     RUN_TEST(test_firmware_bandgap_is_logged_again_after_a_reset);
     RUN_TEST(test_firmware_alarm_2_buzzer_beeps_four_times_a_second_at_the_output_rate);
+    RUN_TEST(test_firmware_fourth_short_start_enters_fault_and_logs_it_once);
+    RUN_TEST(test_firmware_later_short_starts_stay_in_fault_and_write_nothing_to_the_log);
+    RUN_TEST(test_firmware_sixty_seconds_of_running_clears_the_start_count);
+    RUN_TEST(test_firmware_reset_loop_fault_clears_after_sixty_seconds_and_a_new_start);
+    RUN_TEST(test_firmware_corrupted_start_count_is_read_as_zero);
     RUN_TEST(test_firmware_channel_fault_is_logged_once);
     RUN_TEST(test_firmware_missing_display_is_logged);
     RUN_TEST(test_firmware_channel_recovery_is_logged);

@@ -72,6 +72,7 @@ Any mode → `FAULT`. `NORMAL` ⇄ `MAINTENANCE` (operator request, time-limited
 | REQ-SAF-008 | The scheduler shall detect a task overrun (cycle > 100 ms) and log it; 3 consecutive overruns shall raise FAULT. |
 | REQ-SAF-009 | Unused stack shall be painted at boot; the firmware shall check the stack watermark every second and raise FAULT if fewer than 64 bytes remain. |
 | REQ-SAF-010 | The firmware shall not use dynamic memory allocation or recursion. |
+| REQ-SAF-011 | If the firmware starts 3 times in a row without having run 60 s, it shall enter FAULT at the next start and log it once. The count shall be cleared after 60 s of running. |
 
 ## 7. User interface requirements
 
