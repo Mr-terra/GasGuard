@@ -29,6 +29,8 @@
 #define LCD_CTRL_CMD  0x80u
 /** @brief Control byte: the next byte is a character to display. */
 #define LCD_CTRL_DATA 0x40u
+/** @brief Character code of a space, written after the text to clear the rest of a row. */
+#define LCD_CHAR_SPACE 0x20u
 
 /** @brief Set DDRAM address: row 0 starts at 0x00, row 1 at 0x40 (0x80 | address). */
 #define LCD_CMD_DDRAM_ROW0 0x80u
@@ -200,17 +202,22 @@ gg_status_t lcd_rgb_write_line(uint8_t row, const char *text)
         } else {
             /* One transfer for the whole line: the control byte 0x40 is followed by the
              * characters, which the controller takes as data. One I2C transfer instead of
-             * one per character keeps the display task short (REQ-SAF-008). */
+             * one per character keeps the display task short (REQ-SAF-008). The row is
+             * filled with spaces: a shorter text must clear the end of the previous one. */
             uint8_t bytes[LCD_LINE_LEN + 1u];
             uint8_t i;
 
             bytes[0] = LCD_CTRL_DATA;
-            for (i = 0u; i < len; i++) {
-                bytes[i + 1u] = (uint8_t)text[i];
+            for (i = 0u; i < LCD_LINE_LEN; i++) {
+                if (i < len) {
+                    bytes[i + 1u] = (uint8_t)text[i];
+                } else {
+                    bytes[i + 1u] = LCD_CHAR_SPACE;
+                }
             }
             status = lcd_text_command(lcd_row_command(row));
             if (status == GG_OK) {
-                status = hal_i2c_write(LCD_TEXT_ADDR, bytes, (uint8_t)(len + 1u));
+                status = hal_i2c_write(LCD_TEXT_ADDR, bytes, (uint8_t)(LCD_LINE_LEN + 1u));
             }
         }
     }

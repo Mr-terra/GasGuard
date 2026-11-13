@@ -49,6 +49,10 @@ gg_status_t lcd_rgb_set_colour(uint8_t red, uint8_t green, uint8_t blue);
 
 /**
  * @brief Write one line of text, starting at column 0 of the given row.
+ *
+ * The rest of the row is filled with spaces, so a shorter text never leaves
+ * characters of the previous one on the display.
+ *
  * @param row   0 for the first line, 1 for the second.
  * @param text  Zero-terminated text of at most LCD_LINE_LEN characters. Must not be NULL.
  * @return GG_OK, GG_ERR_NULL, GG_ERR_RANGE (bad row or text too long), or GG_ERR_TIMEOUT.
