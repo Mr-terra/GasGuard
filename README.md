@@ -368,9 +368,9 @@ Accepted deviations from the coding standard are listed in
 - **Maintenance inhibits the alarm outputs** for up to 10 minutes, as REQ-HMI-009
   states. The relay stays energised and the buzzer stays silent during that time
   (FMEA F36, accepted by the author).
-- **Not yet checked on the board:** the stack watermark value, the ALARM_1 and
-  ALARM_2 buzzer patterns, the button and touch actions, the relay state at reset,
-  and the bandgap settling fix (FMEA F43). The open steps are listed in
+- **Not yet checked on the board:** the stack watermark value, the relay (not
+  wired: relay state at reset, functional-test release), and the watchdog timing.
+  The open steps are listed in
   [`docs/test-report.md`](docs/test-report.md).
 - **The `log` command needs a newline** (`\n`): a carriage return alone is ignored.
   The first line after opening the port can read `ERR`, because a stray byte arrives
