@@ -36,7 +36,8 @@ typedef enum {
     EVENTLOG_OVERRUN = 5,  /**< A scheduler cycle took longer than 100 ms (REQ-SAF-008). */
     EVENTLOG_CHANNEL_FAULT = 6,  /**< A gas channel became faulty; arg is the channel index (REQ-SAF-002, REQ-SAF-003). */
     EVENTLOG_DISPLAY_FAULT = 7,  /**< The display did not answer at boot; the detector runs without it (REQ-HMI-001). */
-    EVENTLOG_CHANNEL_RECOVERED = 8  /**< A gas channel is back in service; arg is the channel index (REQ-SAF-002). */
+    EVENTLOG_CHANNEL_RECOVERED = 8,  /**< A gas channel is back in service; arg is the channel index (REQ-SAF-002). */
+    EVENTLOG_BANDGAP = 9  /**< First bandgap measurement out of tolerance since boot; arg is the raw value, 0 if the read failed (REQ-SAF-004, REQ-LOG-001). */
 } eventlog_code_t;
 
 /** @brief One logged event. */

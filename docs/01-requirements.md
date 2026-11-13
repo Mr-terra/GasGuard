@@ -65,7 +65,7 @@ Any mode → `FAULT`. `NORMAL` ⇄ `MAINTENANCE` (operator request, time-limited
 | REQ-SAF-001 | The alarm relay shall be **energised in the healthy, no-alarm state** and de-energised in ALARM_2, FAULT, and on power loss (fail-safe / normally-energised output). |
 | REQ-SAF-002 | A gas channel shall be declared faulty if its raw ADC value is ≤ 5 (open circuit / missing sensor) or ≥ 1018 (short circuit) for 5 consecutive samples. |
 | REQ-SAF-003 | A gas channel shall be declared faulty if its raw value does not change by more than 1 LSB over 10 minutes outside WARMUP (stuck sensor). |
-| REQ-SAF-004 | At start-up and every 60 s, the firmware shall measure the internal 1.1 V bandgap through the ADC; a result outside ±10 % shall raise an ADC fault. |
+| REQ-SAF-004 | At start-up and every 60 s, the firmware shall measure the internal 1.1 V bandgap through the ADC; a result outside ±10 % shall raise an ADC fault. After each reset, the first failed or out-of-tolerance measurement shall be written to the event log with its raw value (0 if the read failed). |
 | REQ-SAF-005 | The hardware watchdog shall be enabled with a timeout of 500 ms and serviced only from the main loop once all periodic tasks have run. |
 | REQ-SAF-006 | At boot, the firmware shall read the reset cause; a watchdog or brown-out reset shall be logged and displayed. |
 | REQ-SAF-007 | If all gas channels are faulty, or the ADC is faulty, the firmware shall enter FAULT. FAULT shall de-energise the relay and sound the fault buzzer pattern. |

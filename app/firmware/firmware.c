@@ -222,6 +222,7 @@ static gg_status_t boot_init_inputs(firmware_t *fw)
     fw->pending_fault = DET_FAULT_NONE;
     fw->last_conc = 0;
     fw->bandgap_next_ms = 0u;
+    fw->bandgap_logged = false;
     return status;
 }
 
@@ -606,8 +607,14 @@ static void health_stack(firmware_t *fw)
 
 /**
  * @brief Measure the bandgap when it is due; a fault when it is out of tolerance (REQ-SAF-004).
+ *
+ * The first bad value since boot is logged with its raw reading (0 if the read
+ * failed), so a fault seen on the board can be diagnosed. Later ones are not: the
+ * log is written on events, not once a minute (REQ-LOG-003).
+ *
  * @param fw      Firmware state.
  * @param now_ms  Current time.
+ * @req REQ-SAF-004 REQ-LOG-003
  */
 static void health_bandgap(firmware_t *fw, uint32_t now_ms)
 {
@@ -619,6 +626,14 @@ static void health_bandgap(firmware_t *fw, uint32_t now_ms)
         /* An ADC error, or a reference out of tolerance, means the readings cannot be trusted. */
         if ((hal_adc_read_bandgap(&raw) != GG_OK) || (diag_bandgap_ok(raw, &ok) != GG_OK) || !ok) {
             fw->pending_fault = DET_FAULT_INPUT;
+            if (!fw->bandgap_logged) {
+                eventlog_entry_t event = { now_ms / FIRMWARE_MS_PER_S, EVENTLOG_BANDGAP, raw };
+
+                fw->bandgap_logged = true;
+                /* Diagnostic entry only: a failed write must not stop the cycle, or the
+                 * watchdog reset would clear the pending fault before it latches (F44). */
+                (void)eventlog_append(&event);
+            }
         }
     }
 }

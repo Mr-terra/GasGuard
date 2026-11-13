@@ -71,6 +71,7 @@ typedef struct {
     calib_t calib[FIRMWARE_CHANNELS];        /**< One calibration per channel. */
     uint32_t warmup_end_ms;                  /**< Time at which WARMUP ends. */
     uint32_t bandgap_next_ms;                /**< Time of the next bandgap measurement (REQ-SAF-004). */
+    bool bandgap_logged;                     /**< An out-of-tolerance bandgap value was logged since boot: log it once only (REQ-LOG-003). */
     bool channel_faulty[FIRMWARE_CHANNELS];  /**< Fault state of each channel at the last sample, to log each change once. */
     button_t button_db;                      /**< Debounce of the push button (REQ-HMI-007). */
     hmi_press_t button_press;                /**< Press classification of the push button. */
@@ -136,11 +137,13 @@ gg_status_t firmware_output(const firmware_t *fw, uint32_t now_ms);
  * A stack below FIRMWARE_STACK_MIN_FREE, a bandgap outside tolerance, or a failed
  * measurement latches a fault at the next sample. A failed measurement is not
  * returned as an error: the fault is the answer, and the watchdog keeps running.
+ * The first bad bandgap measurement since boot is written to the event log; a failed
+ * write is ignored, so it never delays the fault.
  *
  * @param fw      Firmware state. Must not be NULL.
  * @param now_ms  Current time.
  * @return GG_OK or GG_ERR_NULL.
- * @req REQ-SAF-004 REQ-SAF-009
+ * @req REQ-SAF-004 REQ-SAF-009 REQ-LOG-003
  */
 // DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage
 // cppcheck-suppress misra-c2012-8.7

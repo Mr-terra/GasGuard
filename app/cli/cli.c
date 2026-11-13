@@ -123,6 +123,9 @@ static const char *code_name(eventlog_code_t code)
         case EVENTLOG_CHANNEL_RECOVERED:
             name = "RECOVERED";
             break;
+        case EVENTLOG_BANDGAP:
+            name = "BANDGAP";
+            break;
         default:
             name = "UNKNOWN";
             break;
