@@ -45,10 +45,13 @@ Firmware: `main` at `60ac2b2` (button read as active high), flashed with
 | Configuration | `CONFIG 2` (defaults): the EEPROM was never written | REQ-CFG-002 |
 | Display missing at boot | Pass: with SCL unplugged, `DISPLAY 0` is logged and the detector runs | REQ-HMI-001 |
 | Channel fault | Pass: MQ-2 wire off, `CHANNEL 1` logged, the detector goes on with the MQ-5 and reaches ALARM_1 after the warm-up (uncalibrated MQ-5 reads about 11.5 %LEL) | REQ-SAF-002 |
-| Bandgap check | **Fail (false fault)**: `FAULT 1` at 0 s on 6 boots and at 61 s on one, with a correct supply and no channel fault. Fixed on `day-5-fix-bench` (ten conversions discarded, raw value logged as `BANDGAP`); to check again on the board | REQ-SAF-004, F43 |
-| LCD in FAULT | Amber blink seen. **Fail**: line 1 read `FAULTP` (end of `WARMUP` kept). Fixed on `day-5-fix-bench` (rows filled with spaces); to check again | REQ-HMI-001 |
+| Bandgap check | **Fail (false fault)** with `60ac2b2`: `FAULT 1` at 0 s on 6 boots and at 61 s on one, with a correct supply and no channel fault. **Pass** with `day-5-fix-bench` (`0648f81`, ten conversions discarded): 6 boots without `FAULT` or `BANDGAP`, and one run past 120 s (so through the 60 s check) | REQ-SAF-004, F43 |
+| LCD in FAULT | Amber blink seen. **Fail** with `60ac2b2`: line 1 read `FAULTP` (end of `WARMUP` kept). **Pass** with `e5435f1` (rows filled with spaces): `ALARM 1` shown with no extra letter | REQ-HMI-001 |
 | FAULT buzzer | Pass: one beep every 5 s; the short press does not silence it (by design, REQ-HMI-004 covers ALARM_1 only) | REQ-HMI-003 |
-| Button in ALARM_1 | **Open**: blocked by the false bandgap fault; to run after the fix | REQ-HMI-004 |
+| Warm-up end | Pass: `MODE 1` (NORMAL) then `MODE 2` (ALARM_1) at 120 s, with the uncalibrated MQ-5 at about 11.5 %LEL | REQ-ALM-006 |
+| Button short press in ALARM_1 | Pass: the buzzer stops, the display stays on `ALARM 1` | REQ-HMI-004 |
+| Button long press in ALARM_1 | Pass: 3 s press, no change of state or buzzer (by design: the long press acts only in ALARM_2 and NORMAL) | REQ-HMI-005 |
+| Unexplained channel event | With `60ac2b2`, `CHANNEL 0` at 832 s then `RECOVERED 0` at 1111 s (MQ-5). A cable was replaced during that session, maybe at that time; not confirmed. The detector reacted as designed (channel excluded, then back in service). **Open**: watch for it again with the wiring untouched | REQ-SAF-002 |
 
 ## Day 3 — first bench session (2026-11-05)
 
