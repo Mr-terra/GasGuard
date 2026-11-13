@@ -31,6 +31,25 @@ analyser or the serial monitor.
 | Buzzer rate | Alarm 2 measured on the buzzer pin: 4 beeps per second | REQ-HMI-003 |
 | Simulation build | `make avr-sim`: the potentiometer on A2 drives the MQ-5 channel | REQ-FUN-006 |
 
+## Day 5 — full firmware on the board (2026-11-13)
+
+Firmware: `main` at `60ac2b2` (button read as active high), flashed with
+`tools/flash-monitor.ps1`. Supply: 9 V jack, 1 A, and USB. Both MQ sensors wired.
+
+| Check | Result | Requirement |
+|---|---|---|
+| Supply under load | 5V-GND 5.12 to 5.15 V and AREF-GND 5.15 V, both heaters on | HW-003 |
+| `log` command | Pass: the dump works. The line must end with `\n` (a `\r` alone is ignored); the first line after opening the port reads `ERR` (stray byte at port open) | REQ-LOG-004 |
+| Event log across resets | Pass: entries kept over 8 boots, the ring wraps after 32 | REQ-LOG-001 |
+| Reset cause | Logged as `4` (unknown) at every boot: the bootloader clears the flags (F23) | REQ-SAF-006 |
+| Configuration | `CONFIG 2` (defaults): the EEPROM was never written | REQ-CFG-002 |
+| Display missing at boot | Pass: with SCL unplugged, `DISPLAY 0` is logged and the detector runs | REQ-HMI-001 |
+| Channel fault | Pass: MQ-2 wire off, `CHANNEL 1` logged, the detector goes on with the MQ-5 and reaches ALARM_1 after the warm-up (uncalibrated MQ-5 reads about 11.5 %LEL) | REQ-SAF-002 |
+| Bandgap check | **Fail (false fault)**: `FAULT 1` at 0 s on 6 boots and at 61 s on one, with a correct supply and no channel fault. Fixed on `day-5-fix-bench` (ten conversions discarded, raw value logged as `BANDGAP`); to check again on the board | REQ-SAF-004, F43 |
+| LCD in FAULT | Amber blink seen. **Fail**: line 1 read `FAULTP` (end of `WARMUP` kept). Fixed on `day-5-fix-bench` (rows filled with spaces); to check again | REQ-HMI-001 |
+| FAULT buzzer | Pass: one beep every 5 s; the short press does not silence it (by design, REQ-HMI-004 covers ALARM_1 only) | REQ-HMI-003 |
+| Button in ALARM_1 | **Open**: blocked by the false bandgap fault; to run after the fix | REQ-HMI-004 |
+
 ## Day 3 — first bench session (2026-11-05)
 
 Firmware: bring-up program on branch `day-3-bringup` (commit `d577f30` and later),

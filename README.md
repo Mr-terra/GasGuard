@@ -60,7 +60,7 @@ process is the point:
 | Sensing | Moving average over the last 8 samples per channel (`services/filter`) | Done (Day 2); 100 ms sampling loop Day 4 |
 | Sensing | Linear calibration to %LEL in Q8 fixed point, temperature compensation when the sensor is valid | Calibration done (Day 2); temperature compensation not wired: A3 is not read yet (see limitations) |
 | Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) | Done: tested on the PC (Day 2); wired into the firmware on Day 5 |
-| Diagnostics | Bandgap raw read against AVcc, checked at start-up and every 60 s (REQ-SAF-004) | Done (Day 5) |
+| Diagnostics | Bandgap raw read against AVcc, checked at start-up and every 60 s; ten conversions discarded first so the reference settles; the first bad raw value of each boot is logged as `BANDGAP` (REQ-SAF-004, FMEA F43) | Done (Day 5); settling fix to confirm on the board |
 | Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) | Done (Day 4); stack measurement on the bench in Day 5 |
 | Alarms | Two-level alarm with hysteresis, latched ALARM_2, warm-up inhibition, max of valid channels | Done (Day 2) |
 | Alarms | Relay normally energised: energised in WARMUP and NORMAL only, de-energised on alarm and fault (state logic done; driving the pin is Day 3) | Logic done (Day 2); pin Day 3 |
@@ -69,9 +69,9 @@ process is the point:
 | Interface | 16×2 LCD driver: two lines of text and backlight colour (`drivers/lcd_rgb`), verified on the board | Done (Day 3) |
 | Interface | Buzzer and button drivers (`drivers/buzzer`, `drivers/button` with 30 ms debounce) | Done (Day 3); patterns and actions Day 4 |
 | Interface | Buzzer patterns (1 Hz, 4 Hz, 1 beep / 5 s), short-press silence, long-press reset and functional test, debounce (REQ-HMI-003..007) | Done (Day 4) |
-| Interface | LCD: state text (MAINT, TEST), backlight colour per state, amber blink in FAULT, concentration on line 2 (REQ-HMI-001, REQ-HMI-002) | Done (Day 4); not yet checked on the board |
+| Interface | LCD: state text (MAINT, TEST), backlight colour per state, amber blink in FAULT, concentration on line 2, rows filled with spaces (REQ-HMI-001, REQ-HMI-002) | Done (Day 4); FAULT blink and line 2 seen on the board (Day 5) |
 | Interface | Maintenance mode from NORMAL by a 3 s touch, relay held, alarms not output, automatic exit after 10 minutes (REQ-HMI-008..010, FMEA F36) | Done (Day 4); decision on F36 pending |
-| Interface | UART command line: `log` dumps the event log, one line per poll for the 64-byte transmit buffer (REQ-LOG-004) | `log` done (Day 4); `status` and `cfg` planned |
+| Interface | UART command line: `log` dumps the event log, one line per poll for the 64-byte transmit buffer (REQ-LOG-004) | `log` done (Day 4), checked on the board (Day 5); `status` and `cfg` planned |
 | Simulation | Potentiometer replaces the MQ-5 channel for bench tests | Day 3 |
 
 Requirement-level coverage is tracked in
@@ -368,10 +368,13 @@ Accepted deviations from the coding standard are listed in
 - **Maintenance inhibits the alarm outputs** for up to 10 minutes, as REQ-HMI-009
   states. The relay stays energised and the buzzer stays silent during that time
   (FMEA F36, accepted by the author).
-- **Not yet checked on the board:** the stack watermark value, the LCD concentration
-  line, the buzzer patterns, the button and touch actions, the `log` dump over UART
-  and the relay state at reset. The open steps are listed in
+- **Not yet checked on the board:** the stack watermark value, the ALARM_1 and
+  ALARM_2 buzzer patterns, the button and touch actions, the relay state at reset,
+  and the bandgap settling fix (FMEA F43). The open steps are listed in
   [`docs/test-report.md`](docs/test-report.md).
+- **The `log` command needs a newline** (`\n`): a carriage return alone is ignored.
+  The first line after opening the port can read `ERR`, because a stray byte arrives
+  when the port opens; send a newline first.
 - **A faulty gas channel is excluded from the detection.** It is written to the event log
   (`CHANNEL`). It comes back into service (`RECOVERED`) after 60 s of valid readings
   (open or short circuit), or as soon as a frozen value moves again. Both rules are
