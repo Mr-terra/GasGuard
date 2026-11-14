@@ -27,6 +27,9 @@ HOST_CFLAGS := $(STD_FLAGS) $(WARN_FLAGS) $(INCLUDES) -O0 -g \
 # Host code: the layer folders minus the board drivers (*_avr.c), which the PC never builds.
 LIB_SRCS   := $(shell find $(MODULE_DIRS) -name '*.c' -not -name '*_avr.c' 2>/dev/null)
 UNITY_SRCS := $(UNITY_DIR)/unity.c
+# Every project header: a change in one rebuilds the test binaries and the firmware,
+# so a test never runs, and a board is never flashed, with stale constants.
+LIB_HDRS   := $(shell find $(MODULE_DIRS) -name '*.h' 2>/dev/null)
 TEST_SRCS  := $(shell find $(TEST_DIR) -name 'test_*.c' 2>/dev/null)
 TEST_BINS  := $(addprefix $(BUILD)/test/,$(basename $(notdir $(TEST_SRCS))))
 
@@ -60,9 +63,9 @@ test: $(TEST_BINS) sim-test
 
 vpath %.c $(sort $(dir $(TEST_SRCS)))
 
-$(BUILD)/test/%: %.c $(LIB_SRCS) $(UNITY_SRCS)
+$(BUILD)/test/%: %.c $(LIB_SRCS) $(UNITY_SRCS) $(LIB_HDRS)
 	@mkdir -p $(dir $@)
-	$(CC) $(HOST_CFLAGS) $^ -o $@
+	$(CC) $(HOST_CFLAGS) $(filter %.c,$^) -o $@
 
 # Static gates (docs/04-coding-standard.md §6): MISRA and clang-tidy, no AVR header in
 # app/services (R20), no dynamic memory. Any finding fails the build.
@@ -92,9 +95,9 @@ coverage: test
 	      --filter '(app|services)/' --fail-under-line 90 --print-summary
 
 # Cross-compile the firmware for the ATmega328P.
-$(AVR_ELF): $(AVR_SRCS)
+$(AVR_ELF): $(AVR_SRCS) $(LIB_HDRS)
 	@mkdir -p $(dir $@)
-	$(AVR_CC) $(AVR_FLAGS) $^ -o $@
+	$(AVR_CC) $(AVR_FLAGS) $(filter %.c,$^) -o $@
 
 $(AVR_HEX): $(AVR_ELF)
 	avr-objcopy -O ihex -R .eeprom $< $@
