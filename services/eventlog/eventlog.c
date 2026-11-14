@@ -5,7 +5,8 @@
  * How it works
  * ------------
  * Each event is written in the slot named by the head, then the head moves on
- * by one, wrapping after 32 slots, so the newest event overwrites the oldest.
+ * by one, wrapping after EVENTLOG_ENTRIES (111) slots, so the newest event
+ * overwrites the oldest.
  * An entry is 9 bytes: the uptime (4 bytes, little-endian), the code, the
  * argument (2 bytes) and a CRC-16/CCITT-FALSE of the first seven bytes (2 bytes).
  * A CRC detects every single and double bit error in an entry, which an XOR

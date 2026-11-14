@@ -8,10 +8,10 @@
  *
  * 1. Range: a raw value at or below 5 (open circuit: the pull-down holds the
  *    input at 0) or at or above 1018 (short circuit) is a bad sample. Five bad
- *    samples in a row latch a fault. A good sample resets the count.
+ *    samples in a row set a fault. A good sample resets the count.
  * 2. Stuck: the channel keeps a minimum and a maximum since its window started.
  *    A move of more than 1 LSB restarts the window. Ten minutes without a move,
- *    outside warm-up, latch a fault: a heater that stopped or a frozen ADC.
+ *    outside warm-up, set a fault: a frozen ADC, or calm air (FMEA F46).
  * 3. Bandgap: the internal 1.1 V reference should read close to its nominal
  *    count. A reading outside +/-10 % means the ADC reference is wrong.
  *
@@ -92,7 +92,7 @@ static void stuck_window_restart(diag_t *diag, const diag_stuck_sample_t *sample
     diag->window_max = sample->raw;
 }
 
-/* Restart the window when the value moves; latch a fault when it has not moved for too long. */
+/* Restart the window when the value moves; set a fault when it has not moved for too long. */
 static void stuck_window_update(diag_t *diag, const diag_stuck_sample_t *sample)
 {
     uint16_t new_min = (sample->raw < diag->window_min) ? sample->raw : diag->window_min;

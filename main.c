@@ -11,7 +11,8 @@
  *
  * Each pass of the loop is one scheduler cycle. The tasks run in the order of
  * their identifiers; each is run when due and reported as serviced. The cycle
- * reports overruns to the firmware, and the watchdog is kicked only when every
+ * is timed from its start to the time read after the last task, so a slow task
+ * shows as an overrun, which is reported to the firmware, and the watchdog is kicked only when every
  * task was serviced and the scheduler is healthy (REQ-SAF-005, REQ-SAF-008).
  *
  * @req REQ-SAF-001 REQ-SAF-005 REQ-SAF-006 REQ-SAF-008 REQ-SAF-009

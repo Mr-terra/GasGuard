@@ -108,17 +108,17 @@ typedef struct {
 gg_status_t diag_check_stuck(diag_t *diag, const diag_stuck_sample_t *sample);
 
 /**
- * @brief Report whether any diagnostic has latched a fault on the channel.
+ * @brief Report whether the channel has a range or stuck fault now, so it must not be used.
  *
  * @param diag       Channel state. Must not be NULL.
- * @param out_fault  Receives true if a range or stuck fault is latched. Must not be NULL.
+ * @param out_fault  Receives true if a range or stuck fault is set. Must not be NULL.
  * @return GG_OK or GG_ERR_NULL.
  * @req REQ-SAF-002 REQ-SAF-003
  */
 gg_status_t diag_is_faulty(const diag_t *diag, bool *out_fault);
 
 /**
- * @brief Report whether the only fault latched on the channel is the stuck one.
+ * @brief Report whether the only fault set on the channel is the stuck one.
  *
  * When every channel is out only because it is stuck, the firmware raises a
  * FAULT that ends by itself (REQ-SAF-007); any open or short circuit latches it.

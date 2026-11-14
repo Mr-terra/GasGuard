@@ -26,7 +26,7 @@
 #define GPIO_BIT_BUTTON 2u   /* D2, button module SIG: high when pressed. */
 #define GPIO_BIT_TOUCH  3u   /* D3, touch sensor output. */
 #define GPIO_BIT_RELAY  5u   /* D5, relay coil: high = energised. */
-#define GPIO_BIT_BUZZER 6u   /* D6, buzzer (PD6 is also OC0A, driven by the timer later). */
+#define GPIO_BIT_BUZZER 6u   /* D6, active buzzer, plain output (PD6 is also OC0A, left free). */
 
 #define GPIO_MASK(bit) ((uint8_t)(1u << (bit)))
 

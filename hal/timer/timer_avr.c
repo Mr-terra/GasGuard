@@ -9,7 +9,8 @@
  * every 1 ms exactly. The interrupt adds 1 to a 32-bit counter. Reading the
  * counter needs ATOMIC_BLOCK: a 32-bit value takes four byte reads, and an
  * interrupt in the middle would give a torn value (R15). Timer2 is used, not
- * Timer0, because Timer0 drives the buzzer PWM on PD6 (OC0A).
+ * Timer0, so that Timer0 stays free for a buzzer PWM on PD6 (OC0A). Today the
+ * buzzer is an active module, switched on and off as a plain output.
  *
  * @req REQ-FUN-001 REQ-LOG-002
  */

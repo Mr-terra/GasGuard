@@ -10,7 +10,8 @@
  * fail their checksum and are skipped. Each line is formatted into a small
  * local buffer by hand (no printf, to keep the flash small) and sent with the
  * transmit function the caller gives. The text is handled as bytes, with the
- * ASCII codes named below.
+ * ASCII codes named below. A PEAK argument packs two values and is printed as
+ * "<channel> <peak>", so the operator never decodes it by hand.
  *
  * @req REQ-LOG-004
  */

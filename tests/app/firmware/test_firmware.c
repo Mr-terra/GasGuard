@@ -467,6 +467,7 @@ static void sample_seconds(uint32_t n)
 /** @brief Seconds from the start until a channel steady from the start is stuck, plus one minute. */
 #define STUCK_RUN_S (CONFIG_WARMUP_DEFAULT_S + (DIAG_STUCK_MS / FIRMWARE_MS_PER_S) + 60u)
 
+/* SC-10b (docs/05): both sensors stuck in calm air, then one moves. */
 /* @verifies REQ-SAF-003 REQ-SAF-007 */
 static void test_firmware_both_channels_stuck_give_a_fault_that_ends_by_itself(void)
 {
