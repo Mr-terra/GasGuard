@@ -64,8 +64,9 @@ the full analysis is `make lint`.
 
 [`.claude/settings.json`](../.claude/settings.json) limits what the assistant
 may run. Among the denied actions: flashing with `avrdude`, `rm -rf`, and
-force-pushes (`--force`, `-f`). Pushes are allowed only for day branches and
-`main`, after validation.
+force-pushes (`--force`, `-f`). Pushes without a prompt are allowed only for
+day branches (`day-*`) and `main`; the rule that a push waits for the author's
+validation is in `CLAUDE.md`, not in the permissions.
 
 ### 4.4 Tests and gates
 
@@ -89,8 +90,10 @@ the staged diff with a fresh context, which it does not share with the author.
 
 ### 4.6 Transparency
 
-Commits written with the assistant end with a `Co-Authored-By` line, so the
-history shows which changes it drafted.
+The commits carry no `Co-Authored-By` line: the author chose to keep the
+history free of it. The use of the assistant is stated instead in this
+document, in the README, and in the [`.claude/`](../.claude) folder, which holds
+the rules, skills and agents it worked with.
 
 ### 4.7 Learning check
 

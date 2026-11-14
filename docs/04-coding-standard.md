@@ -57,8 +57,10 @@ typedef enum {
 } gg_status_t;
 ```
 
-An unexpected internal state is never ignored: it calls
-`diag_raise(DIAG_INTERNAL, code)`, which logs and moves the detector to FAULT.
+An unexpected internal state is never ignored: the detector enters FAULT with
+the code `DET_FAULT_INTERNAL` (`diag_raise()` in `app/detector/detector.c`), and
+the firmware writes the fault code to the event log. A HAL error is returned to
+the caller, which treats it as a fault (DEV-08).
 
 ## 5. Deviations register
 
@@ -72,7 +74,7 @@ An unexpected internal state is never ignored: it calls
 | DEV-06 | MISRA 11.6 (pointer from integer) | `hal/eeprom/*_avr.c` | avr-libc's EEPROM functions take the EEPROM address as a pointer. The address is an integer in 0..1023 checked against `HAL_EEPROM_SIZE` before the cast. Inline suppression on each call. |
 | DEV-07 | MISRA 2.7 (unused parameter), 8.2 (function type without prototype), 8.4 (no prior declaration), 8.6 (no external declaration) | `ISR(...)` in `hal/*/*_avr.c` | The avr-libc `ISR()` macro expands to a `void __vector_N(void)` definition that cppcheck does not recognise as an interrupt entry point, so it reports the parameter list and the prototype form. The function is the hardware vector: it cannot have a prototype the compiler would see elsewhere. Inline suppressions on each ISR. |
 | DEV-08 | R06 (default -> diag_raise) | `hal/*/*_avr.c` and `hal/*/*_fake.c` | The HAL layer must not depend on the application's fault logic (layering). A `default` in a HAL switch returns `GG_ERR_RANGE`; the caller treats any HAL error as a sensor or internal fault and calls `diag_raise()`. Applies from Day 4, when the caller side exists. |
-| DEV-09 | MISRA 11.4 (pointer / integer conversion), 8.7 (object defined outside the unit) | `hal/stack/stack_avr.c` | The stack watermark needs two addresses only the linker and the stack pointer know: `__heap_start` (linker symbol) and the RAM addresses between it and the stack pointer. The conversions are the only way to paint and read that RAM. Each conversion has its own inline suppression. Checked on the bench in the Day 5 test report. |
+| DEV-09 | MISRA 11.4 (pointer / integer conversion), 8.7 (object defined outside the unit) | `hal/stack/stack_avr.c` | The stack watermark needs two addresses only the linker and the stack pointer know: `__heap_start` (linker symbol) and the RAM addresses between it and the stack pointer. The conversions are the only way to paint and read that RAM. Each conversion has its own inline suppression. The value on the board is still an open step of the test report. |
 | *(add new deviations here — never silently)* | | | |
 
 ## 6. Tooling
