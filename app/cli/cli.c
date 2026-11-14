@@ -1,6 +1,6 @@
 /**
  * @file cli.c
- * @brief Command line: receive a line, run `log`, print the event log as text.
+ * @brief Command line: receive a line, run `log` or `status`, print the answer as text.
  *
  * How it works
  * ------------
@@ -11,9 +11,11 @@
  * local buffer by hand (no printf, to keep the flash small) and sent with the
  * transmit function the caller gives. The text is handled as bytes, with the
  * ASCII codes named below. A PEAK argument packs two values and is printed as
- * "<channel> <peak>", so the operator never decodes it by hand.
+ * "<channel> <peak>", so the operator never decodes it by hand. `status` answers
+ * at once from the snapshot the caller keeps up to date; sent during a `log`
+ * dump, it may find the transmit buffer full and be lost, so it is sent again.
  *
- * @req REQ-LOG-004
+ * @req REQ-LOG-004 REQ-LOG-005
  */
 #include <stddef.h>
 #include <stdbool.h>
@@ -23,7 +25,7 @@
 #include "common/gg_types/gg_types.h"
 #include "services/eventlog/eventlog.h"
 
-/** @brief Largest output line: slot, uptime, name, argument and the line end. */
+/** @brief Largest output line: a log line, or the STATUS line (35 bytes at most), with the line end. */
 #define CLI_OUT_MAX 40u
 
 /** @brief Size of the code name table: the last event code plus one (index 0 is unused). */
@@ -40,9 +42,6 @@
 #define CLI_ASCII_D     68u    /* 'D' */
 #define CLI_ASCII_E     69u    /* 'E' */
 #define CLI_ASCII_N     78u    /* 'N' */
-#define CLI_ASCII_G    103u    /* 'g' */
-#define CLI_ASCII_L    108u    /* 'l' */
-#define CLI_ASCII_O    111u    /* 'o' */
 
 /** @brief Output line being built. */
 typedef struct {
@@ -220,11 +219,60 @@ static gg_status_t start_dump(cli_t *cli)
     return status;
 }
 
-/** @brief True when the line is exactly "log". */
-static bool line_is_log(const cli_t *cli)
+/**
+ * @brief Compare the received line with a command word.
+ * @param cli   Parser state, with the finished line.
+ * @param word  Command word, zero-terminated.
+ * @return True when the line is exactly the word, no more, no less.
+ * @req REQ-LOG-004 REQ-LOG-005
+ */
+static bool line_is(const cli_t *cli, const char *word)
 {
-    return (cli->len == 3u) && (cli->line[0] == CLI_ASCII_L) && (cli->line[1] == CLI_ASCII_O)
-           && (cli->line[2] == CLI_ASCII_G);
+    uint8_t i = 0u;
+    bool same = true;
+
+    while (same && (word[i] != '\0')) {
+        same = (i < cli->len) && (cli->line[i] == (uint8_t)word[i]);
+        i++;
+    }
+    return same && (i == cli->len);
+}
+
+/**
+ * @brief Print the `status` line: "STATUS <state> <conc> <mq5> <mq2> <temp> <temp_valid>".
+ *
+ * A negative concentration (below the zero offset) prints as 0: the line uses
+ * unsigned numbers only, and the detector treats it as clean air anyway.
+ *
+ * @param status  Snapshot to print.
+ * @param write   Transmit function.
+ * @return GG_OK or the transmit error.
+ * @req REQ-LOG-005
+ */
+static gg_status_t print_status(const cli_status_t *status, cli_write_fn write)
+{
+    cli_out_t out;
+    uint32_t conc = 0u;
+
+    if (status->conc > 0) {
+        conc = (uint32_t)status->conc;
+    }
+    out.len = 0u;
+    out_text(&out, "STATUS ");
+    out_uint32(&out, status->state);
+    out_byte(&out, CLI_ASCII_SPACE);
+    out_uint32(&out, conc);
+    out_byte(&out, CLI_ASCII_SPACE);
+    out_uint32(&out, status->raw_mq5);
+    out_byte(&out, CLI_ASCII_SPACE);
+    out_uint32(&out, status->raw_mq2);
+    out_byte(&out, CLI_ASCII_SPACE);
+    out_uint32(&out, status->raw_temp);
+    out_byte(&out, CLI_ASCII_SPACE);
+    out_uint32(&out, status->temp_valid ? 1u : 0u);
+    out_byte(&out, CLI_ASCII_CR);
+    out_byte(&out, CLI_ASCII_LF);
+    return out_flush(&out, write);
 }
 
 /** @brief Run the command of the finished line. An empty line does nothing. */
@@ -233,8 +281,10 @@ static gg_status_t run_line(cli_t *cli, cli_write_fn write)
     gg_status_t status = GG_OK;
     cli_out_t err;
 
-    if (line_is_log(cli)) {
+    if (line_is(cli, "log")) {
         status = start_dump(cli);
+    } else if (line_is(cli, "status")) {
+        status = print_status(&cli->status, write);
     } else if (cli->len > 0u) {
         err.len = 0u;
         out_text(&err, "ERR\r\n");
@@ -256,8 +306,26 @@ gg_status_t cli_init(cli_t *cli)
         cli->dumping = false;
         cli->dump_head = 0u;
         cli->dump_index = 0u;
+        cli->status.state = 0u;
+        cli->status.conc = 0;
+        cli->status.raw_mq5 = 0u;
+        cli->status.raw_mq2 = 0u;
+        cli->status.raw_temp = 0u;
+        cli->status.temp_valid = false;
     }
     return status;
+}
+
+gg_status_t cli_set_status(cli_t *cli, const cli_status_t *status)
+{
+    gg_status_t result = GG_OK;
+
+    if ((cli == NULL) || (status == NULL)) {
+        result = GG_ERR_NULL;
+    } else {
+        cli->status = *status;
+    }
+    return result;
 }
 
 gg_status_t cli_feed(cli_t *cli, uint8_t byte, cli_write_fn write)

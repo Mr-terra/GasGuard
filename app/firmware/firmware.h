@@ -17,6 +17,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "app/cli/cli.h"
 #include "app/detector/detector.h"
 #include "app/hmi/hmi.h"
 #include "common/gg_types/gg_types.h"
@@ -40,6 +41,19 @@
 #define FIRMWARE_ADC_MQ5 0u
 #endif
 #define FIRMWARE_ADC_MQ2 1u
+
+/**
+ * @brief Temperature input: Grove Temperature Sensor v1.2 on A3 (REQ-FUN-004).
+ *
+ * The module is an NTC thermistor (100 kOhm at 25 degC, B = 4275) above a 100 kOhm
+ * resistor to GND: about 512 at 25 degC, lower when colder. A reading outside
+ * FIRMWARE_TEMP_RAW_MIN .. FIRMWARE_TEMP_RAW_MAX (about -26 to +73 degC) is
+ * invalid: an open thermistor reads near 0, a short near 1023. An invalid
+ * temperature never corrects the gas reading.
+ */
+#define FIRMWARE_ADC_TEMP 3u
+#define FIRMWARE_TEMP_RAW_MIN 50u
+#define FIRMWARE_TEMP_RAW_MAX 900u
 
 /**
  * @brief Zero offset of each gas channel: the raw clean-air value, read as 0 %LEL (REQ-FUN-003).
@@ -122,6 +136,9 @@ typedef struct {
     uint32_t test_start_ms;                  /**< The six test steps are timed from here. */
     detector_fault_code_t pending_fault;     /**< System fault to give the detector at the next sample. */
     gg_conc_t last_conc;                     /**< Concentration of the last sample, for the display (REQ-HMI-001). */
+    uint16_t last_raw[FIRMWARE_CHANNELS];    /**< Raw ADC value of each gas channel at the last sample, 0 if the read failed (REQ-LOG-005). */
+    uint16_t temp_raw;                       /**< Raw ADC value of the temperature input at the last sample (REQ-FUN-004). */
+    bool temp_valid;                         /**< The last temperature reading worked and is in its valid range. */
     uint32_t start_ms;                       /**< Time of the start: the start counter is cleared 60 s after the warm-up (REQ-SAF-011). */
     bool start_count_cleared;                /**< The start counter was cleared during this run. */
 } firmware_t;
@@ -209,6 +226,17 @@ gg_status_t firmware_health(firmware_t *fw, uint32_t now_ms);
  * @req REQ-SAF-008
  */
 gg_status_t firmware_report_timing(firmware_t *fw, bool overrun, bool fault, uint32_t now_ms);
+
+/**
+ * @brief Fill the snapshot of the `status` command: state, concentration, raw inputs.
+ * @param fw   Firmware state. Must not be NULL.
+ * @param out  Receives the snapshot. Must not be NULL.
+ * @return GG_OK or GG_ERR_NULL.
+ * @req REQ-LOG-005
+ */
+// DEV-05: app API, called by main.c only (outside the lint scope) and the tests
+// cppcheck-suppress misra-c2012-8.7
+gg_status_t firmware_status(const firmware_t *fw, cli_status_t *out);
 
 /**
  * @brief Current detector state.

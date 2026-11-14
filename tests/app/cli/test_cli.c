@@ -143,7 +143,7 @@ static void test_cli_dump_resumes_when_the_transmit_buffer_is_full(void)
 /* @verifies REQ-LOG-004 */
 static void test_cli_unknown_or_too_long_command_is_refused(void)
 {
-    TEST_ASSERT_EQUAL_INT(GG_OK, type_line("status"));
+    TEST_ASSERT_EQUAL_INT(GG_OK, type_line("cfg"));
     TEST_ASSERT_EQUAL_STRING("ERR\r\n", capture);
     capture_len = 0u;
     TEST_ASSERT_EQUAL_INT(GG_OK, type_line("logxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));

@@ -1080,6 +1080,31 @@ static void test_firmware_valid_temperature_does_not_move_the_gas_reading_while_
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_status(&fw, NULL));
 }
 
+/** @brief MQ-5 above AL2 with the temperature input in a given state: ALARM_2 and the relay off. */
+static void expect_alarm_2_with_temperature(uint16_t temp_raw, bool temp_fails)
+{
+    bool energised = true;
+
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, temp_raw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_TEMP, temp_fails));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, ALARM_2_RAW + FIRMWARE_ZERO_RAW_MQ5));
+    fw_ticks(10u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
+    TEST_ASSERT_FALSE(energised);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_TEMP, false));
+}
+
+/* @verifies REQ-FUN-004 REQ-ALM-001 */
+static void test_firmware_faulty_temperature_never_holds_back_an_alarm(void)
+{
+    /* Read error, open thermistor, shorted thermistor: the alarm comes all the same. */
+    expect_alarm_2_with_temperature(TEMP_ROOM_RAW, true);
+    expect_alarm_2_with_temperature(FIRMWARE_TEMP_RAW_MIN - 1u, false);
+    expect_alarm_2_with_temperature(FIRMWARE_TEMP_RAW_MAX + 1u, false);
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1137,6 +1162,7 @@ int main(void)
     RUN_TEST(test_firmware_status_reports_the_raw_inputs_and_a_valid_temperature);
     RUN_TEST(test_firmware_temperature_outside_its_range_or_unread_is_invalid);
     RUN_TEST(test_firmware_valid_temperature_does_not_move_the_gas_reading_while_the_coefficient_is_zero);
+    RUN_TEST(test_firmware_faulty_temperature_never_holds_back_an_alarm);
     RUN_TEST(test_firmware_peaks_are_logged_one_per_sample_after_the_mode_change);
     RUN_TEST(test_firmware_a_failed_peak_write_does_not_stop_the_sample);
     return UNITY_END();

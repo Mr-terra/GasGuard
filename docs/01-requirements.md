@@ -111,6 +111,7 @@ Any mode → `FAULT`. `NORMAL` ⇄ `MAINTENANCE` (operator request, time-limited
 | REQ-LOG-002 | Each entry shall contain an uptime timestamp (s), an event code, and a 16-bit argument, and shall be protected by a CRC-16. |
 | REQ-LOG-003 | The firmware shall write the log only on events (never periodically), to limit EEPROM wear. |
 | REQ-LOG-004 | The log shall be dumpable over UART (38400 baud, 8N1) on the command `log`. |
+| REQ-LOG-005 | On the UART command `status`, the firmware shall answer one line with the detector state, the concentration in use, the last raw values of the gas channels and of the temperature input, and whether the temperature reading is valid. |
 
 ## 11. Non-functional requirements
 

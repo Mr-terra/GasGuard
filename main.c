@@ -16,7 +16,7 @@
  * task was serviced and the scheduler is healthy (REQ-SAF-005, REQ-SAF-008).
  *
  * @req REQ-SAF-001 REQ-SAF-005 REQ-SAF-006 REQ-SAF-008 REQ-SAF-009
- * @req REQ-HMI-001 REQ-HMI-002 REQ-HMI-003 REQ-LOG-004
+ * @req REQ-HMI-001 REQ-HMI-002 REQ-HMI-003 REQ-LOG-004 REQ-LOG-005
  */
 #include <stdbool.h>
 #include <stddef.h>
@@ -277,7 +277,7 @@ static gg_status_t task_hmi(uint32_t now_ms)
 }
 
 /**
- * @brief Read the command line from the UART, without blocking (REQ-LOG-004).
+ * @brief Read the command line from the UART, without blocking (REQ-LOG-004, REQ-LOG-005).
  *
  * An error of a command does not stop the watchdog: only the safety tasks do.
  * @return GG_OK.
@@ -286,7 +286,14 @@ static gg_status_t task_cli(void)
 {
     uint8_t byte = 0u;
     uint8_t n;
+    cli_status_t snap;
 
+    /* The snapshot of the `status` command is refreshed before the bytes are read
+     * (REQ-LOG-005). Both calls fail only on a NULL pointer, and both arguments are
+     * static objects: the result of cli_set_status() is ignored on purpose. */
+    if (firmware_status(&fw, &snap) == GG_OK) {
+        (void)cli_set_status(&cli, &snap);
+    }
     for (n = 0u; n < CLI_BYTES_PER_CYCLE; n++) {
         if (hal_uart_read_byte(&byte) == GG_OK) {
             (void)cli_feed(&cli, byte, hal_uart_write);

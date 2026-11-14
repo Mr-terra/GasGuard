@@ -47,8 +47,12 @@
 #include "services/config/config.h"
 #include "services/eventlog/eventlog.h"
 
-/* Temperature compensation is off: the temperature input (A3) is not read, so the
- * coefficient is zero and calib_temp_correct() is not called. */
+/* Temperature compensation: the input on A3 is read and checked, but the
+ * coefficient stays at zero until it is measured on the bench (REQ-FUN-004), so
+ * the correction does not move the reading yet. The reference and the coefficient
+ * must be set together: the reference is the raw temperature of the gas zero
+ * (about 512 at 25 degC), and a coefficient with a reference of 0 would shift
+ * every reading (FMEA F48). */
 #define FIRMWARE_TEMP_REF_RAW 0u
 #define FIRMWARE_TEMP_COEF_Q8 0
 
@@ -134,20 +138,45 @@ static gg_status_t sample_diagnose(diag_t *diag, const diag_stuck_sample_t *samp
  * @param raw    Raw ADC value.
  * @param conc   Receives the concentration.
  * @return GG_OK, or the filter or calibration error.
- * @req REQ-FUN-002 REQ-FUN-003
+ * @req REQ-FUN-002 REQ-FUN-003 REQ-FUN-004
  */
 static gg_status_t sample_convert(firmware_t *fw, uint8_t ch, uint16_t raw, gg_conc_t *conc)
 {
-    uint16_t value = 0u;
+    calib_reading_t reading;
+    uint16_t corrected = 0u;
     gg_status_t status = filter_push(&fw->filter[ch], raw);
 
+    reading.raw = 0u;
+    reading.temp_raw = fw->temp_raw;
+    reading.temp_valid = fw->temp_valid;
     if (status == GG_OK) {
-        status = filter_value(&fw->filter[ch], &value);
+        status = filter_value(&fw->filter[ch], &reading.raw);
     }
     if (status == GG_OK) {
-        status = calib_to_lel(&fw->calib[ch], value, conc);
+        status = calib_temp_correct(&fw->calib[ch], &reading, &corrected);
+    }
+    if (status == GG_OK) {
+        status = calib_to_lel(&fw->calib[ch], corrected, conc);
     }
     return status;
+}
+
+/**
+ * @brief Read the temperature input and check it is in its valid range (REQ-FUN-004).
+ *
+ * A failed read or a value out of range makes it invalid, and an invalid
+ * temperature leaves the gas reading uncorrected. It is never a gas fault.
+ *
+ * @param fw  Firmware state.
+ * @req REQ-FUN-004
+ */
+static void sample_temperature(firmware_t *fw)
+{
+    uint16_t raw = 0u;
+    gg_status_t status = hal_adc_read(FIRMWARE_ADC_TEMP, &raw);
+
+    fw->temp_raw = raw;
+    fw->temp_valid = (status == GG_OK) && (raw >= FIRMWARE_TEMP_RAW_MIN) && (raw <= FIRMWARE_TEMP_RAW_MAX);
 }
 
 /**
@@ -174,6 +203,7 @@ static bool sample_channel(uint8_t ch, firmware_t *fw, uint32_t now_ms, gg_conc_
     bool out_of_range = true;
     gg_status_t status = hal_adc_read(adc_of_channel(ch), &raw);
 
+    fw->last_raw[ch] = raw;
     *conc = 0;
     *valid = false;
     if (status == GG_OK) {
@@ -268,7 +298,10 @@ static gg_status_t boot_init_channels(firmware_t *fw)
 
     for (ch = 0u; ch < FIRMWARE_CHANNELS; ch++) {
         fw->channel_faulty[ch] = false;
+        fw->last_raw[ch] = 0u;
     }
+    fw->temp_raw = 0u;
+    fw->temp_valid = false;
 
     calib_cfg.gain_q8 = CALIB_GAIN_ONE;
     calib_cfg.temp_ref_raw = FIRMWARE_TEMP_REF_RAW;
@@ -687,7 +720,7 @@ gg_status_t firmware_boot(firmware_t *fw, hal_reset_cause_t cause, uint32_t now_
 
 /**
  * @brief One sampling step.
- * @req REQ-ALM-001 REQ-SAF-007 REQ-LOG-001
+ * @req REQ-ALM-001 REQ-SAF-007 REQ-LOG-001 REQ-FUN-004
  */
 gg_status_t firmware_sample(firmware_t *fw, uint32_t now_ms)
 {
@@ -698,6 +731,8 @@ gg_status_t firmware_sample(firmware_t *fw, uint32_t now_ms)
     } else {
         firmware_gas_t gas;
 
+        /* The temperature is read first, so this sample's gas reading uses it. */
+        sample_temperature(fw);
         status = sample_gas(fw, now_ms, &gas);
         if (status == GG_OK) {
             status = sample_report_channels(fw, now_ms);
@@ -900,6 +935,27 @@ gg_status_t firmware_report_timing(firmware_t *fw, bool overrun, bool fault, uin
         if ((status == GG_OK) && fault) {
             fw->pending_fault = DET_FAULT_TIMING;
         }
+    }
+    return status;
+}
+
+/**
+ * @brief Snapshot of the `status` command.
+ * @req REQ-LOG-005
+ */
+gg_status_t firmware_status(const firmware_t *fw, cli_status_t *out)
+{
+    gg_status_t status = GG_OK;
+
+    if ((fw == NULL) || (out == NULL)) {
+        status = GG_ERR_NULL;
+    } else {
+        out->state = (uint8_t)firmware_state(fw);
+        out->conc = fw->last_conc;
+        out->raw_mq5 = fw->last_raw[FIRMWARE_CHANNEL_MQ5];
+        out->raw_mq2 = fw->last_raw[FIRMWARE_CHANNEL_MQ2];
+        out->raw_temp = fw->temp_raw;
+        out->temp_valid = fw->temp_valid;
     }
     return status;
 }
