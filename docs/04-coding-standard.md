@@ -34,7 +34,7 @@ recorded in §5 with a justification.
 | R15 | Variables shared with an ISR are `volatile`; multi-byte reads are done with interrupts disabled (`ATOMIC_BLOCK`). |
 | R16 | Every function has a Doxygen header with `@brief`, params, `@return`, and `@req` tags for the requirements it implements. |
 | R17 | Every public function checks its pointer arguments (`NULL`) and ranges, and returns an error code (`gg_status_t`). |
-| R18 | Magic numbers are forbidden; use named `#define`/`enum` constants in a `*_cfg.h`. |
+| R18 | Magic numbers are forbidden; use named `#define`/`enum` constants, in the module header when other modules use them, at the top of the `.c` file otherwise. |
 | R19 | Functions ≤ 60 lines, cyclomatic complexity ≤ 10 (checked by `lizard`). |
 | R20 | `app/` and `services/` must not include any `<avr/...>` header (checked by CI grep). |
 
