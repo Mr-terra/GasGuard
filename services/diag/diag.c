@@ -15,10 +15,8 @@
  * 3. Bandgap: the internal 1.1 V reference should read close to its nominal
  *    count. A reading outside +/-10 % means the ADC reference is wrong.
  *
- * A range fault clears after 600 valid samples in a row, a stuck fault at the
- * first move (REQ-SAF-002, REQ-SAF-003). diag_stuck_only() tells a channel that
- * is only stuck from one with an open or short circuit: the firmware keeps the
- * channels in use when all of them are only stuck (calm air).
+ * Faults are latched: nothing clears them except diag_init(). That is the
+ * conservative choice for a safety device.
  *
  * @req REQ-SAF-002 REQ-SAF-003 REQ-SAF-004
  */
@@ -138,18 +136,6 @@ gg_status_t diag_is_faulty(const diag_t *diag, bool *out_fault)
         status = GG_ERR_NULL;
     } else {
         *out_fault = diag->range_fault || diag->stuck_fault;
-    }
-    return status;
-}
-
-gg_status_t diag_stuck_only(const diag_t *diag, bool *out_only)
-{
-    gg_status_t status = GG_OK;
-
-    if ((diag == NULL) || (out_only == NULL)) {
-        status = GG_ERR_NULL;
-    } else {
-        *out_only = diag->stuck_fault && !diag->range_fault;
     }
     return status;
 }

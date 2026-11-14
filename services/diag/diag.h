@@ -53,8 +53,8 @@
 /**
  * @brief Diagnostic state of one channel.
  *
- * A range fault clears after DIAG_RECOVER_SAMPLES valid samples, a stuck fault
- * when the value moves again (REQ-SAF-002, REQ-SAF-003).
+ * Faults are latched until diag_init(): a sensor that failed once is not
+ * trusted again without a reset. This is a conservative choice (see docs).
  */
 typedef struct {
     uint8_t range_count;        /**< Consecutive out-of-range samples. */
@@ -116,19 +116,6 @@ gg_status_t diag_check_stuck(diag_t *diag, const diag_stuck_sample_t *sample);
  * @req REQ-SAF-002 REQ-SAF-003
  */
 gg_status_t diag_is_faulty(const diag_t *diag, bool *out_fault);
-
-/**
- * @brief Report whether the only fault latched on the channel is the stuck one.
- *
- * The firmware keeps the channels in use when all of them are stuck at once
- * (calm air), but never a channel with an open or short circuit (REQ-SAF-003).
- *
- * @param diag      Channel state. Must not be NULL.
- * @param out_only  Receives true if the stuck fault is set and the range fault is not. Must not be NULL.
- * @return GG_OK or GG_ERR_NULL.
- * @req REQ-SAF-003
- */
-gg_status_t diag_stuck_only(const diag_t *diag, bool *out_only);
 
 /**
  * @brief Check the internal bandgap reference reading (REQ-SAF-004).

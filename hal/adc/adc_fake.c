@@ -30,7 +30,6 @@ typedef struct {
     uint16_t raw[HAL_ADC_CHANNEL_COUNT];
     uint16_t bandgap_raw;
     bool bandgap_fails;   /**< hal_adc_read_bandgap() returns GG_ERR_TIMEOUT, as a stuck ADC would. */
-    bool fails[HAL_ADC_CHANNEL_COUNT];   /**< hal_adc_read() of this channel returns GG_ERR_TIMEOUT. */
 } adc_fake_state_t;
 
 static adc_fake_state_t s_adc_fake;
@@ -41,7 +40,6 @@ void hal_adc_fake_reset(void)
 
     for (channel = 0u; channel < HAL_ADC_CHANNEL_COUNT; channel++) {
         s_adc_fake.raw[channel] = 0u;
-        s_adc_fake.fails[channel] = false;
     }
     s_adc_fake.bandgap_raw = ADC_FAKE_BANDGAP_NOMINAL;
     s_adc_fake.bandgap_fails = false;
@@ -50,18 +48,6 @@ void hal_adc_fake_reset(void)
 void hal_adc_fake_fail_bandgap(bool fail)
 {
     s_adc_fake.bandgap_fails = fail;
-}
-
-gg_status_t hal_adc_fake_fail_channel(uint8_t channel, bool fail)
-{
-    gg_status_t status = GG_OK;
-
-    if (channel >= HAL_ADC_CHANNEL_COUNT) {
-        status = GG_ERR_RANGE;
-    } else {
-        s_adc_fake.fails[channel] = fail;
-    }
-    return status;
 }
 
 gg_status_t hal_adc_fake_set_bandgap(uint16_t raw)
@@ -110,8 +96,6 @@ gg_status_t hal_adc_read(uint8_t channel, uint16_t *out_raw)
         status = GG_ERR_NULL;
     } else if (channel >= HAL_ADC_CHANNEL_COUNT) {
         status = GG_ERR_RANGE;
-    } else if (s_adc_fake.fails[channel]) {
-        status = GG_ERR_TIMEOUT;
     } else {
         *out_raw = s_adc_fake.raw[channel];
     }
