@@ -27,7 +27,6 @@ multimeter or the serial monitor (tools in
 | Relay pull-down | Only once a relay module is fitted (none on the bench): relay state at reset, with and without the proposed 10 kΩ pull-down | REQ-SAF-001, FMEA F21 |
 | All channels stuck | One night with both sensors in clean air: any FAULT `6` (stuck) ends by itself when a channel moves; no restart needed | REQ-SAF-003, REQ-SAF-007 |
 | Periodic gas test | The procedure of the README, in MAINTENANCE (unlit lighter on each sensor): each reading rises above 10 %LEL, no relay drop and no buzzer; after MAINTENANCE ends, each `PEAK` entry is above 100 (10 %LEL) and no `OVERRUN` follows | REQ-SAF-003, REQ-HMI-009, REQ-LOG-001 |
-| Temperature unplugged | SIG wire off A3: what A3 reads, and whether `temp valid` stays 1 (FMEA F48) | REQ-FUN-004 |
 | Temperature coefficient | Clean air, one to two days with the room warming and cooling: `status` every few minutes, then the slope of the MQ raw values against the temperature raw value | REQ-FUN-004 |
 | Reset loop | 4 manual resets less than 3 min apart: the 4th start is in FAULT (`FAULT 5` in the log); 3 min of running, then a reset: normal start | REQ-SAF-011 |
 | Calibration in the configuration | REQ-FUN-003 is **only partly met**: the zero offsets are compiled in (`FIRMWARE_ZERO_RAW_*`), not stored in the configuration, and the span is not checked with a reference gas. The trace shows code and tests for REQ-FUN-003, not this gap. Decision of the author (Day 5): v1.0 ships with the current compiled-in values; the values are changed later | REQ-FUN-003 |
@@ -41,7 +40,8 @@ buzzer was unplugged to free the adapter cable.
 | Check | Result | Requirement |
 |---|---|---|
 | Status command | **Pass**: `STATUS 1 37 114 37 433 1`: NORMAL, 3.7 %LEL (the MQ-2: raw 37 with its zero at 0), MQ-5 raw 114 (just above its zero of 113), MQ-2 raw 37, temperature raw 433. Opening the serial port did not reset the board (the state was NORMAL, not WARMUP) | REQ-LOG-005 |
-| Temperature input | **Pass**: raw 433 is a thermistor of about 136 kOhm, that is about 18.7 degC (B = 4275), in the valid range; `temp valid` 1 | REQ-FUN-004 |
+| Temperature input | **Pass**: raw 433 is a thermistor of about 136 kOhm, that is about 18.7 degC (B = 4275), in the valid range; `temp valid` 1. The room thermometer read 18.8 degC at the same time | REQ-FUN-004 |
+| Temperature unplugged | **Fail (as feared, FMEA F48)**: SIG wire off A3, `STATUS 1 37 114 37 53 1`: the floating input read 53, just inside the valid range (about -25 degC), so `temp valid` stayed 1. Harmless while the coefficient is 0; must be fixed before it is raised | REQ-FUN-004 |
 
 ## Day 5 — second night run (2026-11-14 to 2026-11-15)
 
