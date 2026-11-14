@@ -341,8 +341,8 @@ failure and task overruns.
 | Compiler | REQ-NFR-003 | Zero warnings with `-Wall -Wextra -Werror` and the extra flags of the standard |
 | Static analysis | Coding standard §6 | Zero findings outside the register of deviations |
 | Unit test coverage | REQ-NFR-004 | At least 90 % of lines in `app/` and `services/` (enforced from Day 2) |
-| Flash | REQ-NFR-005 | At most 80 % of 32 KB. Measured on the firmware image, so it only means something once `main.c` uses the modules (Day 4); until then the linker drops the unused code |
-| RAM | REQ-NFR-005 | At most 60 % of 2 KB |
+| Flash | REQ-NFR-005 | At most 80 % of 32 KB, measured on the firmware image (`make size`: about 13.8 KB, 53 % of the budget) |
+| RAM | REQ-NFR-005 | At most 60 % of 2 KB, static data only (`make size`: 630 B of 1228 B); the stack is watched at run time (REQ-SAF-009) |
 | Traceability | `trace.py` | Every requirement has code and a test (enforced on Day 5) |
 
 Accepted deviations from the coding standard are listed in
@@ -403,6 +403,14 @@ Accepted deviations from the coding standard are listed in
 - **The `log` command needs a newline** (`\n`): a carriage return alone is ignored.
   The first line after opening the port can read `ERR`, because a stray byte arrives
   when the port opens; send a newline first.
+- **Calm air gives short nuisance FAULTs.** In clean, still air a sensor can stay
+  within 1 LSB for 10 minutes and be seen as stuck. With both sensors stuck the
+  detector enters FAULT code 6 and drops the relay; it ends by itself as soon as
+  a sensor moves (FMEA F46, REQ-SAF-007).
+- **An ageing sensing element is not detected by the firmware.** A dead heater
+  reads as an open circuit (checked on the bench, FMEA F03), but an element that
+  loses its sensitivity with a working heater looks like clean air. The monthly
+  gas test in MAINTENANCE, recorded as `PEAK` entries, is the only check.
 - **A faulty gas channel is excluded from the detection.** It is written to the event log
   (`CHANNEL`). It comes back into service (`RECOVERED`) after 60 s of valid readings
   (open or short circuit), or as soon as a frozen value moves again (REQ-SAF-002,
