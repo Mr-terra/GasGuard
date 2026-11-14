@@ -590,7 +590,7 @@ static void test_firmware_bandgap_out_of_tolerance_logs_its_raw_value_once(void)
     boot_defaults();
     set_gas_raw(CLEAN_RAW);
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(150u));
-    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, FIRMWARE_BANDGAP_FIRST_MS));
     TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(2u, &entry));
     TEST_ASSERT_EQUAL_INT(EVENTLOG_BANDGAP, entry.code);
     TEST_ASSERT_EQUAL_UINT16(150u, entry.arg);
@@ -601,11 +601,28 @@ static void test_firmware_bandgap_out_of_tolerance_logs_its_raw_value_once(void)
 }
 
 /* @verifies REQ-SAF-004 */
+static void test_firmware_first_bandgap_check_waits_for_the_reference_to_settle(void)
+{
+    boot_defaults();
+    set_gas_raw(CLEAN_RAW);
+    /* At power-on the AREF capacitor is still charging: the reference reads low (bench, 266). */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(266u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, FIRMWARE_BANDGAP_FIRST_MS - 1u));
+    TEST_ASSERT_EQUAL_UINT8(0u, count_bandgap_entries());
+    /* One second later the reference has settled: a value still out of tolerance is a fault. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, FIRMWARE_BANDGAP_FIRST_MS));
+    TEST_ASSERT_EQUAL_UINT8(1u, count_bandgap_entries());
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, FIRMWARE_BANDGAP_FIRST_MS));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-004 */
 static void test_firmware_bandgap_within_tolerance_logs_nothing(void)
 {
     boot_defaults();
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(DIAG_BANDGAP_NOMINAL));
-    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, FIRMWARE_BANDGAP_FIRST_MS));
     TEST_ASSERT_EQUAL_UINT8(0u, count_bandgap_entries());
 }
 
@@ -617,7 +634,7 @@ static void test_firmware_failed_bandgap_read_is_logged_as_zero_and_raises_fault
     boot_defaults();
     set_gas_raw(CLEAN_RAW);
     hal_adc_fake_fail_bandgap(true);
-    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, FIRMWARE_BANDGAP_FIRST_MS));
     TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(2u, &entry));
     TEST_ASSERT_EQUAL_INT(EVENTLOG_BANDGAP, entry.code);
     TEST_ASSERT_EQUAL_UINT16(0u, entry.arg);
@@ -635,7 +652,7 @@ static void test_firmware_bandgap_fault_latches_even_when_the_log_write_fails(vo
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(150u));
     hal_eeprom_fake_fail_writes(true);
     /* The log entry is a diagnostic: its failure must not stop the fault (FMEA F44). */
-    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, FIRMWARE_BANDGAP_FIRST_MS));
     /* The mode-change entry fails too, so the sample reports an error; the state is what matters. */
     (void)firmware_sample(&fw, now_test);
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
@@ -648,10 +665,10 @@ static void test_firmware_bandgap_is_logged_again_after_a_reset(void)
 {
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(150u));
     boot_defaults();
-    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, FIRMWARE_BANDGAP_FIRST_MS));
     /* Second boot on the same EEPROM: the first bad value of this boot is logged too. */
     boot_defaults();
-    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, FIRMWARE_BANDGAP_FIRST_MS));
     TEST_ASSERT_EQUAL_UINT8(2u, count_bandgap_entries());
 }
 
@@ -1157,6 +1174,7 @@ int main(void)
     RUN_TEST(test_firmware_stuck_fault_episode_is_logged);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_raises_fault);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_logs_its_raw_value_once);
+    RUN_TEST(test_firmware_first_bandgap_check_waits_for_the_reference_to_settle);
     RUN_TEST(test_firmware_bandgap_within_tolerance_logs_nothing);
     RUN_TEST(test_firmware_failed_bandgap_read_is_logged_as_zero_and_raises_fault);
     RUN_TEST(test_firmware_bandgap_fault_latches_even_when_the_log_write_fails);
