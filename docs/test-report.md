@@ -30,6 +30,16 @@ multimeter or the serial monitor (tools in
 | Temperature coefficient | Clean air, one to two days with the room warming and cooling: `status` every few minutes, then the slope of the MQ raw values against the temperature raw value | REQ-FUN-004 |
 | Calibration in the configuration | REQ-FUN-003 is **only partly met**: the zero offsets are compiled in (`FIRMWARE_ZERO_RAW_*`), not stored in the configuration, and the span is not checked with a reference gas. The trace shows code and tests for REQ-FUN-003, not this gap. Decision of the author (Day 5): v1.0 ships with the current compiled-in values; the values are changed later | REQ-FUN-003 |
 
+## Day 5 — temperature pull-down (2026-11-15)
+
+Firmware: `day-5-temp` at `5af5e7e`. 1 MΩ pull-down from Arduino A3 to Arduino
+GND on the breadboard (HW-005), temperature SIG on the same row.
+
+| Check | Result | Requirement |
+|---|---|---|
+| Sensor plugged | **Pass**: `STATUS 1 37 117 37 441 1`: raw 441 with the pull-down is a thermistor of about 120 kOhm, that is about 21.3 degC, inside 0 to 50 degC; `temp valid` 1 | REQ-FUN-004, HW-005 |
+| Sensor unplugged (SIG off) | **Pass**: `STATUS 1 37 117 37 3 0`: the pull-down holds A3 at 3, out of the valid range, `temp valid` 0. Before the pull-down the same test read 53 and valid (FMEA F48) | REQ-FUN-004, HW-005 |
+
 ## Day 5 — power-up and reset loop (2026-11-15)
 
 Firmware: `day-5-temp` at `4faff2c`. Log entries 74 to 110, then 0 to 4 (the
