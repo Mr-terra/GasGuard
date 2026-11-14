@@ -58,7 +58,7 @@ process is the point:
 | Foundations | Build, unit test, static analysis and memory budget gates |
 | Foundations | Hardware interfaces (ADC, timer, GPIO, EEPROM, UART, I2C, watchdog, reset cause), each with a PC fake and unit tests |
 | Sensing | Moving average over the last 8 samples per channel (`services/filter`) |
-| Sensing | Linear calibration to %LEL in Q8 fixed point, zero offset per channel (provisional bench values: MQ-5 113, MQ-2 0); temperature on A3 read and checked every sample (valid between about -26 and +73 degC), compensation coefficient still 0 until measured on the bench (REQ-FUN-004, see limitations) |
+| Sensing | Linear calibration to %LEL in Q8 fixed point, zero offset per channel (provisional bench values: MQ-5 113, MQ-2 0); temperature on A3 read and checked every sample (valid between 0 and 50 degC, 1 MΩ pull-down so an unplugged sensor is invalid), compensation coefficient still 0 until measured on the bench (REQ-FUN-004, see limitations) |
 | Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) |
 | Diagnostics | Bandgap raw read against AVcc, checked at start-up and every 60 s; ten conversions discarded first so the reference settles; the first bad raw value of each boot is logged as `BANDGAP` (REQ-SAF-004, FMEA F43) |
 | Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) |
@@ -176,8 +176,8 @@ STATUS 1 64 135 30 512 1
 - `state`: 0 WARMUP, 1 NORMAL, 2 ALARM_1, 3 ALARM_2, 4 FAULT, 5 MAINTENANCE.
 - `conc`: the concentration the detector uses, in 0.1 %LEL (64 is 6.4 %LEL).
 - `mq5 raw`, `mq2 raw`, `temp raw`: last ADC values, 0 to 1023 (about 4.9 mV each).
-- `temp valid`: 1 when the temperature reading is in its valid range. With the
-  sensor unplugged, A3 floats and can still read as valid (FMEA F48).
+- `temp valid`: 1 when the temperature reading is between 0 and 50 degC. With
+  the sensor unplugged, the 1 MΩ pull-down holds A3 at 0, so it reads 0 (HW-005).
 
 Sent during a `log` dump, the answer can be lost (transmit buffer full): send
 `status` again after `END`.
@@ -238,7 +238,7 @@ mitigation, is in [`docs/03-safety-analysis.md`](docs/03-safety-analysis.md).
 | Grove Buzzer v1.2 | Audible alarm |
 | Grove Rotary Angle Sensor v1.2 | Gas simulator (simulation build only) |
 | Grove Temperature Sensor v1.2 | Temperature input on A3 (compensation coefficient still 0) |
-| 100 kΩ resistors (×2) | Pull-downs on the gas inputs |
+| 100 kΩ resistors (×2), 1 MΩ resistor | Pull-downs on the gas inputs and on the temperature input |
 | 9 V 1 A wall adapter | Supply on the barrel jack |
 
 Models, quantities, connections, supply and tools are listed in
@@ -277,7 +277,7 @@ The MQ modules are wired by colour through a Grove-to-Dupont cable:
 - Power: each MQ heater draws about 150 mA. Do not connect more than two MQ
   modules to the board's 5 V supply.
 
-Full rationale and hardware requirements HW-001 to HW-003 are in
+Full rationale and hardware requirements HW-001 to HW-003 and HW-005 are in
 [`docs/02-architecture.md`](docs/02-architecture.md#21-gas-sensor-wiring-generic-mq-modules-vcc--gnd--do--ao).
 
 ## Getting started

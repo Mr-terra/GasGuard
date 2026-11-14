@@ -43,7 +43,7 @@ Any mode → `FAULT`. `NORMAL` ⇄ `MAINTENANCE` (operator request, time-limited
 | REQ-FUN-001 | The firmware shall sample each gas sensor channel (MQ5 on A0, MQ2 on A1) every 100 ms. |
 | REQ-FUN-002 | The firmware shall filter each channel with a moving average over the last 8 samples. |
 | REQ-FUN-003 | The firmware shall convert the filtered value to %LEL using a per-channel linear calibration (zero offset + span) stored in configuration. |
-| REQ-FUN-004 | The firmware should apply a linear temperature compensation using the temperature sensor on A3, when that sensor is valid. |
+| REQ-FUN-004 | The firmware should apply a linear temperature compensation using the temperature sensor on A3, only when that sensor is valid: the read worked and the reading is between 0 and 50 °C. An unplugged sensor shall read as not valid. |
 | REQ-FUN-005 | The reported concentration shall be the **maximum** of the valid gas channels (conservative choice). |
 | REQ-FUN-006 | In simulation build mode, the potentiometer on A2 shall replace the MQ5 channel, so the full logic can be exercised without gas. |
 

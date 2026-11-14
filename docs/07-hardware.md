@@ -20,6 +20,7 @@ part itself.
 | 8 | Buzzer | Seeed Grove Buzzer v1.2 (same kit), active buzzer | 1 | Port D6 (SIG) | In use | Switched on and off as a plain output; Timer0 is left free |
 | 9 | Gas simulator | Seeed Grove Rotary Angle Sensor v1.2 (same kit) | 1 | Port A2 | Bench only | Read only by the simulation build (`make avr-sim`, FMEA F41) |
 | 10 | Pull-down resistors | 100 kΩ, 1/4 W | 2 | A0–GND and A1–GND, Arduino side | In use | HW-001: an unplugged cable reads 0 instead of noise |
+| Pull-down resistor | 1 MΩ, 1/4 W | 1 | A3–GND, Arduino side | In use | HW-005: an unplugged temperature sensor reads 0 |
 | 11 | Cables | Grove to female Dupont | 2 | MQ-5, MQ-2 | In use | White wire not connected, insulated (HW-002) |
 | 12 | Breadboard and jumper wires | — | 1 | Pull-downs, MQ wiring | In use | — |
 
@@ -30,9 +31,12 @@ pull-down proposed for the relay input (HW-004, FMEA F21) applies only once a
 relay module is fitted.
 
 Temperature sensor: Seeed Grove Temperature Sensor v1.2 (same kit, NTC
-thermistor, 100 kOhm at 25 degC, B = 4275) on port A3, with a Grove cable. The
-firmware reads it every sample and prints it with `status`; its compensation
-coefficient stays at 0 until it is measured (REQ-FUN-004).
+thermistor, 100 kOhm at 25 degC, B = 4275) on A3: VCC to Arduino 5V, GND to
+Arduino GND, SIG to Arduino A3 (Dupont wires). A 1 MΩ pull-down from Arduino A3
+to Arduino GND (HW-005) makes an unplugged sensor read 0. The firmware reads it
+every sample, accepts 0 to 50 degC (raw 200 to 750), and prints it with
+`status`; its compensation coefficient stays at 0 until it is measured
+(REQ-FUN-004).
 
 ## 2. Supply
 

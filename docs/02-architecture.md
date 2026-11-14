@@ -84,6 +84,7 @@ code, so they use the `HW-` prefix instead of `REQ-`.
 | HW-001 | Each gas sensor input shall have a 100 kΩ pull-down to GND on the Arduino side of the cable. |
 | HW-002 | The second signal wire of each Grove cable shall be left unconnected and insulated. |
 | HW-003 | No more than 2 MQ sensors shall be powered from the board at the same time. |
+| HW-005 | The temperature input (A3) shall have a pull-down resistor to GND on the Arduino side of the cable, so that an unplugged sensor reads 0 (1 MΩ, FMEA F48). |
 
 **Proposed, not yet approved (Day 5 review, FMEA F21), HW-004:** the relay
 input (SIG of the relay module) should have a 10 kΩ pull-down to GND. While the
