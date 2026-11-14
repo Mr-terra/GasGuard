@@ -6,7 +6,9 @@ yet run are listed as open, so nothing is reported as passed by default.
 
 ## Open steps for the next bench session (Day 5 and after)
 
-No result is recorded for these steps yet. Each one needs the board, the
+No result is recorded for these steps yet. The steps confirmed on the board
+(button, touch, LCD, `log`, second sensor, stuck channel, bandgap, ALARM_2
+buzzer rate) are in the sessions below and have left this list. Each one needs the board, the
 multimeter or the serial monitor (tools in
 [`07-hardware.md`](07-hardware.md)).
 
@@ -15,22 +17,14 @@ multimeter or the serial monitor (tools in
 | Relay at reset | Pin D5 low before the first GPIO init (FMEA F21) | REQ-SAF-001 |
 | Watchdog timing | Reset after 500 ms without kick; no reset in normal running | REQ-SAF-005 |
 | Stack watermark | Value of `hal_stack_free_bytes` after boot and after a minute | REQ-SAF-009 |
-| Buzzer patterns | 1 Hz (ALARM_1), 4 Hz (ALARM_2), one beep every 5 s (FAULT) | REQ-HMI-003 |
-| Button | Short press silences ALARM_1; long press resets ALARM_2; long press in NORMAL starts the test | REQ-HMI-004..006 |
-| Touch | 3 s touch enters MAINTENANCE, the display shows MAINT | REQ-HMI-008, REQ-HMI-009 |
-| LCD | Line 2 shows the concentration, FAULT blinks amber | REQ-HMI-001, REQ-HMI-002 |
-| `log` command | Dump over the UART at 38400 baud, complete, with the reset and config entries | REQ-LOG-004 |
+| Buzzer patterns | 1 Hz in ALARM_1 (4 Hz in ALARM_2 and one beep every 5 s in FAULT were heard on Day 5) | REQ-HMI-003 |
 | Bandgap | Raw value of the bandgap against AVcc (expected near 0xED at 4.75 V) | REQ-SAF-004 |
-| Second MQ sensor | Wiring and reading on A1 | REQ-FUN-001 |
 | MQ5 baseline | Clean-air voltage on A0 once it is stable, after 24 to 48 h of continuous power (datasheet preheat). Then fix `zero_raw` from it. Not yet measured: the voltage was still drifting after about 4 h | REQ-FUN-003, REQ-SAF-003 |
 | Watchdog reset cause | After a watchdog reset, WDRF is seen (the bootloader can clear the reset flags first) | REQ-SAF-006 |
-| Stuck sensor | Freeze one input for 10 minutes: its channel is excluded and the alarm clears | REQ-SAF-003 |
-| Bandgap | Measured at start-up and every 60 s; the value is within 202..248 | REQ-SAF-004 |
 | Display time | Longest display task on the board (I2C): stays well under 100 ms per cycle | REQ-SAF-008 |
 | Overrun detection | With the end time fix (`day-5-fix-overrun`): no `OVERRUN` in normal running over one hour; a cycle made longer on purpose (bench build only) logs `OVERRUN` and three in a row give `FAULT 3` | REQ-SAF-008 |
 | UART input | Paste a 16-character command: no byte lost | REQ-LOG-004 |
 | Relay pull-down | Only once a relay module is fitted (none on the bench): relay state at reset, with and without the proposed 10 kΩ pull-down | REQ-SAF-001, FMEA F21 |
-| Buzzer rate | Alarm 2 measured on the buzzer pin: 4 beeps per second | REQ-HMI-003 |
 | All channels stuck | One night with both sensors in clean air: any FAULT `6` (stuck) ends by itself when a channel moves; no restart needed | REQ-SAF-003, REQ-SAF-007 |
 | Periodic gas test | The procedure of the README, in MAINTENANCE (unlit lighter on each sensor): each reading rises above 10 %LEL, no relay drop and no buzzer; after MAINTENANCE ends, each `PEAK` entry is above 100 (10 %LEL) and no `OVERRUN` follows | REQ-SAF-003, REQ-HMI-009, REQ-LOG-001 |
 | Reset loop | 4 manual resets less than 3 min apart: the 4th start is in FAULT (`FAULT 5` in the log); 3 min of running, then a reset: normal start | REQ-SAF-011 |
