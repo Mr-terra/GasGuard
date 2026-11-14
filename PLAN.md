@@ -43,7 +43,7 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 - [~] Hardware test report `docs/test-report.md` + logic-analyzer screenshots: Day 5 board session recorded (alarms, latch, HMI, log, bandgap fix, calibration); open: relay, watchdog trip, stack value. Screenshots dropped: no logic analyzer or oscilloscope available
 - [ ] README: photo, demo GIF/video, quality badges (needs the bench for the photo and demo; wiring section exists)
 - [x] Short section "How this project was built with Claude Code" (the `.claude/` setup as quality system)
-- [ ] Tag `v1.0` (after the author validates Day 5)
+- [x] Tag `v1.0` (after the author validates Day 5): on `cc7e4f5`
 - [ ] **Learn:** full `explain-module` pass on `detector` and `diag` — mock interview
 
 ## Version 2 (during the hiring process)
