@@ -858,10 +858,7 @@ static void health_bandgap(firmware_t *fw, uint32_t now_ms)
     uint16_t raw = 0u;
     bool ok = false;
 
-    /* The first check waits for the reference to settle after power-on (F43). */
-    bool settled = (now_ms - fw->start_ms) >= FIRMWARE_BANDGAP_FIRST_MS;
-
-    if (settled && (now_ms >= fw->bandgap_next_ms)) {
+    if (now_ms >= fw->bandgap_next_ms) {
         fw->bandgap_next_ms = now_ms + FIRMWARE_BANDGAP_PERIOD_MS;
         /* An ADC error, or a reference out of tolerance, means the readings cannot be trusted. */
         if ((hal_adc_read_bandgap(&raw) != GG_OK) || (diag_bandgap_ok(raw, &ok) != GG_OK) || !ok) {

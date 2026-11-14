@@ -45,6 +45,8 @@ Firmware: `day-5-temp` at `4faff2c`. Log entries 74 to 110, then 0 to 4 (the
 
 The first-check delay of 1 s (`4faff2c`) was based on a wrong cause (the AREF
 capacitor): the reading was still 268 at 1 s, because the supply itself was low.
+The delay was reverted with the author's agreement: the check runs at start-up
+again, as REQ-SAF-004 states.
 
 ## Day 5 — temperature input and status command (2026-11-15)
 
