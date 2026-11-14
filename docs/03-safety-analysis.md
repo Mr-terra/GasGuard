@@ -20,7 +20,7 @@ start ignoring or disconnecting the detector, which leads back to H1.
 | F05 | Gas sensor | Drift / cross-sensitivity | Under/over reading | 4 | 3 | 4 | 48 | Two channels, max of valid; temperature compensation | REQ-FUN-004/005 | 4/3/3 → 36 *(accepted: needs periodic gas calibration, out of scope)* |
 | F06 | ADC | Reference drift / ADC broken | All readings wrong | 5 | 1 | 5 | 25 | Bandgap measurement at boot + every 60 s | REQ-SAF-004 | 5/1/2 → 10 |
 | F07 | Firmware | Infinite loop / hang | No monitoring at all | 5 | 2 | 5 | 50 | Watchdog 500 ms, kicked only after all tasks | REQ-SAF-005 | 5/2/1 → 10 |
-| F08 | Firmware | Task overrun (timing) | Late detection | 4 | 2 | 4 | 32 | Overrun detection, FAULT after 3 | REQ-SAF-008 | 4/2/1 → 8 |
+| F08 | Firmware | Task overrun (timing) | Late detection | 4 | 2 | 4 | 32 | Overrun detection, FAULT after 3. Until Day 5, `main.c` passed the start time as the end time, so the measured duration was always 0 and no overrun was ever seen on the board (found by the review, fixed: the end time is read after the tasks; `main.c` is not host-tested, so the fix is checked on the board) | REQ-SAF-008 | 4/2/1 → 8 |
 | F09 | Firmware | Stack overflow corrupts data | Unpredictable | 5 | 2 | 5 | 50 | Stack painting + watermark check; no recursion, no malloc | REQ-SAF-009/010 | 5/1/2 → 10 |
 | F10 | EEPROM | Corrupted config (power cut during write) | Wrong thresholds → missed alarm | 5 | 2 | 5 | 50 | A/B copies + CRC-16, safe defaults fallback, range validation | REQ-CFG-001..003 | 5/2/1 → 10 |
 | F11 | Config | Absurd thresholds (AL1 ≥ AL2, 0…) | Alarm never triggers | 5 | 2 | 4 | 40 | Validation on load and store | REQ-ALM-005, REQ-CFG-003 | 5/1/1 → 5 |

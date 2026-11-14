@@ -26,6 +26,7 @@ analyser or the serial monitor.
 | Stuck sensor | Freeze one input for 10 minutes: its channel is excluded and the alarm clears | REQ-SAF-003 |
 | Bandgap | Measured at start-up and every 60 s; the value is within 202..248 | REQ-SAF-004 |
 | Display time | Longest display task on the board (I2C): stays well under 100 ms per cycle | REQ-SAF-008 |
+| Overrun detection | With the end time fix (`day-5-fix-overrun`): no `OVERRUN` in normal running over one hour; a cycle made longer on purpose (bench build only) logs `OVERRUN` and three in a row give `FAULT 3` | REQ-SAF-008 |
 | UART input | Paste a 16-character command: no byte lost | REQ-LOG-004 |
 | Relay pull-down | Relay state at reset, with and without the proposed 10 kΩ pull-down | REQ-SAF-001, FMEA F21 |
 | Buzzer rate | Alarm 2 measured on the buzzer pin: 4 beeps per second | REQ-HMI-003 |

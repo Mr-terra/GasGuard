@@ -409,13 +409,19 @@ static gg_status_t cycle(uint32_t now_ms)
     bool overrun = false;
     bool fault = false;
     bool kick = false;
+    uint32_t end_ms = now_ms;
     uint8_t task;
 
     for (task = 0u; (status == GG_OK) && (task < TASK_COUNT); task++) {
         status = run_task(task, now_ms);
     }
+    /* The end of the cycle is read again here: with the start time, the duration
+     * would always be 0 and an overrun could never be seen (REQ-SAF-008). */
     if (status == GG_OK) {
-        status = scheduler_end_cycle(&sched, now_ms, &overrun, &fault);
+        status = hal_timer_get_ms(&end_ms);
+    }
+    if (status == GG_OK) {
+        status = scheduler_end_cycle(&sched, end_ms, &overrun, &fault);
     }
     if (status == GG_OK) {
         status = firmware_report_timing(&fw, overrun, fault, now_ms);
