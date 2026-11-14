@@ -98,8 +98,8 @@ don't mention anthropic or the adresse mail of the company in the commit.
   same change set: `README.md`, `docs/`, `PLAN.md` status, and
   `docs/traceability.md` (regenerate with `make trace`). Documentation never lags
   behind the code.
-- The `README.md` must be professional and exhaustive: status per feature with
-  its plan day, architecture, safety design, hardware and wiring, build and
+- The `README.md` must be professional and exhaustive: the feature list,
+  architecture, safety design, hardware and wiring, build and
   flash steps, every `make` target, the quality gates, the workflow, the roadmap
   and known limitations. Describe only what really exists; mark planned items
   as planned.
