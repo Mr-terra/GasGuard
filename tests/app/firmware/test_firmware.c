@@ -1016,8 +1016,10 @@ static void test_firmware_no_peak_is_logged_outside_maintenance(void)
     TEST_ASSERT_EQUAL_UINT8(0u, count_entries(EVENTLOG_MAINT_PEAK, ANY_ARG));
 }
 
-/** @brief Raw value of the temperature input at about 25 degC (Grove Temperature Sensor v1.2). */
-#define TEMP_ROOM_RAW 512u
+/** @brief Raw value of the temperature input at about 25 degC (Grove Temperature Sensor v1.2, 1 MOhm pull-down). */
+#define TEMP_ROOM_RAW 487u
+/** @brief Raw value of the temperature input below 0 degC: valid for the sensor, out of the range of a room. */
+#define TEMP_BELOW_ZERO_RAW 190u
 
 /* @verifies REQ-FUN-004 REQ-LOG-005 */
 static void test_firmware_status_reports_the_raw_inputs_and_a_valid_temperature(void)
@@ -1105,6 +1107,24 @@ static void test_firmware_faulty_temperature_never_holds_back_an_alarm(void)
     expect_alarm_2_with_temperature(FIRMWARE_TEMP_RAW_MAX + 1u, false);
 }
 
+/* @verifies REQ-FUN-004 */
+static void test_firmware_unplugged_or_freezing_temperature_is_invalid(void)
+{
+    cli_status_t snap;
+
+    boot_and_reach_normal();
+    /* Unplugged: the pull-down on A3 (HW-005) holds the input at 0. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, 0u));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &snap));
+    TEST_ASSERT_FALSE(snap.temp_valid);
+    /* Below 0 degC: no room the detector protects is that cold, so the reading is not trusted. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, TEMP_BELOW_ZERO_RAW));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &snap));
+    TEST_ASSERT_FALSE(snap.temp_valid);
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1163,6 +1183,7 @@ int main(void)
     RUN_TEST(test_firmware_temperature_outside_its_range_or_unread_is_invalid);
     RUN_TEST(test_firmware_valid_temperature_does_not_move_the_gas_reading_while_the_coefficient_is_zero);
     RUN_TEST(test_firmware_faulty_temperature_never_holds_back_an_alarm);
+    RUN_TEST(test_firmware_unplugged_or_freezing_temperature_is_invalid);
     RUN_TEST(test_firmware_peaks_are_logged_one_per_sample_after_the_mode_change);
     RUN_TEST(test_firmware_a_failed_peak_write_does_not_stop_the_sample);
     return UNITY_END();
