@@ -457,7 +457,6 @@ static void test_detector_stack_fault_latches_with_its_reason(void)
     TEST_ASSERT_EQUAL_INT(DET_FAULT_STACK, code);
 }
 
-// DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 /** @brief One sample where every channel is out only because it is stuck (REQ-SAF-003). */
 static void step_all_stuck(void)
 {
@@ -495,7 +494,8 @@ static void test_detector_stuck_only_fault_ends_by_itself(void)
 static void test_detector_stuck_only_fault_keeps_the_alarm_2_latch(void)
 {
     finish_warmup();
-    step_n(DETECTOR_AL2_DEFAULT, 3u);
+    /* NORMAL to ALARM_1, then ALARM_2: three samples each. */
+    step_n(DETECTOR_AL2_DEFAULT, 6u);
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, state_now());
     step_all_stuck();
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
@@ -532,6 +532,91 @@ static void test_detector_stuck_after_a_real_fault_keeps_the_latch(void)
     TEST_ASSERT_EQUAL_INT(DET_FAULT_INPUT, code);
 }
 
+/** @brief One stuck-only sample with a given concentration and maintenance timer state. */
+static void step_stuck_with(gg_conc_t conc, bool maint_expired)
+{
+    detector_input_t in = {conc, false, false, false, maint_expired, DET_FAULT_NONE, true};
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
+}
+
+/* @verifies REQ-SAF-007 */
+static void test_detector_stuck_fault_ended_by_gas_goes_straight_to_the_alarm(void)
+{
+    finish_warmup();
+    step_all_stuck();
+    /* The channel moved because gas came: ALARM_1 at once, so the relay stays off. */
+    step(DETECTOR_AL1_DEFAULT);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, state_now());
+    step_all_stuck();
+    step(DETECTOR_AL2_DEFAULT);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, state_now());
+}
+
+/* @verifies REQ-SAF-007 REQ-ALM-003 */
+static void test_detector_stuck_fault_returns_to_alarm_1(void)
+{
+    finish_warmup();
+    step_n(DETECTOR_AL1_DEFAULT, 3u);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, state_now());
+    step_all_stuck();
+    step(0);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, state_now());
+}
+
+/* @verifies REQ-SAF-007 REQ-HMI-010 */
+static void test_detector_stuck_fault_in_maintenance_honours_the_timer(void)
+{
+    detector_input_t touch = {0, false, false, true, false, DET_FAULT_NONE, false};
+
+    finish_warmup();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &touch));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, state_now());
+    step_stuck_with(0, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
+    /* Still within the 10 minutes: back to MAINTENANCE. */
+    step(0);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, state_now());
+    step_stuck_with(0, true);
+    {
+        detector_input_t expired = {0, false, false, false, true, DET_FAULT_NONE, false};
+
+        /* The 10 minutes ran out during the FAULT: straight to NORMAL. */
+        TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &expired));
+    }
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
+}
+
+/* @verifies REQ-SAF-007 REQ-SAF-008 */
+static void test_detector_system_fault_during_a_stuck_fault_is_reported_and_latched(void)
+{
+    detector_input_t timing = {0, false, false, false, false, DET_FAULT_TIMING, false};
+    bool is_new = false;
+    detector_fault_code_t code = DET_FAULT_NONE;
+
+    finish_warmup();
+    step_all_stuck();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_take_new_fault(&det_test_state, &is_new, &code));
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_STUCK, code);
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &timing));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_take_new_fault(&det_test_state, &is_new, &code));
+    TEST_ASSERT_TRUE(is_new);
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_TIMING, code);
+    step(0);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
+}
+
+/* @verifies REQ-SAF-007 REQ-ALM-006 */
+static void test_detector_stuck_fault_from_warmup_ends_in_normal_once_warmup_is_over(void)
+{
+    step_all_stuck();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
+    finish_warmup();
+    step(0);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
+}
+
+// DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
@@ -571,5 +656,10 @@ int main(void)
     RUN_TEST(test_detector_stuck_only_fault_keeps_the_alarm_2_latch);
     RUN_TEST(test_detector_real_fault_during_a_stuck_fault_latches);
     RUN_TEST(test_detector_stuck_after_a_real_fault_keeps_the_latch);
+    RUN_TEST(test_detector_stuck_fault_ended_by_gas_goes_straight_to_the_alarm);
+    RUN_TEST(test_detector_stuck_fault_returns_to_alarm_1);
+    RUN_TEST(test_detector_stuck_fault_in_maintenance_honours_the_timer);
+    RUN_TEST(test_detector_system_fault_during_a_stuck_fault_is_reported_and_latched);
+    RUN_TEST(test_detector_stuck_fault_from_warmup_ends_in_normal_once_warmup_is_over);
     return UNITY_END();
 }

@@ -40,6 +40,7 @@
 | SC-08 | MQ5 unplugged (raw 0) | Channel fault, MQ2 still used, no FAULT |
 | SC-09 | Both sensors unplugged | FAULT, relay off |
 | SC-10 | Sensor stuck 10 min | Channel fault |
+| SC-10b | Both sensors stuck 10 min (calm air), then one moves | FAULT code 6, then back to the previous state without a restart (firmware tests in `tests/app/firmware`; the scenario harness does not run the firmware sampling) |
 | SC-11 | Config A corrupted | Config B used, A repaired, event logged |
 | SC-12 | Config A and B corrupted | Defaults used, event logged |
 | SC-13 | Gas during warm-up | No alarm, "WARMUP" shown |

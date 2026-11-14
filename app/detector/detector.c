@@ -11,6 +11,9 @@
  * oscillates inside the hysteresis band never chatters. ALARM_2 has no
  * automatic exit: only an operator reset, with the gas below the clear level,
  * returns to NORMAL. A fault input always wins: it latches FAULT from any state.
+ * One exception: a FAULT whose only cause is stuck channels (calm air) ends by
+ * itself as soon as a channel is in use again, back to the previous state or
+ * straight to the alarm when the gas is above a threshold (REQ-SAF-007).
  * The relay is energised only in the healthy states, so every path to an alarm
  * or a fault releases it.
  *
@@ -133,6 +136,7 @@ gg_status_t detector_init(detector_t *det, const detector_thresholds_t *threshol
             det->thresholds = *thresholds;
             det->state = DET_STATE_WARMUP;
             det->fault_code = DET_FAULT_NONE;
+            det->state_before_fault = DET_STATE_WARMUP;
             det->fault_new = false;
             reset_counters(det);
         }
@@ -149,20 +153,61 @@ gg_status_t detector_end_warmup(detector_t *det)
     } else if (det->state == DET_STATE_WARMUP) {
         det->state = DET_STATE_NORMAL;
         reset_counters(det);
+    } else if ((det->state == DET_STATE_FAULT) && (det->state_before_fault == DET_STATE_WARMUP)) {
+        /* A stuck-only FAULT that ends after the warm-up returns to NORMAL, not WARMUP. */
+        det->state_before_fault = DET_STATE_NORMAL;
     } else {
-        /* Already past warm-up, or latched in FAULT: nothing to do. */
+        /* Already past warm-up, or in FAULT: nothing to do. */
     }
     return status;
 }
 
-/* Latch FAULT and record why. The first reason is kept: a later one does not overwrite it.
- * The reason is read by the caller with detector_take_new_fault() and written to the event log. */
+/* Enter FAULT and record why. The first reason is kept, except that a real fault
+ * replaces a stuck-only one, so it latches (REQ-SAF-007). The reason is read by the
+ * caller with detector_take_new_fault() and written to the event log. */
 static void diag_raise(detector_t *det, detector_fault_code_t code)
 {
     if (det->state != DET_STATE_FAULT) {
+        det->state_before_fault = det->state;
         det->state = DET_STATE_FAULT;
         det->fault_code = code;
         det->fault_new = true;
+    } else if ((det->fault_code == DET_FAULT_STUCK) && (code != DET_FAULT_STUCK)) {
+        det->fault_code = code;
+        det->fault_new = true;
+    } else {
+        /* Already in FAULT for this or an earlier reason: nothing changes. */
+    }
+}
+
+/* State after a stuck-only FAULT. A channel that moves may do so because gas came:
+ * gas at or above a threshold goes straight to its alarm, so the relay stays off between
+ * the FAULT and the alarm. Otherwise the previous state comes back, an ALARM_2 latch
+ * included (REQ-ALM-004), and a MAINTENANCE whose 10 minutes are over ends (REQ-HMI-010). */
+static detector_state_t state_after_stuck(const detector_t *det, const detector_input_t *in)
+{
+    detector_state_t next = det->state_before_fault;
+
+    if ((next == DET_STATE_ALARM_2) || (in->conc >= det->thresholds.al2)) {
+        next = DET_STATE_ALARM_2;
+    } else if (in->conc >= det->thresholds.al1) {
+        next = DET_STATE_ALARM_1;
+    } else if ((next == DET_STATE_MAINTENANCE) && in->maint_expired) {
+        next = DET_STATE_NORMAL;
+    } else {
+        /* Back to the state held before the FAULT. */
+    }
+    return next;
+}
+
+/* In FAULT with no fault input this sample. A stuck-only FAULT ends: a channel is in
+ * use again (REQ-SAF-007). Any other FAULT stays latched until a restart. */
+static void step_fault(detector_t *det, const detector_input_t *in)
+{
+    if (det->fault_code == DET_FAULT_STUCK) {
+        det->state = state_after_stuck(det, in);
+        det->fault_code = DET_FAULT_NONE;
+        reset_counters(det);
     }
 }
 
@@ -218,8 +263,10 @@ gg_status_t detector_step(detector_t *det, const detector_input_t *in)
         diag_raise(det, DET_FAULT_INPUT);
     } else if (in->system_fault != DET_FAULT_NONE) {
         diag_raise(det, in->system_fault);   /* REQ-SAF-008, REQ-SAF-009: the reason is kept. */
+    } else if (in->fault_stuck) {
+        diag_raise(det, DET_FAULT_STUCK);    /* REQ-SAF-003: calm air, ends by itself. */
     } else if (det->state == DET_STATE_FAULT) {
-        /* Latched: only a new initialisation clears it. */
+        step_fault(det, in);
     } else {
         if (det->state == DET_STATE_WARMUP) {
             reset_counters(det);      /* REQ-ALM-006: no alarm counting during warm-up. */
@@ -262,7 +309,8 @@ gg_status_t detector_relay_energised(const detector_t *det, bool *energised)
     if ((det == NULL) || (energised == NULL)) {
         status = GG_ERR_NULL;
     } else {
-        /* MAINTENANCE holds the last healthy state: it is only entered from NORMAL (REQ-HMI-009). */
+        /* MAINTENANCE holds the last healthy state (REQ-HMI-009): it is entered from NORMAL,
+         * or returned to after a stuck-only FAULT that started in it. */
         *energised = (det->state == DET_STATE_WARMUP) || (det->state == DET_STATE_NORMAL)
                      || (det->state == DET_STATE_MAINTENANCE);
     }

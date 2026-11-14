@@ -10,7 +10,8 @@
  * cannot be read, or that the diagnostic marks as faulty, is invalid. A reading
  * at the rails is never used. Valid channels go through the moving average and
  * the calibration; the maximum of the valid channels is the detector input
- * (REQ-FUN-005). No valid channel is a fault. Every change of mode and every new
+ * (REQ-FUN-005). No valid channel is a fault; when every channel is only stuck
+ * (calm air) that fault ends by itself as soon as a channel moves again. Every change of mode and every new
  * fault is written to the event log.
  *
  * A start counter in EEPROM counts the starts that did not run 60 s past the warm-up.
@@ -53,6 +54,7 @@
 typedef struct {
     gg_conc_t max_conc;  /**< Maximum concentration of the valid channels. */
     bool any_valid;      /**< True when at least one channel is valid. */
+    bool all_stuck_only; /**< Every channel has a stuck fault and no other one (REQ-SAF-003). */
 } firmware_gas_t;
 
 /** @brief Bytes of the start counter in EEPROM: the count, then its complement (REQ-SAF-011). */
@@ -104,22 +106,68 @@ static uint8_t adc_of_channel(uint8_t ch)
 }
 
 /**
+ * @brief Run the range and stuck diagnostics of one channel on a reading.
+ * @param diag    Diagnostic state of the channel.
+ * @param sample  Raw value, time and warm-up flag of the reading.
+ * @return GG_OK, or the diagnostic error.
+ * @req REQ-SAF-002 REQ-SAF-003
+ */
+static gg_status_t sample_diagnose(diag_t *diag, const diag_stuck_sample_t *sample)
+{
+    gg_status_t status = diag_check_range(diag, sample->raw);
+
+    if (status == GG_OK) {
+        /* Frozen value outside warm-up: the stuck check latches a fault after 10 minutes (REQ-SAF-003). */
+        status = diag_check_stuck(diag, sample);
+    }
+    return status;
+}
+
+/**
+ * @brief Filter and convert one usable reading.
+ * @param fw     Firmware state.
+ * @param ch     Channel index.
+ * @param raw    Raw ADC value.
+ * @param conc   Receives the concentration.
+ * @return GG_OK, or the filter or calibration error.
+ * @req REQ-FUN-002 REQ-FUN-003
+ */
+static gg_status_t sample_convert(firmware_t *fw, uint8_t ch, uint16_t raw, gg_conc_t *conc)
+{
+    uint16_t value = 0u;
+    gg_status_t status = filter_push(&fw->filter[ch], raw);
+
+    if (status == GG_OK) {
+        status = filter_value(&fw->filter[ch], &value);
+    }
+    if (status == GG_OK) {
+        status = calib_to_lel(&fw->calib[ch], value, conc);
+    }
+    return status;
+}
+
+/**
  * @brief Read, check and convert one gas channel.
  *
  * Any failure (ADC error, out-of-range value, diagnostic fault) makes the channel
  * invalid; the caller then leaves it out of the maximum.
  *
- * @param fw     Firmware state.
- * @param ch     Channel index.
- * @param conc   Receives the concentration when the channel is valid.
- * @param valid  Receives true when the channel can be used.
+ * An invalid channel restarts its moving average, so a channel that comes back
+ * is not averaged with readings taken before it was left out.
+ *
+ * @param ch      Channel index.
+ * @param fw      Firmware state.
+ * @param now_ms  Current time.
+ * @param conc    Receives the concentration when the channel is valid.
+ * @param valid   Receives true when the channel can be used.
+ * @return True when the read worked and is inside the rails (a clean read).
+ * @req REQ-SAF-002 REQ-SAF-003
  */
-static void sample_channel(uint8_t ch, firmware_t *fw, uint32_t now_ms, gg_conc_t *conc, bool *valid)
+static bool sample_channel(uint8_t ch, firmware_t *fw, uint32_t now_ms, gg_conc_t *conc, bool *valid)
 {
     uint16_t raw = 0u;
-    uint16_t value = 0u;
     bool faulty = true;
-    bool out_of_range = false;
+    bool out_of_range = true;
     gg_status_t status = hal_adc_read(adc_of_channel(ch), &raw);
 
     *conc = 0;
@@ -128,31 +176,25 @@ static void sample_channel(uint8_t ch, firmware_t *fw, uint32_t now_ms, gg_conc_
         /* A reading at the rails is never used, even before the diagnostic latches
          * the channel fault after DIAG_RANGE_SAMPLES: a shorted input would read as
          * a high concentration and raise a latched alarm first (F02). */
-        out_of_range = (raw <= DIAG_OPEN_MAX) || (raw >= DIAG_SHORT_MIN);
-        status = diag_check_range(&fw->diag[ch], raw);
-    }
-    if (status == GG_OK) {
-        /* Frozen value outside warm-up: the stuck check latches a fault after 10 minutes (REQ-SAF-003). */
-        diag_stuck_sample_t stuck;
+        diag_stuck_sample_t sample;
 
-        stuck.raw = raw;
-        stuck.now_ms = now_ms;
-        stuck.in_warmup = (now_ms < fw->warmup_end_ms);
-        status = diag_check_stuck(&fw->diag[ch], &stuck);
+        out_of_range = (raw <= DIAG_OPEN_MAX) || (raw >= DIAG_SHORT_MIN);
+        sample.raw = raw;
+        sample.now_ms = now_ms;
+        sample.in_warmup = (now_ms < fw->warmup_end_ms);
+        status = sample_diagnose(&fw->diag[ch], &sample);
     }
     if (status == GG_OK) {
         status = diag_is_faulty(&fw->diag[ch], &faulty);
     }
     if ((status == GG_OK) && !faulty && !out_of_range) {
-        status = filter_push(&fw->filter[ch], raw);
-        if (status == GG_OK) {
-            status = filter_value(&fw->filter[ch], &value);
-        }
-        if (status == GG_OK) {
-            status = calib_to_lel(&fw->calib[ch], value, conc);
-        }
-        *valid = (status == GG_OK);
+        *valid = (sample_convert(fw, ch, raw, conc) == GG_OK);
     }
+    if (!*valid) {
+        /* Fails only on a NULL pointer, which cannot happen here. */
+        (void)filter_init(&fw->filter[ch]);
+    }
+    return (status == GG_OK) && !out_of_range;
 }
 
 /**
@@ -285,8 +327,14 @@ static gg_status_t sample_gas(firmware_t *fw, uint32_t now_ms, firmware_gas_t *g
     bool valid[FIRMWARE_CHANNELS];
     uint8_t ch;
 
+    gas->all_stuck_only = true;
     for (ch = 0u; ch < FIRMWARE_CHANNELS; ch++) {
-        sample_channel(ch, fw, now_ms, &concs[ch], &valid[ch]);
+        bool stuck_only = false;
+        bool clean_read = sample_channel(ch, fw, now_ms, &concs[ch], &valid[ch]);
+        /* Fails only on a NULL pointer; the default then counts as a real fault. */
+        (void)diag_stuck_only(&fw->diag[ch], &stuck_only);
+        /* A failed read or a reading at the rails is a real fault, never calm air (REQ-SAF-007). */
+        gas->all_stuck_only = gas->all_stuck_only && stuck_only && clean_read;
     }
     return channel_select_max(concs, valid, FIRMWARE_CHANNELS, &gas->max_conc, &gas->any_valid);
 }
@@ -307,7 +355,10 @@ static void sample_fill_input(firmware_t *fw, uint32_t now_ms, const firmware_ga
     bool maint_time_over = (now_ms - fw->maint_start_ms) >= FIRMWARE_MAINT_MAX_MS;
 
     in->conc = gas->max_conc;
-    in->fault = !gas->any_valid;
+    /* No valid channel: a FAULT that ends by itself when all are only stuck (calm air),
+     * a latched one otherwise (REQ-SAF-007). */
+    in->fault = !gas->any_valid && !gas->all_stuck_only;
+    in->fault_stuck = !gas->any_valid && gas->all_stuck_only;
     in->reset_requested = fw->reset_pending;
     in->maint_requested = fw->maint_pending;
     in->maint_expired = (firmware_state(fw) == DET_STATE_MAINTENANCE) && maint_time_over;

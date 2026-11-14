@@ -110,6 +110,10 @@ requirement, and it is measured on the bench (docs/test-report.md).
                                                   (latched, reset
                                                    by long press)
    Any state ──(all sensors faulty / ADC fault / overrun x3 / stack)──► FAULT
+   Any state ──(every sensor only stuck: calm air)──► FAULT (stuck only)
+   FAULT (stuck only) ──(a sensor in use again)──► previous state, or ALARM_1 /
+                         ALARM_2 at once when the gas is above AL1 / AL2
+                         (REQ-SAF-007)
 ```
 
 The state machine is a single `switch` on an `enum`, with one function per
@@ -150,4 +154,4 @@ in that loop has returned (REQ-SAF-005).
 | ADR-5 | Max of valid channels | Conservative: never under-report |
 | ADR-6 | Fixed-point arithmetic (0.1 %LEL units, `int16_t`) | No float on AVR: smaller, faster, deterministic |
 | ADR-7 | Relay energised only in WARMUP and NORMAL; de-energised in ALARM_1 too | Early warning beats a missed warning. A false alarm costs a nuisance; a missed one can cost a life (H1 > H2). REQ-SAF-001 does not name ALARM_1, so this is the fail-safe reading. |
-| ADR-8 | FAULT and sensor faults are latched until re-initialisation | A sensor that failed once is not trusted again without a reset. A contact that reconnects can hide an intermittent fault; an operator must look at it. Automatic recovery would need its own requirement. |
+| ADR-8 | FAULT is latched until a restart, except a FAULT whose only cause is stuck sensors | A real fault (open, short, ADC, timing, stack) needs an operator. A channel comes back on its own (REQ-SAF-002, REQ-SAF-003). A FAULT caused only by stuck sensors is calm air most of the time: it ends by itself when a sensor moves (REQ-SAF-007, Day 5), and the monthly gas test covers a sensor that is really dead. |

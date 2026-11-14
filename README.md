@@ -62,6 +62,7 @@ process is the point:
 | Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) | Done: tested on the PC (Day 2); wired into the firmware on Day 5 |
 | Diagnostics | Bandgap raw read against AVcc, checked at start-up and every 60 s; ten conversions discarded first so the reference settles; the first bad raw value of each boot is logged as `BANDGAP` (REQ-SAF-004, FMEA F43) | Done (Day 5); settling fix to confirm on the board |
 | Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) | Done (Day 4); stack measurement on the bench in Day 5 |
+| Diagnostics | Stuck-only FAULT: when every sensor is out only because it is stuck (calm air), FAULT code 6 ends by itself as soon as a sensor moves; any real fault latches (REQ-SAF-007, FMEA F46) | Done (Day 5, after v1.0); to check over a night on the board |
 | Diagnostics | Reset loop: three starts in a row without 60 s of running past the warm-up, from the fourth on each start enters FAULT and logs it with its reset and configuration source (REQ-SAF-011, FMEA F33). Manual resets less than 3 min apart (with the default 120 s warm-up) count too | Done (Day 5, after v1.0); to check on the board |
 | Alarms | Two-level alarm with hysteresis, latched ALARM_2, warm-up inhibition, max of valid channels | Done (Day 2) |
 | Alarms | Relay normally energised: energised in WARMUP and NORMAL only, de-energised on alarm and fault (state logic done; driving the pin is Day 3) | Logic done (Day 2); pin Day 3 |
@@ -92,7 +93,7 @@ lets the application logic run unchanged on a PC (ADR-3).
 │               maintenance, self-test                         │  pure C
 ├──────────────────────────────────────────────────────────────┤
 │ services/     filter, calibration, diagnostics, config,      │  no <avr/...>
-│               event log, CLI parser                         │  pure C
+│               event log, CLI parser                          │  pure C
 ├──────────────────────────────────────────────────────────────┤
 │ hal/          interfaces (.h only): adc, gpio, i2c, eeprom,  │
 │               timer, uart, wdt, reset cause                  │
@@ -131,7 +132,9 @@ Any state → FAULT   (all channels faulty, ADC fault, 3 overruns, stack low)
 
 - **WARMUP** lasts 120 s by default (configurable 30–600 s). Alarms are inhibited
   and the display says so.
-- **FAULT** de-energises the relay and sounds the fault pattern.
+- **FAULT** de-energises the relay and sounds the fault pattern. It stays until a
+  restart, except a FAULT caused only by stuck channels (calm air): that one ends
+  by itself as soon as a channel moves again (REQ-SAF-007).
 - **MAINTENANCE** holds the relay in its last healthy state, shows alarms without
   outputting them, and always ends by itself.
 
@@ -158,6 +161,27 @@ A short press (under 1 s) silences ALARM_1. ALARM_2 cannot be silenced for more
 than 60 s. A long press (3 s or more) requests the ALARM_2 reset. In NORMAL, a
 long press runs the functional test: buzzer, every backlight colour, relay
 toggle.
+
+### Periodic gas test
+
+A value that does not move can be calm air or a dead sensor: the firmware cannot
+tell them apart (FMEA F03, F46). A periodic gas test proves that each sensor still
+responds. Recommended once a month, and after any maintenance. It is done in
+MAINTENANCE, so the test gas does not trip the relay or sound the buzzer:
+
+1. Check that the detector is in NORMAL, then touch the touch sensor for 3 s:
+   the display shows `MAINT` (yellow). The relay holds, alarms are not output
+   (REQ-HMI-009), and MAINTENANCE ends by itself after 10 minutes.
+2. Release a short puff of gas from an **unlit** lighter (about 1 s, no flame)
+   a few centimetres from the MQ-5, in a ventilated room.
+3. Expected: the concentration on line 2 rises above 10 %LEL (the ALARM_1
+   threshold). Note the highest value.
+4. Wait until the reading is back below 8 %LEL, then repeat with the MQ-2.
+5. Before the 10 minutes are over, let the reading fall back below 8 %LEL:
+   if gas is still there when MAINTENANCE ends, the alarm sounds as usual.
+6. A sensor whose reading does not rise must be replaced. The values seen during
+   MAINTENANCE are not written to the event log: write them in the maintenance
+   record.
 
 ## Safety design
 

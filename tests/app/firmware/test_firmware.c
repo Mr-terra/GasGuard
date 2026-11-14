@@ -91,6 +91,23 @@ static void fw_ticks(uint32_t n, bool button, bool touch)
     }
 }
 
+/** @brief Number of valid log entries with this code; any argument when arg is ANY_ARG. */
+#define ANY_ARG 0xFFFFu
+static uint8_t count_entries(eventlog_code_t code, uint16_t arg)
+{
+    eventlog_entry_t entry;
+    uint8_t slot;
+    uint8_t count = 0u;
+
+    for (slot = 0u; slot < EVENTLOG_ENTRIES; slot++) {
+        if ((eventlog_read_slot(slot, &entry) == GG_OK) && (entry.code == code)
+            && ((arg == ANY_ARG) || (entry.arg == arg))) {
+            count++;
+        }
+    }
+    return count;
+}
+
 /** @brief Boot, then run past the 120 s warm-up on clean air: the detector is in NORMAL. */
 static void boot_and_reach_normal(void)
 {
@@ -448,6 +465,58 @@ static void test_firmware_both_channels_stuck_give_a_fault_that_ends_by_itself(v
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
 }
 
+/** @brief Both channels steady in clean air, run until both are stuck: a stuck-only FAULT. */
+static void both_channels_stuck(void)
+{
+    boot_defaults();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5 + 20u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW));
+    sample_seconds(STUCK_RUN_S);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-007 */
+static void test_firmware_adc_error_during_a_stuck_fault_latches_it(void)
+{
+    detector_fault_code_t code = DET_FAULT_NONE;
+
+    both_channels_stuck();
+    /* An ADC read error is a real fault, never calm air: the FAULT latches. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_MQ5, true));
+    sample_seconds(1u);
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_fault_code(&fw.det, &code));
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_INPUT, code);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_MQ5, false));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW + 5u));
+    sample_seconds(5u);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-007 REQ-SAF-001 */
+static void test_firmware_gas_ending_a_stuck_fault_keeps_the_relay_off(void)
+{
+    bool energised = true;
+
+    both_channels_stuck();
+    /* Gas reaches the MQ-5: the FAULT ends straight into ALARM_1, the relay never comes back on. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_1_RAW));
+    sample_seconds(1u);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
+    TEST_ASSERT_FALSE(energised);
+}
+
+/* @verifies REQ-SAF-007 REQ-LOG-001 */
+static void test_firmware_stuck_fault_episode_is_logged(void)
+{
+    both_channels_stuck();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW + 5u));
+    sample_seconds(1u);
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_FAULT, (uint16_t)DET_FAULT_STUCK));
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MODE_CHANGE, (uint16_t)DET_STATE_FAULT));
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_CHANNEL_RECOVERED, (uint16_t)FIRMWARE_CHANNEL_MQ2));
+}
+
 /* @verifies REQ-SAF-003 REQ-SAF-007 */
 static void test_firmware_stuck_channel_with_the_other_open_latches_the_fault(void)
 {
@@ -562,23 +631,6 @@ static void test_firmware_bandgap_is_logged_again_after_a_reset(void)
     boot_defaults();
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
     TEST_ASSERT_EQUAL_UINT8(2u, count_bandgap_entries());
-}
-
-/** @brief Number of valid log entries with this code; any argument when arg is ANY_ARG. */
-#define ANY_ARG 0xFFFFu
-static uint8_t count_entries(eventlog_code_t code, uint16_t arg)
-{
-    eventlog_entry_t entry;
-    uint8_t slot;
-    uint8_t count = 0u;
-
-    for (slot = 0u; slot < EVENTLOG_ENTRIES; slot++) {
-        if ((eventlog_read_slot(slot, &entry) == GG_OK) && (entry.code == code)
-            && ((arg == ANY_ARG) || (entry.arg == arg))) {
-            count++;
-        }
-    }
-    return count;
 }
 
 /** @brief Running time that clears the start counter: the default warm-up, then 60 s outside it. */
@@ -867,6 +919,9 @@ int main(void)
     RUN_TEST(test_firmware_frozen_channel_is_excluded_after_ten_minutes);
     RUN_TEST(test_firmware_both_channels_stuck_give_a_fault_that_ends_by_itself);
     RUN_TEST(test_firmware_stuck_channel_with_the_other_open_latches_the_fault);
+    RUN_TEST(test_firmware_adc_error_during_a_stuck_fault_latches_it);
+    RUN_TEST(test_firmware_gas_ending_a_stuck_fault_keeps_the_relay_off);
+    RUN_TEST(test_firmware_stuck_fault_episode_is_logged);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_raises_fault);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_logs_its_raw_value_once);
     RUN_TEST(test_firmware_bandgap_within_tolerance_logs_nothing);

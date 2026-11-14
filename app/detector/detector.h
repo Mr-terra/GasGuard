@@ -44,7 +44,7 @@ typedef enum {
     DET_STATE_NORMAL,      /**< Healthy, no alarm. Relay energised (REQ-SAF-001). */
     DET_STATE_ALARM_1,     /**< First-level alarm, clears automatically (REQ-ALM-003). */
     DET_STATE_ALARM_2,     /**< Second-level alarm, latched until operator reset (REQ-ALM-004). */
-    DET_STATE_FAULT,       /**< Latched fault. Relay de-energised (REQ-SAF-007). */
+    DET_STATE_FAULT,       /**< Fault, latched except a stuck-only one. Relay de-energised (REQ-SAF-007). */
     DET_STATE_MAINTENANCE  /**< Operator inhibition, 10 min at most. Relay held, alarms not output (REQ-HMI-008..010). */
 } detector_state_t;
 
@@ -69,7 +69,7 @@ typedef enum {
 /** @brief One sample for the state machine. */
 typedef struct {
     gg_conc_t conc;         /**< Maximum concentration of the valid channels (REQ-FUN-005). */
-    bool fault;             /**< True if all channels are faulty or the ADC is faulty (REQ-SAF-007). */
+    bool fault;             /**< True if all channels are out for a real fault, or the ADC is faulty: latched (REQ-SAF-007). */
     bool reset_requested;   /**< True if the operator long-pressed to reset ALARM_2 (REQ-HMI-005). */
     bool maint_requested;   /**< True on a touch of 3 s, from the HMI (REQ-HMI-008). Only NORMAL acts on it. */
     bool maint_expired;     /**< True when the 10 minutes of MAINTENANCE are over (REQ-HMI-010). */
@@ -85,6 +85,7 @@ typedef struct {
     uint8_t above_al2;                /**< Consecutive samples at or above al2. */
     uint8_t below_clear;              /**< Consecutive samples below al1 - hysteresis. */
     detector_fault_code_t fault_code; /**< Reason of the latched fault, DET_FAULT_NONE if none. */
+    detector_state_t state_before_fault; /**< State to return to when a stuck-only FAULT ends (REQ-SAF-007). */
     bool fault_new;                   /**< True from the start of a fault until it is taken once. */
 } detector_t;
 
@@ -121,8 +122,10 @@ gg_status_t detector_end_warmup(detector_t *det);
 /**
  * @brief Advance the state machine by one sample.
  *
- * A fault input latches FAULT from any state. Otherwise the consecutive-sample
- * counters are updated and the transitions of docs/02-architecture.md §3 apply.
+ * A fault input latches FAULT from any state. A stuck-only input (fault_stuck)
+ * enters a FAULT that ends at the first sample without it. Otherwise the
+ * consecutive-sample counters are updated and the transitions of
+ * docs/02-architecture.md §3 apply.
  *
  * @param det  Detector. Must not be NULL.
  * @param in   Sample. Must not be NULL.
