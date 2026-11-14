@@ -34,6 +34,8 @@ void tearDown(void);
 #define MQ5_ALARM_1_RAW (ALARM_1_RAW + FIRMWARE_ZERO_RAW_MQ5)
 /** @brief Small MQ-2 reading (1 %LEL), above the open-circuit limit. */
 #define MQ2_LOW_RAW 10u
+/** @brief MQ-2 clean-air drift: 5 %LEL, still below AL1. */
+#define MQ2_DRIFT_RAW 50u
 /** @brief Hold time of a long press, and one step of the main loop, in milliseconds. */
 #define HOLD_LONG_TICKS 35u
 #define TICK_MS 100u
@@ -89,6 +91,23 @@ static void fw_ticks(uint32_t n, bool button, bool touch)
     for (i = 0u; i < n; i++) {
         fw_tick(button, touch);
     }
+}
+
+/** @brief Number of valid log entries with this code; any argument when arg is ANY_ARG. */
+#define ANY_ARG 0xFFFFu
+static uint8_t count_entries(eventlog_code_t code, uint16_t arg)
+{
+    eventlog_entry_t entry;
+    uint8_t slot;
+    uint8_t count = 0u;
+
+    for (slot = 0u; slot < EVENTLOG_ENTRIES; slot++) {
+        if ((eventlog_read_slot(slot, &entry) == GG_OK) && (entry.code == code)
+            && ((arg == ANY_ARG) || (entry.arg == arg))) {
+            count++;
+        }
+    }
+    return count;
 }
 
 /** @brief Boot, then run past the 120 s warm-up on clean air: the detector is in NORMAL. */
@@ -415,6 +434,9 @@ static void test_firmware_frozen_channel_is_excluded_after_ten_minutes(void)
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
 }
 
+/** @brief Last sample, in seconds, before the stuck window of a channel steady from the start ends. */
+#define STUCK_WINDOW_END_S (CONFIG_WARMUP_DEFAULT_S + (DIAG_STUCK_MS / FIRMWARE_MS_PER_S))
+
 /** @brief Run the firmware one sample a second through the warm-up and past the stuck window. */
 static void run_past_the_stuck_window(void)
 {
@@ -423,19 +445,73 @@ static void run_past_the_stuck_window(void)
     for (i = 0u; i < FROZEN_TEST_SAMPLES; i++) {
         TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, i * FIRMWARE_MS_PER_S));
     }
+    now_test = FROZEN_TEST_SAMPLES * FIRMWARE_MS_PER_S;
+}
+
+/** @brief Both channels steady in clean air, run past the stuck window: both are stuck. */
+static void both_channels_stuck_in_clean_air(void)
+{
+    boot_defaults();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5 + 20u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW));
+    run_past_the_stuck_window();
+}
+
+/** @brief One sample a second for n seconds, from now_test on. */
+static void sample_seconds(uint32_t n)
+{
+    uint32_t i;
+
+    for (i = 0u; i < n; i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, now_test));
+        now_test += FIRMWARE_MS_PER_S;
+    }
 }
 
 /* @verifies REQ-SAF-003 REQ-SAF-007 */
 static void test_firmware_both_channels_frozen_in_clean_air_stay_in_use(void)
 {
-    boot_defaults();
     /* Calm clean air: both channels steady for more than 10 min after the warm-up. */
-    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5 + 20u));
-    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW));
-    run_past_the_stuck_window();
+    both_channels_stuck_in_clean_air();
     /* Both stuck at once is calm air, not two dead sensors: no FAULT, the value is still read. */
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
     TEST_ASSERT_EQUAL_INT(20, firmware_concentration(&fw));
+    /* Channels kept in use are not logged as left out, so calm air does not fill the log (F46). */
+    TEST_ASSERT_EQUAL_UINT8(0u, count_entries(EVENTLOG_CHANNEL_FAULT, ANY_ARG));
+}
+
+/* @verifies REQ-SAF-003 REQ-ALM-001 */
+static void test_firmware_both_stuck_then_gas_on_one_channel_raises_the_alarm(void)
+{
+    both_channels_stuck_in_clean_air();
+    /* Gas reaches the MQ-5 only: it moves, so it is used; the frozen MQ-2 is now left out. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_1_RAW));
+    sample_seconds(10u);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_CHANNEL_FAULT, (uint16_t)FIRMWARE_CHANNEL_MQ2));
+}
+
+/* @verifies REQ-SAF-003 */
+static void test_firmware_both_stuck_then_one_moves_follows_the_moving_one(void)
+{
+    both_channels_stuck_in_clean_air();
+    /* The MQ-2 drifts up from 20 to 50 raw in clean air: no FAULT, the value follows it. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, MQ2_DRIFT_RAW));
+    sample_seconds(10u);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(50, firmware_concentration(&fw));
+}
+
+/* @verifies REQ-SAF-003 REQ-SAF-007 */
+static void test_firmware_both_stuck_and_one_failed_read_keep_the_other_in_use(void)
+{
+    both_channels_stuck_in_clean_air();
+    /* One read error on the MQ-5: it is not a latched fault, so the MQ-2 stays in use. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_MQ5, true));
+    sample_seconds(1u);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_MQ5, false));
+    sample_seconds(1u);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
 }
 
 /* @verifies REQ-SAF-003 REQ-SAF-007 */
@@ -445,7 +521,10 @@ static void test_firmware_stuck_channel_with_the_other_open_is_a_fault(void)
     /* MQ-2 open circuit: out at once. MQ-5 steady: stuck after 10 min, not saved by the rule. */
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5 + 20u));
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, 0u));
-    run_past_the_stuck_window();
+    sample_seconds(STUCK_WINDOW_END_S - 10u);
+    /* Before the MQ-5 stuck window ends, the MQ-5 alone keeps the detector running. */
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    sample_seconds(70u);
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
 }
 
@@ -548,23 +627,6 @@ static void test_firmware_bandgap_is_logged_again_after_a_reset(void)
     boot_defaults();
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
     TEST_ASSERT_EQUAL_UINT8(2u, count_bandgap_entries());
-}
-
-/** @brief Number of valid log entries with this code; any argument when arg is ANY_ARG. */
-#define ANY_ARG 0xFFFFu
-static uint8_t count_entries(eventlog_code_t code, uint16_t arg)
-{
-    eventlog_entry_t entry;
-    uint8_t slot;
-    uint8_t count = 0u;
-
-    for (slot = 0u; slot < EVENTLOG_ENTRIES; slot++) {
-        if ((eventlog_read_slot(slot, &entry) == GG_OK) && (entry.code == code)
-            && ((arg == ANY_ARG) || (entry.arg == arg))) {
-            count++;
-        }
-    }
-    return count;
 }
 
 /** @brief Running time that clears the start counter: the default warm-up, then 60 s outside it. */
@@ -853,6 +915,9 @@ int main(void)
     RUN_TEST(test_firmware_frozen_channel_is_excluded_after_ten_minutes);
     RUN_TEST(test_firmware_both_channels_frozen_in_clean_air_stay_in_use);
     RUN_TEST(test_firmware_stuck_channel_with_the_other_open_is_a_fault);
+    RUN_TEST(test_firmware_both_stuck_then_gas_on_one_channel_raises_the_alarm);
+    RUN_TEST(test_firmware_both_stuck_then_one_moves_follows_the_moving_one);
+    RUN_TEST(test_firmware_both_stuck_and_one_failed_read_keep_the_other_in_use);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_raises_fault);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_logs_its_raw_value_once);
     RUN_TEST(test_firmware_bandgap_within_tolerance_logs_nothing);

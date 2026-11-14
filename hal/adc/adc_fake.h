@@ -51,4 +51,15 @@ gg_status_t hal_adc_fake_set_bandgap(uint16_t raw);
 // cppcheck-suppress misra-c2012-8.7
 void hal_adc_fake_fail_bandgap(bool fail);
 
+/**
+ * @brief Make hal_adc_read() of one channel fail with GG_ERR_TIMEOUT.
+ * @param channel  Channel index, 0 .. HAL_ADC_CHANNEL_COUNT - 1.
+ * @param fail     true to fail the reads of this channel, false to read the scripted value again.
+ * @return GG_OK, or GG_ERR_RANGE for an unknown channel.
+ * @req REQ-SAF-002
+ */
+// DEV-04: test-only control API, used from tests
+// cppcheck-suppress misra-c2012-8.7
+gg_status_t hal_adc_fake_fail_channel(uint8_t channel, bool fail);
+
 #endif /* HAL_ADC_FAKE_H */

@@ -103,7 +103,7 @@ typedef struct {
     uint32_t warmup_end_ms;                  /**< Time at which WARMUP ends. */
     uint32_t bandgap_next_ms;                /**< Time of the next bandgap measurement (REQ-SAF-004). */
     bool bandgap_logged;                     /**< An out-of-tolerance bandgap value was logged since boot: log it once only (REQ-LOG-003). */
-    bool channel_faulty[FIRMWARE_CHANNELS];  /**< Fault state of each channel at the last sample, to log each change once. */
+    bool channel_faulty[FIRMWARE_CHANNELS];  /**< Channel left out at the last sample, to log each change once. */
     button_t button_db;                      /**< Debounce of the push button (REQ-HMI-007). */
     hmi_press_t button_press;                /**< Press classification of the push button. */
     button_t touch_db;                       /**< Debounce of the touch sensor (REQ-HMI-007). */

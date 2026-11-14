@@ -53,8 +53,8 @@
 /**
  * @brief Diagnostic state of one channel.
  *
- * Faults are latched until diag_init(): a sensor that failed once is not
- * trusted again without a reset. This is a conservative choice (see docs).
+ * A range fault clears after DIAG_RECOVER_SAMPLES valid samples, a stuck fault
+ * when the value moves again (REQ-SAF-002, REQ-SAF-003).
  */
 typedef struct {
     uint8_t range_count;        /**< Consecutive out-of-range samples. */
