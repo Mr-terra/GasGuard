@@ -29,8 +29,10 @@ that output is checked by its pin level with the multimeter. The
 pull-down proposed for the relay input (HW-004, FMEA F21) applies only once a
 relay module is fitted.
 
-No temperature sensor is fitted: port A3 is reserved for it, and the firmware
-does not read it (temperature compensation not wired).
+Temperature sensor: Seeed Grove Temperature Sensor v1.2 (same kit, NTC
+thermistor, 100 kOhm at 25 degC, B = 4275) on port A3, with a Grove cable. The
+firmware reads it every sample and prints it with `status`; its compensation
+coefficient stays at 0 until it is measured (REQ-FUN-004).
 
 ## 2. Supply
 

@@ -58,7 +58,7 @@ process is the point:
 | Foundations | Build, unit test, static analysis and memory budget gates |
 | Foundations | Hardware interfaces (ADC, timer, GPIO, EEPROM, UART, I2C, watchdog, reset cause), each with a PC fake and unit tests |
 | Sensing | Moving average over the last 8 samples per channel (`services/filter`) |
-| Sensing | Linear calibration to %LEL in Q8 fixed point, zero offset per channel (provisional bench values: MQ-5 113, MQ-2 0); temperature compensation written but not wired: A3 is not read (see limitations) |
+| Sensing | Linear calibration to %LEL in Q8 fixed point, zero offset per channel (provisional bench values: MQ-5 113, MQ-2 0); temperature on A3 read and checked every sample (valid between about -26 and +73 degC), compensation coefficient still 0 until measured on the bench (REQ-FUN-004, see limitations) |
 | Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) |
 | Diagnostics | Bandgap raw read against AVcc, checked at start-up and every 60 s; ten conversions discarded first so the reference settles; the first bad raw value of each boot is logged as `BANDGAP` (REQ-SAF-004, FMEA F43) |
 | Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) |
@@ -74,7 +74,7 @@ process is the point:
 | Interface | LCD: state text (MAINT, TEST), backlight colour per state, amber blink in FAULT, concentration on line 2, rows filled with spaces (REQ-HMI-001, REQ-HMI-002) |
 | Interface | Maintenance mode from NORMAL by a 3 s touch, relay held, alarms not output, automatic exit after 10 minutes (REQ-HMI-008..010, FMEA F36) |
 | Interface | Gas test record: at the end of MAINTENANCE, the highest reading of each sensor is logged as `PEAK <channel> <peak in 0.1 %LEL>` (REQ-LOG-001) |
-| Interface | UART command line: `log` dumps the event log, one line per poll for the 64-byte transmit buffer (REQ-LOG-004); `status` and `cfg` planned |
+| Interface | UART command line: `log` dumps the event log, one line per poll for the 64-byte transmit buffer (REQ-LOG-004); `status` prints the state, the concentration and the raw inputs in one line (REQ-LOG-005); `cfg` planned |
 | Simulation | Potentiometer replaces the MQ-5 channel for bench tests (`GG_SIM_POT` build) |
 
 Requirement-level coverage is tracked in
@@ -163,6 +163,25 @@ than 60 s. A long press (3 s or more) requests the ALARM_2 reset. In NORMAL, a
 long press runs the functional test: buzzer, every backlight colour, relay
 toggle.
 
+### Status command
+
+Send `status` (with a newline) on the serial port, 38400 baud. The answer is
+one line:
+
+```
+STATUS <state> <conc> <mq5 raw> <mq2 raw> <temp raw> <temp valid>
+STATUS 1 64 135 30 512 1
+```
+
+- `state`: 0 WARMUP, 1 NORMAL, 2 ALARM_1, 3 ALARM_2, 4 FAULT, 5 MAINTENANCE.
+- `conc`: the concentration the detector uses, in 0.1 %LEL (64 is 6.4 %LEL).
+- `mq5 raw`, `mq2 raw`, `temp raw`: last ADC values, 0 to 1023 (about 4.9 mV each).
+- `temp valid`: 1 when the temperature reading is in its valid range. With the
+  sensor unplugged, A3 floats and can still read as valid (FMEA F48).
+
+Sent during a `log` dump, the answer can be lost (transmit buffer full): send
+`status` again after `END`.
+
 ### Periodic gas test
 
 A value that does not move can be calm air or a dead sensor: the firmware cannot
@@ -218,6 +237,7 @@ mitigation, is in [`docs/03-safety-analysis.md`](docs/03-safety-analysis.md).
 | Grove Button v1.2, Grove Touch Sensor v1.1 | Operator input |
 | Grove Buzzer v1.2 | Audible alarm |
 | Grove Rotary Angle Sensor v1.2 | Gas simulator (simulation build only) |
+| Grove Temperature Sensor v1.2 | Temperature input on A3 (compensation coefficient still 0) |
 | 100 kΩ resistors (×2) | Pull-downs on the gas inputs |
 | 9 V 1 A wall adapter | Supply on the barrel jack |
 
@@ -423,14 +443,15 @@ Accepted deviations from the coding standard are listed in
   REQ-SAF-003, confirmed by the author on Day 5; the values may be tuned later).
 - **No display, no stop**: the boot goes on without the LCD and logs a `DISPLAY` event.
   A failed boot arms the watchdog, so the board resets and tries again.
-- **Temperature compensation is off**: the temperature input (A3) is not read yet,
-  so the coefficient is zero.
+- **Temperature compensation does not change the reading yet**: the temperature
+  input (A3) is read and checked, but its coefficient is zero until it is
+  measured on the bench (clean air, over a temperature swing, with `status`).
 - **Calibration is compiled in, not stored in the configuration** as REQ-FUN-003
   asks. The zero offsets are provisional bench values (MQ-5 113, MQ-2 0) and the
   span is one LSB per 0.1 %LEL, not checked with a reference gas (FMEA F05, F45).
 - **Relay pull-down at reset** (FMEA F21) is proposed in docs/02, not yet fitted.
-- **`status` and `cfg` commands** of the UART interface are not implemented;
-  only `log` is (REQ-LOG-004).
+- **The `cfg` command** of the UART interface is not implemented; `log` and
+  `status` are (REQ-LOG-004, REQ-LOG-005).
 
 ## How this project was built
 
