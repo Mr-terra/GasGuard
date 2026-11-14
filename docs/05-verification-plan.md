@@ -7,7 +7,7 @@
 | L1 Static | CI | Warnings, MISRA subset, complexity, AVR-header isolation | gcc, cppcheck, clang-tidy, lizard, grep |
 | L2 Unit | CI (PC) | Each `services/` and `app/` module with host fakes | Unity, gcov |
 | L3 Scenario | CI (PC) | Full detector fed with scripted ADC sequences (time-stepped simulation) | Unity + `hal/*/*_fake.c` |
-| L4 Hardware | Bench | Real board, potentiometer, then real gas (butane from an unlit lighter) | Manual + logic analyzer |
+| L4 Hardware | Bench | Real board, potentiometer, then real gas (butane from an unlit lighter) | Manual, multimeter, event log (no logic analyser, see `07-hardware.md`) |
 
 ## 2. Test naming and tracing
 
@@ -59,7 +59,7 @@
 5. Unplug both → FAULT, relay released (measure with multimeter / LED).
 6. Real gas: briefly release butane from an **unlit** lighter near the sensor,
    in a ventilated room, far from any flame → ALARM_1/2.
-7. Capture I2C frames to the LCD with the logic analyzer; screenshot in `docs/img/`.
+7. Dropped: capture of the I2C frames to the LCD (no logic analyser available; the display was checked by eye, `docs/test-report.md`).
 8. Dump the log (`log` command) and attach it to the test report.
 
 Results are recorded in `docs/test-report.md` (date, firmware hash, pass/fail per step).

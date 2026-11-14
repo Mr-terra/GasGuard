@@ -216,9 +216,15 @@ mitigation, is in [`docs/03-safety-analysis.md`](docs/03-safety-analysis.md).
 | MQ-5 and MQ-2 gas sensor modules | Gas channels (generic modules, not Grove) |
 | Grove LCD RGB Backlight v4.0 | 16×2 display (I2C) |
 | Button, touch sensor | Operator input |
-| Buzzer, relay module | Audible alarm, alarm contact |
-| Temperature sensor, potentiometer | Compensation input, gas simulator |
+| Buzzer | Audible alarm |
+| Relay module v1.2 | Alarm contact (not wired yet) |
+| Grove Rotary Angle Sensor | Gas simulator (simulation build only) |
+| Temperature sensor | Compensation input (not wired yet) |
 | 100 kΩ resistors (×2) | Pull-downs on the gas inputs |
+| 9 V 1 A wall adapter | Supply on the barrel jack |
+
+Models, quantities, connections, supply and tools are listed in
+[`docs/07-hardware.md`](docs/07-hardware.md).
 
 ### Pin mapping (Grove Base Shield v2.1)
 
@@ -328,7 +334,7 @@ Verification follows four levels, defined in
 | L1 Static | CI | Warnings, MISRA subset, complexity, AVR header isolation | gcc, cppcheck, clang-tidy, lizard |
 | L2 Unit | CI (PC) | Each `services/` and `app/` module with host fakes | Unity, gcov |
 | L3 Scenario | CI (PC) | Full detector driven by scripted ADC sequences, time-stepped | Unity, `hal/*/*_fake.c` |
-| L4 Hardware | Bench | Real board, potentiometer, then butane from an unlit lighter | Manual, logic analyser |
+| L4 Hardware | Bench | Real board, potentiometer, then butane from an unlit lighter | Manual, multimeter, event log |
 
 Scenario tests SC-01 to SC-10 and SC-13 are implemented (Day 2), with two deviations: SC-01 starts in WARMUP (INIT and SELF_TEST come on Day 4), and SC-15 is unit-tested only. SC-11, SC-12, SC-14 and SC-16 are implemented on Day 4 (`tests/scenarios/test_scenarios_day4.c`). They cover boot, alarms,
 latching, sensor faults, configuration recovery, maintenance timeout, bandgap
@@ -458,12 +464,13 @@ The full description (scope, decisions, controls, limits) is in
 
 | Document | Content |
 |---|---|
-| [Requirements](docs/01-requirements.md) | 45 requirements in 7 areas: function, alarm, safety, interface, configuration, log, non-functional |
+| [Requirements](docs/01-requirements.md) | 46 requirements in 7 areas: function, alarm, safety, interface, configuration, log, non-functional |
 | [Architecture](docs/02-architecture.md) | Layers, pin mapping, wiring, state machine, scheduler, memory budget, ADRs |
 | [Safety analysis](docs/03-safety-analysis.md) | FMEA with severity, occurrence, detection and residual risk |
 | [Coding standard](docs/04-coding-standard.md) | MISRA C:2012 subset, project rules R01–R20, tooling, deviations |
 | [Verification plan](docs/05-verification-plan.md) | Four verification levels, scenarios SC-01 to SC-16, bench procedure |
 | [Traceability](docs/traceability.md) | Generated matrix, requirement → code → test |
+| [Hardware](docs/07-hardware.md) | Bill of materials with models and connections, supply, tools, bench safety notes |
 | [Test report](docs/test-report.md) | Hardware bench results, one section per session, with the steps still open |
 | [AI assistance](docs/06-ai-usage.md) | How an AI coding assistant was used, why, and the controls on its output |
 | [Plan](PLAN.md) | Five-day implementation plan |

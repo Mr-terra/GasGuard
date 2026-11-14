@@ -6,8 +6,9 @@ yet run are listed as open, so nothing is reported as passed by default.
 
 ## Open steps for the next bench session (Day 5 and after)
 
-No result is recorded for these steps yet. Each one needs the board, a logic
-analyser or the serial monitor.
+No result is recorded for these steps yet. Each one needs the board, the
+multimeter or the serial monitor (no logic analyser is available, see
+[`07-hardware.md`](07-hardware.md)).
 
 | Step | What to check | Requirement |
 |---|---|---|
