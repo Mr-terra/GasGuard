@@ -4,7 +4,7 @@
  *
  * This driver only turns the buzzer on and off. The alarm patterns
  * (ALARM_1 at 1 Hz, ALARM_2 at 4 Hz, FAULT once every 5 s) are timed by the
- * application on Day 4 (REQ-HMI-003).
+ * application (`app/hmi`, REQ-HMI-003).
  *
  * @req REQ-HMI-003
  */

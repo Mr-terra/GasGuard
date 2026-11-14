@@ -867,7 +867,7 @@ static void test_firmware_channel_fault_is_logged_once(void)
 
     boot_defaults();
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW));
-    /* MQ-5 open circuit: the range fault latches after 5 samples, and is logged once. */
+    /* MQ-5 open circuit: the range fault is set after 5 samples, and is logged once. */
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, 0u));
     for (i = 0u; i < 8u; i++) {
         TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, (uint32_t)i * FIRMWARE_OUTPUT_PERIOD_MS));

@@ -121,7 +121,7 @@ static gg_status_t sample_diagnose(diag_t *diag, const diag_stuck_sample_t *samp
     gg_status_t status = diag_check_range(diag, sample->raw);
 
     if (status == GG_OK) {
-        /* Frozen value outside warm-up: the stuck check latches a fault after 10 minutes (REQ-SAF-003). */
+        /* Frozen value outside warm-up: the stuck check sets a channel fault after 10 minutes (REQ-SAF-003). */
         status = diag_check_stuck(diag, sample);
     }
     return status;
@@ -177,7 +177,7 @@ static bool sample_channel(uint8_t ch, firmware_t *fw, uint32_t now_ms, gg_conc_
     *conc = 0;
     *valid = false;
     if (status == GG_OK) {
-        /* A reading at the rails is never used, even before the diagnostic latches
+        /* A reading at the rails is never used, even before the diagnostic sets
          * the channel fault after DIAG_RANGE_SAMPLES: a shorted input would read as
          * a high concentration and raise a latched alarm first (F02). */
         diag_stuck_sample_t sample;
