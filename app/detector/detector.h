@@ -62,7 +62,8 @@ typedef enum {
     DET_FAULT_INTERNAL,     /**< Impossible internal state (coding standard: default -> diag_raise). */
     DET_FAULT_TIMING,       /**< Three consecutive task overruns (REQ-SAF-008). */
     DET_FAULT_STACK,        /**< Stack watermark below its limit (REQ-SAF-009). */
-    DET_FAULT_RESET_LOOP    /**< Fourth start after three in a row without 60 s of running past the warm-up (REQ-SAF-011). */
+    DET_FAULT_RESET_LOOP,   /**< Fourth start after three in a row without 60 s of running past the warm-up (REQ-SAF-011). */
+    DET_FAULT_STUCK         /**< Every channel out only because it is stuck; ends by itself (REQ-SAF-003, REQ-SAF-007). */
 } detector_fault_code_t;
 
 /** @brief One sample for the state machine. */
@@ -73,6 +74,7 @@ typedef struct {
     bool maint_requested;   /**< True on a touch of 3 s, from the HMI (REQ-HMI-008). Only NORMAL acts on it. */
     bool maint_expired;     /**< True when the 10 minutes of MAINTENANCE are over (REQ-HMI-010). */
     detector_fault_code_t system_fault; /**< DET_FAULT_NONE, or a system fault: timing or stack (REQ-SAF-008, REQ-SAF-009). */
+    bool fault_stuck;       /**< True if every channel is out only because it is stuck: a FAULT that ends by itself (REQ-SAF-007). */
 } detector_input_t;
 
 /** @brief State of the detector. Owned by the caller. */

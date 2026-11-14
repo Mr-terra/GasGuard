@@ -96,6 +96,7 @@ static detector_state_t sc_tick(uint16_t raw0, uint16_t raw1, bool reset)
     in.maint_requested = false;
     in.maint_expired = false;
     in.system_fault = DET_FAULT_NONE;
+    in.fault_stuck = false;
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&sc_det, &in));
 
     sc_now_ms += SC_SAMPLE_MS;

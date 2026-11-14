@@ -195,6 +195,24 @@ static void test_diag_stuck_channel_recovers_when_the_value_moves(void)
     TEST_ASSERT_FALSE(is_faulty());
 }
 
+/* @verifies REQ-SAF-003 */
+static void test_diag_stuck_only_tells_a_stuck_fault_from_a_range_fault(void)
+{
+    bool only = true;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, diag_stuck_only(&s_diag, &only));
+    TEST_ASSERT_FALSE(only);   /* No fault at all. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(500u, 0u, false));
+    TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(500u, DIAG_STUCK_MS, false));
+    TEST_ASSERT_EQUAL_INT(GG_OK, diag_stuck_only(&s_diag, &only));
+    TEST_ASSERT_TRUE(only);    /* Stuck, nothing else. */
+    feed_range(0u, DIAG_RANGE_SAMPLES);
+    TEST_ASSERT_EQUAL_INT(GG_OK, diag_stuck_only(&s_diag, &only));
+    TEST_ASSERT_FALSE(only);   /* Stuck and open circuit: not only stuck. */
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, diag_stuck_only(NULL, &only));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, diag_stuck_only(&s_diag, NULL));
+}
+
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
@@ -214,5 +232,6 @@ int main(void)
     RUN_TEST(test_diag_open_circuit_recovers_after_sixty_seconds_of_valid_samples);
     RUN_TEST(test_diag_range_recovery_restarts_when_the_fault_comes_back);
     RUN_TEST(test_diag_stuck_channel_recovers_when_the_value_moves);
+    RUN_TEST(test_diag_stuck_only_tells_a_stuck_fault_from_a_range_fault);
     return UNITY_END();
 }

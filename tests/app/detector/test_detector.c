@@ -26,7 +26,7 @@ void tearDown(void) {}
 /* Run one sample through the detector, with no fault and no reset request. */
 static void step(gg_conc_t conc)
 {
-    detector_input_t in = {conc, false, false, false, false, DET_FAULT_NONE};
+    detector_input_t in = {conc, false, false, false, false, DET_FAULT_NONE, false};
 
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
 }
@@ -170,7 +170,7 @@ static void test_detector_alarm_2_is_latched_when_gas_drops(void)
 /* @verifies REQ-ALM-004 */
 static void test_detector_alarm_2_reset_refused_while_gas_present(void)
 {
-    detector_input_t reset = {DETECTOR_AL2_DEFAULT, false, true, false, false, DET_FAULT_NONE};
+    detector_input_t reset = {DETECTOR_AL2_DEFAULT, false, true, false, false, DET_FAULT_NONE, false};
 
     finish_warmup();
     step_n(DETECTOR_AL2_DEFAULT, 6u);
@@ -181,7 +181,7 @@ static void test_detector_alarm_2_reset_refused_while_gas_present(void)
 /* @verifies REQ-ALM-004 */
 static void test_detector_alarm_2_reset_accepted_when_gas_gone(void)
 {
-    detector_input_t reset = {0, false, true, false, false, DET_FAULT_NONE};
+    detector_input_t reset = {0, false, true, false, false, DET_FAULT_NONE, false};
 
     finish_warmup();
     step_n(DETECTOR_AL2_DEFAULT, 6u);
@@ -211,8 +211,8 @@ static void test_detector_relay_energised_only_in_healthy_normal_state(void)
 /* @verifies REQ-SAF-007 */
 static void test_detector_fault_latches_and_drops_relay(void)
 {
-    detector_input_t fault_in = {0, true, false, false, false, DET_FAULT_NONE};
-    detector_input_t clear_in = {0, false, false, false, false, DET_FAULT_NONE};
+    detector_input_t fault_in = {0, true, false, false, false, DET_FAULT_NONE, false};
+    detector_input_t clear_in = {0, false, false, false, false, DET_FAULT_NONE, false};
     bool energised = true;
 
     finish_warmup();
@@ -229,7 +229,7 @@ static void test_detector_fault_latches_and_drops_relay(void)
 /* @verifies REQ-SAF-007 */
 static void test_detector_fault_during_warmup_is_not_hidden(void)
 {
-    detector_input_t fault_in = {0, true, false, false, false, DET_FAULT_NONE};
+    detector_input_t fault_in = {0, true, false, false, false, DET_FAULT_NONE, false};
 
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &fault_in));
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
@@ -238,7 +238,7 @@ static void test_detector_fault_during_warmup_is_not_hidden(void)
 /* @verifies REQ-NFR-002 */
 static void test_detector_step_and_getters_reject_null(void)
 {
-    detector_input_t in = {0, false, false, false, false, DET_FAULT_NONE};
+    detector_input_t in = {0, false, false, false, false, DET_FAULT_NONE, false};
     detector_state_t state = DET_STATE_NORMAL;
     bool energised = false;
 
@@ -266,7 +266,7 @@ static void test_detector_rejects_hysteresis_not_between_zero_and_al1(void)
 /* @verifies REQ-SAF-007 */
 static void test_detector_input_fault_records_its_reason(void)
 {
-    detector_input_t fault_in = {0, true, false, false, false, DET_FAULT_NONE};
+    detector_input_t fault_in = {0, true, false, false, false, DET_FAULT_NONE, false};
     detector_fault_code_t code = DET_FAULT_NONE;
 
     finish_warmup();
@@ -279,7 +279,7 @@ static void test_detector_input_fault_records_its_reason(void)
 /* @verifies REQ-SAF-007 */
 static void test_detector_impossible_state_raises_internal_fault(void)
 {
-    detector_input_t in = {0, false, false, false, false, DET_FAULT_NONE};
+    detector_input_t in = {0, false, false, false, false, DET_FAULT_NONE, false};
     detector_fault_code_t code = DET_FAULT_NONE;
 
     det_test_state.state = (detector_state_t)99;
@@ -295,7 +295,7 @@ static void test_detector_new_fault_is_reported_once_for_the_event_log(void)
     bool is_new = false;
     detector_fault_code_t code = DET_FAULT_NONE;
 
-    detector_input_t in = {0, true, false, false, false, DET_FAULT_NONE};
+    detector_input_t in = {0, true, false, false, false, DET_FAULT_NONE, false};
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
 
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_take_new_fault(&det_test_state, &is_new, &code));
@@ -311,7 +311,7 @@ static void test_detector_repeated_fault_samples_are_not_reported_again(void)
 {
     bool is_new = false;
     detector_fault_code_t code = DET_FAULT_NONE;
-    detector_input_t in = {0, true, false, false, false, DET_FAULT_NONE};
+    detector_input_t in = {0, true, false, false, false, DET_FAULT_NONE, false};
 
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_take_new_fault(&det_test_state, &is_new, &code));
@@ -325,7 +325,7 @@ static void test_detector_impossible_state_is_reported_as_a_new_internal_fault(v
 {
     bool is_new = false;
     detector_fault_code_t code = DET_FAULT_NONE;
-    detector_input_t in = {0, false, false, false, false, DET_FAULT_NONE};
+    detector_input_t in = {0, false, false, false, false, DET_FAULT_NONE, false};
 
     det_test_state.state = (detector_state_t)99;
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
@@ -356,6 +356,7 @@ static detector_input_t input_with(gg_conc_t conc, bool maint_req, bool maint_ex
     in.maint_requested = maint_req;
     in.maint_expired = maint_exp;
     in.system_fault = sys;
+    in.fault_stuck = false;
     return in;
 }
 
@@ -457,6 +458,80 @@ static void test_detector_stack_fault_latches_with_its_reason(void)
 }
 
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
+/** @brief One sample where every channel is out only because it is stuck (REQ-SAF-003). */
+static void step_all_stuck(void)
+{
+    detector_input_t in = {0, false, false, false, false, DET_FAULT_NONE, true};
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
+}
+
+/** @brief One sample with every channel faulty for a real reason (open, short, ADC). */
+static void step_input_fault(void)
+{
+    detector_input_t in = {0, true, false, false, false, DET_FAULT_NONE, false};
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &in));
+}
+
+/* @verifies REQ-SAF-007 */
+static void test_detector_stuck_only_fault_ends_by_itself(void)
+{
+    detector_fault_code_t code = DET_FAULT_NONE;
+
+    finish_warmup();
+    step_all_stuck();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_fault_code(&det_test_state, &code));
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_STUCK, code);
+    /* A channel moves again: back to NORMAL without a restart. */
+    step(0);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_fault_code(&det_test_state, &code));
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_NONE, code);
+}
+
+/* @verifies REQ-SAF-007 REQ-ALM-004 */
+static void test_detector_stuck_only_fault_keeps_the_alarm_2_latch(void)
+{
+    finish_warmup();
+    step_n(DETECTOR_AL2_DEFAULT, 3u);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, state_now());
+    step_all_stuck();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
+    /* The gas is gone, the channels are back: ALARM_2 is still latched (no operator reset). */
+    step(0);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, state_now());
+}
+
+/* @verifies REQ-SAF-007 */
+static void test_detector_real_fault_during_a_stuck_fault_latches(void)
+{
+    detector_fault_code_t code = DET_FAULT_NONE;
+
+    finish_warmup();
+    step_all_stuck();
+    step_input_fault();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_fault_code(&det_test_state, &code));
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_INPUT, code);
+    step(0);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
+}
+
+/* @verifies REQ-SAF-007 */
+static void test_detector_stuck_after_a_real_fault_keeps_the_latch(void)
+{
+    detector_fault_code_t code = DET_FAULT_NONE;
+
+    finish_warmup();
+    step_input_fault();
+    step_all_stuck();
+    step(0);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, state_now());
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_fault_code(&det_test_state, &code));
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_INPUT, code);
+}
+
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
@@ -492,5 +567,9 @@ int main(void)
     RUN_TEST(test_detector_fault_overrides_maintenance);
     RUN_TEST(test_detector_timing_fault_latches_with_its_reason);
     RUN_TEST(test_detector_stack_fault_latches_with_its_reason);
+    RUN_TEST(test_detector_stuck_only_fault_ends_by_itself);
+    RUN_TEST(test_detector_stuck_only_fault_keeps_the_alarm_2_latch);
+    RUN_TEST(test_detector_real_fault_during_a_stuck_fault_latches);
+    RUN_TEST(test_detector_stuck_after_a_real_fault_keeps_the_latch);
     return UNITY_END();
 }

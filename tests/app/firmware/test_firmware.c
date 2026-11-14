@@ -415,6 +415,54 @@ static void test_firmware_frozen_channel_is_excluded_after_ten_minutes(void)
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
 }
 
+/** @brief One sample a second for n seconds, from now_test on. */
+static void sample_seconds(uint32_t n)
+{
+    uint32_t i;
+
+    for (i = 0u; i < n; i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, now_test));
+        now_test += FIRMWARE_MS_PER_S;
+    }
+}
+
+/** @brief Seconds from the start until a channel steady from the start is stuck, plus one minute. */
+#define STUCK_RUN_S (CONFIG_WARMUP_DEFAULT_S + (DIAG_STUCK_MS / FIRMWARE_MS_PER_S) + 60u)
+
+/* @verifies REQ-SAF-003 REQ-SAF-007 */
+static void test_firmware_both_channels_stuck_give_a_fault_that_ends_by_itself(void)
+{
+    bool energised = true;
+
+    boot_defaults();
+    /* Calm clean air: both channels steady for more than 10 min after the warm-up. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5 + 20u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW));
+    sample_seconds(STUCK_RUN_S);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
+    TEST_ASSERT_FALSE(energised);
+    /* The MQ-2 moves: it is in use again and the FAULT ends without a restart. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW + 5u));
+    sample_seconds(1u);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-003 REQ-SAF-007 */
+static void test_firmware_stuck_channel_with_the_other_open_latches_the_fault(void)
+{
+    boot_defaults();
+    /* MQ-2 open circuit: a real fault. MQ-5 steady: stuck after 10 min. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5 + 20u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, 0u));
+    sample_seconds(STUCK_RUN_S);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+    /* The MQ-5 moves again, but the open MQ-2 is a real fault: the FAULT stays latched. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5 + 30u));
+    sample_seconds(5u);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+}
+
 /* @verifies REQ-SAF-004 */
 static void test_firmware_bandgap_out_of_tolerance_raises_fault(void)
 {
@@ -817,6 +865,8 @@ int main(void)
     RUN_TEST(test_firmware_three_overruns_latch_fault);
     RUN_TEST(test_firmware_stack_below_64_bytes_latches_fault);
     RUN_TEST(test_firmware_frozen_channel_is_excluded_after_ten_minutes);
+    RUN_TEST(test_firmware_both_channels_stuck_give_a_fault_that_ends_by_itself);
+    RUN_TEST(test_firmware_stuck_channel_with_the_other_open_latches_the_fault);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_raises_fault);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_logs_its_raw_value_once);
     RUN_TEST(test_firmware_bandgap_within_tolerance_logs_nothing);
