@@ -18,7 +18,7 @@ task timing, stack usage and EEPROM integrity.
 ## Contents
 
 - [Why this project](#why-this-project)
-- [Features and status](#features-and-status)
+- [Features](#features)
 - [Architecture](#architecture)
 - [Detector behaviour](#detector-behaviour)
 - [Safety design](#safety-design)
@@ -50,31 +50,32 @@ process is the point:
 5. **Traceability.** Every requirement is linked to the code that implements it
    and the tests that verify it, generated automatically.
 
-## Features and status
+## Features
 
-| Area | Feature | Status |
-|---|---|---|
-| Foundations | Fixed-width status codes and 0.1 %LEL concentration type | Done (Day 1) |
-| Foundations | Build, unit test, static analysis and memory budget gates | Done (Day 1) |
-| Foundations | Hardware interfaces (ADC, timer, GPIO, EEPROM, UART, I2C, watchdog, reset cause), each with a PC fake and unit tests | Done (Day 1); AVR drivers Day 3 |
-| Sensing | Moving average over the last 8 samples per channel (`services/filter`) | Done (Day 2); 100 ms sampling loop Day 4 |
-| Sensing | Linear calibration to %LEL in Q8 fixed point, temperature compensation when the sensor is valid | Calibration done (Day 2); zero offset per channel, provisional bench values compiled in (MQ-5 113, MQ-2 0, Day 5); temperature compensation not wired: A3 is not read yet (see limitations) |
-| Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) | Done: tested on the PC (Day 2); wired into the firmware on Day 5 |
-| Diagnostics | Bandgap raw read against AVcc, checked at start-up and every 60 s; ten conversions discarded first so the reference settles; the first bad raw value of each boot is logged as `BANDGAP` (REQ-SAF-004, FMEA F43) | Done (Day 5); settling fix to confirm on the board |
-| Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) | Done (Day 4); stack measurement on the bench in Day 5 |
-| Diagnostics | Stuck-only FAULT: when every sensor is out only because it is stuck (calm air), FAULT code 6 ends by itself as soon as a sensor moves; any real fault latches (REQ-SAF-007, FMEA F46) | Done (Day 5, after v1.0); to check over a night on the board |
-| Diagnostics | Reset loop: three starts in a row without 60 s of running past the warm-up, from the fourth on each start enters FAULT and logs it with its reset and configuration source (REQ-SAF-011, FMEA F33). Manual resets less than 3 min apart (with the default 120 s warm-up) count too | Done (Day 5, after v1.0); to check on the board |
-| Alarms | Two-level alarm with hysteresis, latched ALARM_2, warm-up inhibition, max of valid channels | Done (Day 2) |
-| Alarms | Relay normally energised: energised in WARMUP and NORMAL only, de-energised on alarm and fault (state logic done; driving the pin is Day 3) | Logic done (Day 2); pin Day 3 |
-| Storage | A/B configuration with CRC-16 and safe defaults, repair of the other copy (REQ-CFG-001..004) | Done (Day 4) |
-| Storage | Event log in a 111-entry EEPROM ring buffer (the largest that fits), CRC-16 per entry, written on events only (REQ-LOG-001..003) | Done (Day 4); CRC-16 on Day 5 |
-| Interface | 16×2 LCD driver: two lines of text and backlight colour (`drivers/lcd_rgb`), verified on the board | Done (Day 3) |
-| Interface | Buzzer and button drivers (`drivers/buzzer`, `drivers/button` with 30 ms debounce) | Done (Day 3); patterns and actions Day 4 |
-| Interface | Buzzer patterns (1 Hz, 4 Hz, 1 beep / 5 s), short-press silence, long-press reset and functional test, debounce (REQ-HMI-003..007) | Done (Day 4) |
-| Interface | LCD: state text (MAINT, TEST), backlight colour per state, amber blink in FAULT, concentration on line 2, rows filled with spaces (REQ-HMI-001, REQ-HMI-002) | Done (Day 4); FAULT blink and line 2 seen on the board (Day 5) |
-| Interface | Maintenance mode from NORMAL by a 3 s touch, relay held, alarms not output, automatic exit after 10 minutes (REQ-HMI-008..010, FMEA F36) | Done (Day 4), checked on the board (Day 5); F36 accepted by the author |
-| Interface | UART command line: `log` dumps the event log, one line per poll for the 64-byte transmit buffer (REQ-LOG-004) | `log` done (Day 4), checked on the board (Day 5); `status` and `cfg` planned |
-| Simulation | Potentiometer replaces the MQ-5 channel for bench tests | Day 3 |
+| Area | Feature |
+|---|---|
+| Foundations | Fixed-width status codes and 0.1 %LEL concentration type |
+| Foundations | Build, unit test, static analysis and memory budget gates |
+| Foundations | Hardware interfaces (ADC, timer, GPIO, EEPROM, UART, I2C, watchdog, reset cause), each with a PC fake and unit tests |
+| Sensing | Moving average over the last 8 samples per channel (`services/filter`) |
+| Sensing | Linear calibration to %LEL in Q8 fixed point, zero offset per channel (provisional bench values: MQ-5 113, MQ-2 0); temperature compensation written but not wired: A3 is not read (see limitations) |
+| Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) |
+| Diagnostics | Bandgap raw read against AVcc, checked at start-up and every 60 s; ten conversions discarded first so the reference settles; the first bad raw value of each boot is logged as `BANDGAP` (REQ-SAF-004, FMEA F43) |
+| Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) |
+| Diagnostics | Stuck-only FAULT: when every sensor is out only because it is stuck (calm air), FAULT code 6 ends by itself as soon as a sensor moves; any real fault latches (REQ-SAF-007, FMEA F46) |
+| Diagnostics | Reset loop: three starts in a row without 60 s of running past the warm-up, from the fourth on each start enters FAULT and logs it with its reset and configuration source (REQ-SAF-011, FMEA F33). Manual resets less than 3 min apart (with the default 120 s warm-up) count too |
+| Alarms | Two-level alarm with hysteresis, latched ALARM_2, warm-up inhibition, max of valid channels |
+| Alarms | Relay normally energised: energised in WARMUP and NORMAL only, de-energised on alarm, fault and reset |
+| Storage | A/B configuration with CRC-16 and safe defaults, repair of the other copy (REQ-CFG-001..004) |
+| Storage | Event log in a 111-entry EEPROM ring buffer (the largest that fits), CRC-16 per entry, written on events only (REQ-LOG-001..003) |
+| Interface | 16×2 LCD driver: two lines of text and backlight colour (`drivers/lcd_rgb`), verified on the board |
+| Interface | Buzzer and button drivers (`drivers/buzzer`, `drivers/button` with 30 ms debounce) |
+| Interface | Buzzer patterns (1 Hz, 4 Hz, 1 beep / 5 s), short-press silence, long-press reset and functional test, debounce (REQ-HMI-003..007) |
+| Interface | LCD: state text (MAINT, TEST), backlight colour per state, amber blink in FAULT, concentration on line 2, rows filled with spaces (REQ-HMI-001, REQ-HMI-002) |
+| Interface | Maintenance mode from NORMAL by a 3 s touch, relay held, alarms not output, automatic exit after 10 minutes (REQ-HMI-008..010, FMEA F36) |
+| Interface | Gas test record: at the end of MAINTENANCE, the highest reading of each sensor is logged as `PEAK <channel> <peak in 0.1 %LEL>` (REQ-LOG-001) |
+| Interface | UART command line: `log` dumps the event log, one line per poll for the 64-byte transmit buffer (REQ-LOG-004); `status` and `cfg` planned |
+| Simulation | Potentiometer replaces the MQ-5 channel for bench tests (`GG_SIM_POT` build) |
 
 Requirement-level coverage is tracked in
 [`docs/traceability.md`](docs/traceability.md).
@@ -175,13 +176,15 @@ MAINTENANCE, so the test gas does not trip the relay or sound the buzzer:
 2. Release a short puff of gas from an **unlit** lighter (about 1 s, no flame)
    a few centimetres from the MQ-5, in a ventilated room.
 3. Expected: the concentration on line 2 rises above 10 %LEL (the ALARM_1
-   threshold). Note the highest value.
+   threshold).
 4. Wait until the reading is back below 8 %LEL, then repeat with the MQ-2.
 5. Before the 10 minutes are over, let the reading fall back below 8 %LEL:
    if gas is still there when MAINTENANCE ends, the alarm sounds as usual.
-6. A sensor whose reading does not rise must be replaced. The values seen during
-   MAINTENANCE are not written to the event log: write them in the maintenance
-   record.
+6. When MAINTENANCE ends, the firmware logs the highest reading of each sensor
+   during it. Dump the log (`log`): after the `MODE` entry of the exit come
+   `PEAK 0 <value>` (MQ-5) and `PEAK 1 <value>` (MQ-2), in 0.1 %LEL, so `PEAK 0 516` is 51.6 %LEL. A
+   sensor whose peak stays below 100 (10 %LEL) did not respond and must be
+   replaced.
 
 ## Safety design
 
