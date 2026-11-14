@@ -914,6 +914,65 @@ static void test_firmware_channel_recovery_is_logged(void)
     TEST_ASSERT_EQUAL_UINT16(0u, entry.arg);
 }
 
+/** @brief Steps of the main loop in the 10 minutes of MAINTENANCE. */
+#define MAINT_TICKS (FIRMWARE_MAINT_MAX_MS / TICK_MS)
+
+/** @brief Expected argument of a PEAK entry: channel index and peak in 0.1 %LEL. */
+static uint16_t peak_arg(uint8_t ch, uint16_t peak)
+{
+    return (uint16_t)(((uint16_t)ch << EVENTLOG_PEAK_CHANNEL_SHIFT) | peak);
+}
+
+/**
+ * @brief From NORMAL, a 3 s touch, gas on each sensor, then clean air until MAINTENANCE ends.
+ *
+ * The clean value changes by 2 LSB half-way, so no channel is seen as stuck.
+ */
+static void maintenance_with_gas(uint16_t mq5_raw, uint16_t mq2_raw)
+{
+    fw_ticks(HOLD_LONG_TICKS, false, true);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, mq5_raw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, mq2_raw));
+    fw_ticks(20u, false, false);
+    set_gas_raw(CLEAN_RAW_PLUS_2);
+    fw_ticks(MAINT_TICKS / 2u, false, false);
+    set_gas_raw(CLEAN_RAW);
+    fw_ticks(MAINT_TICKS / 2u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+}
+
+/* @verifies REQ-LOG-001 REQ-HMI-010 */
+static void test_firmware_maintenance_end_logs_the_peak_of_each_channel(void)
+{
+    boot_and_reach_normal();
+    maintenance_with_gas(MQ5_ALARM_1_RAW, ALARM_2_RAW);
+    /* MQ-5: 15 %LEL after its zero offset; MQ-2: 30 %LEL. */
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ5, ALARM_1_RAW)));
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ2, ALARM_2_RAW)));
+}
+
+/* @verifies REQ-LOG-001 */
+static void test_firmware_each_maintenance_starts_a_new_peak(void)
+{
+    boot_and_reach_normal();
+    maintenance_with_gas(MQ5_ALARM_1_RAW, ALARM_2_RAW);
+    /* Second test, the MQ-2 only: the MQ-5 peak of the first test is not carried over. */
+    maintenance_with_gas(CLEAN_RAW, ALARM_1_RAW);
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ5, 0u)));
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ2, ALARM_1_RAW)));
+    TEST_ASSERT_EQUAL_UINT8(4u, count_entries(EVENTLOG_MAINT_PEAK, ANY_ARG));
+}
+
+/* @verifies REQ-LOG-001 REQ-LOG-003 */
+static void test_firmware_no_peak_is_logged_outside_maintenance(void)
+{
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_1_RAW));
+    fw_ticks(20u, false, false);
+    TEST_ASSERT_EQUAL_UINT8(0u, count_entries(EVENTLOG_MAINT_PEAK, ANY_ARG));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -965,5 +1024,8 @@ int main(void)
     RUN_TEST(test_firmware_missing_display_is_logged);
     RUN_TEST(test_firmware_channel_recovery_is_logged);
     RUN_TEST(test_firmware_null_arguments_are_rejected);
+    RUN_TEST(test_firmware_maintenance_end_logs_the_peak_of_each_channel);
+    RUN_TEST(test_firmware_each_maintenance_starts_a_new_peak);
+    RUN_TEST(test_firmware_no_peak_is_logged_outside_maintenance);
     return UNITY_END();
 }
