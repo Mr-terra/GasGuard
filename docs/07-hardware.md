@@ -11,7 +11,7 @@ part itself.
 | # | Part | Model | Qty | Connected to | Status | Notes |
 |---|---|---|---|---|---|---|
 | 1 | Microcontroller board | Elegoo Uno R3 (ATmega328P, 16 MHz, 32 KB flash, 2 KB SRAM, 1 KB EEPROM), optiboot bootloader | 1 | — | In use | The bootloader clears the reset flags, so the reset cause reads as unknown (FMEA F23) |
-| 2 | Connector shield | Seeed Grove Base Shield v2.1 | 1 | On the Uno | In use | Its VCC switch (3.3 V / 5 V) selects the supply of every Grove port: it must be on 5 V (**position to confirm**) |
+| 2 | Connector shield | Seeed Grove Base Shield v2.1 | 1 | On the Uno | In use | Its VCC switch (3.3 V / 5 V) selects the supply of every Grove port: it is on 5 V: 5 V was measured between MQ5 - VCC and MQ5 - GND, which are fed through a Grove port |
 | 3 | Gas sensor, natural gas / LPG | Generic MQ-5 module (pins VCC, GND, DO, AO) | 1 | Port A0 (AO), see §2 | In use | Heater about 150 mA. Zero offset 113 (provisional, REQ-FUN-003) |
 | 4 | Gas sensor, combustible gas / smoke | Generic MQ-2 module (pins VCC, GND, DO, AO) | 1 | Port A1 (AO), see §2 | In use | Heater about 150 mA. Zero offset 0 until its preheat is over |
 | 5 | Display | Seeed Grove LCD RGB Backlight v4.0 (16×2) | 1 | Port I2C | In use | LCD at 0x3E, backlight at 0x62 (v5.0 boards use 0x30) |

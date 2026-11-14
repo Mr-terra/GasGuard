@@ -49,9 +49,9 @@ of the MQ-5 channel; A1 read as usual. Validated by the author.
 | Recovery of the channel | **Pass, as specified**: the channel comes back 2 to 3 minutes after 0 V. Turned to full scale first, the potentiometer read as a short circuit (raw ≥ 1018), which restarts the 600 valid samples (60 s) of REQ-SAF-002; the author keeps 60 s | REQ-SAF-002 |
 | Gas test record (`PEAK`) | Not run | REQ-LOG-001 |
 
-Open point: the author reported that the MQ-5 answers to breath and gas while
-this build reads A1, which should be the MQ-2. To check: MQ-5 - SIG on Arduino
-A0, MQ-2 - SIG on Arduino A1.
+The sensor that answered to breath and gas during this test is the MQ-2: the
+author confirmed that MQ-2 - AO is wired to Arduino A1, the only gas input this
+build reads besides the potentiometer. The wiring matches docs/02 §2.
 
 ## Day 5 — dead heater (2026-11-14)
 
