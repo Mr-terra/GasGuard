@@ -197,7 +197,7 @@ static void test_cli_names_the_bandgap_code(void)
 /* @verifies REQ-LOG-004 */
 static void test_cli_prints_a_maintenance_peak_as_channel_and_value(void)
 {
-    log_event(700u, EVENTLOG_MAINT_PEAK, (uint16_t)((1u << EVENTLOG_PEAK_CHANNEL_SHIFT) | 516u));
+    log_event(700u, EVENTLOG_MAINT_PEAK, (uint16_t)(((uint16_t)1u << EVENTLOG_PEAK_CHANNEL_SHIFT) | 516u));
     TEST_ASSERT_EQUAL_INT(GG_OK, type_line("log"));
     drain();
     TEST_ASSERT_EQUAL_STRING("0 700 PEAK 1 516\r\nEND\r\n", capture);

@@ -25,6 +25,9 @@
 /** @brief Largest output line: slot, uptime, name, argument and the line end. */
 #define CLI_OUT_MAX 40u
 
+/** @brief Size of the code name table: the last event code plus one (index 0 is unused). */
+#define CLI_CODE_NAMES ((uint8_t)EVENTLOG_CODE_LAST + 1u)
+
 /** @brief Digits of a 32-bit decimal number. */
 #define CLI_UINT32_DIGITS 10u
 
@@ -93,47 +96,44 @@ static gg_status_t out_flush(cli_out_t *out, cli_write_fn write)
     return status;
 }
 
-/** @brief Name of an event code, as printed in the log (REQ-LOG-004). */
+/**
+ * @brief Name of an event code, as printed in the log (REQ-LOG-004).
+ *
+ * A table indexed by the code: one line per code, so a new code adds one line
+ * and no branch. A code outside the table, or without a name, prints as UNKNOWN.
+ *
+ * @param code  Event code read from the log.
+ * @return The name, never NULL.
+ */
 static const char *code_name(eventlog_code_t code)
 {
+    static const char *const k_names[CLI_CODE_NAMES] = {
+        [EVENTLOG_MODE_CHANGE] = "MODE",
+        [EVENTLOG_FAULT] = "FAULT",
+        [EVENTLOG_RESET] = "RESET",
+        [EVENTLOG_CONFIG] = "CONFIG",
+        [EVENTLOG_OVERRUN] = "OVERRUN",
+        [EVENTLOG_CHANNEL_FAULT] = "CHANNEL",
+        [EVENTLOG_DISPLAY_FAULT] = "DISPLAY",
+        [EVENTLOG_CHANNEL_RECOVERED] = "RECOVERED",
+        [EVENTLOG_BANDGAP] = "BANDGAP",
+        [EVENTLOG_MAINT_PEAK] = "PEAK",
+    };
     const char *name = "UNKNOWN";
+    uint8_t index = (uint8_t)code;
 
-    switch (code) {
-        case EVENTLOG_MODE_CHANGE:
-            name = "MODE";
-            break;
-        case EVENTLOG_FAULT:
-            name = "FAULT";
-            break;
-        case EVENTLOG_RESET:
-            name = "RESET";
-            break;
-        case EVENTLOG_CONFIG:
-            name = "CONFIG";
-            break;
-        case EVENTLOG_OVERRUN:
-            name = "OVERRUN";
-            break;
-        case EVENTLOG_CHANNEL_FAULT:
-            name = "CHANNEL";
-            break;
-        case EVENTLOG_DISPLAY_FAULT:
-            name = "DISPLAY";
-            break;
-        case EVENTLOG_CHANNEL_RECOVERED:
-            name = "RECOVERED";
-            break;
-        case EVENTLOG_BANDGAP:
-            name = "BANDGAP";
-            break;
-        default:
-            name = "UNKNOWN";
-            break;
+    if ((index < CLI_CODE_NAMES) && (k_names[index] != NULL)) {
+        name = k_names[index];
     }
     return name;
 }
 
-/** @brief Print one entry: "<slot> <uptime_s> <code> <arg>" and the line end. */
+/**
+ * @brief Print one entry: "<slot> <uptime_s> <code> <arg>" and the line end.
+ *
+ * A PEAK argument packs two values: it is printed as "<channel> <peak>", so the
+ * operator reads the peak in 0.1 %LEL without decoding it.
+ */
 static gg_status_t print_entry(uint8_t slot, const eventlog_entry_t *entry, cli_write_fn write)
 {
     cli_out_t out;
@@ -145,7 +145,13 @@ static gg_status_t print_entry(uint8_t slot, const eventlog_entry_t *entry, cli_
     out_byte(&out, CLI_ASCII_SPACE);
     out_text(&out, code_name(entry->code));
     out_byte(&out, CLI_ASCII_SPACE);
-    out_uint32(&out, entry->arg);
+    if (entry->code == EVENTLOG_MAINT_PEAK) {
+        out_uint32(&out, (uint32_t)entry->arg >> EVENTLOG_PEAK_CHANNEL_SHIFT);
+        out_byte(&out, CLI_ASCII_SPACE);
+        out_uint32(&out, (uint32_t)entry->arg & EVENTLOG_PEAK_VALUE_MASK);
+    } else {
+        out_uint32(&out, entry->arg);
+    }
     out_byte(&out, CLI_ASCII_CR);
     out_byte(&out, CLI_ASCII_LF);
     return out_flush(&out, write);

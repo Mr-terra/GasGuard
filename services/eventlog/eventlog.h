@@ -43,8 +43,19 @@ typedef enum {
     EVENTLOG_CHANNEL_FAULT = 6,  /**< A gas channel became faulty; arg is the channel index (REQ-SAF-002, REQ-SAF-003). */
     EVENTLOG_DISPLAY_FAULT = 7,  /**< The display did not answer at boot; the detector runs without it (REQ-HMI-001). */
     EVENTLOG_CHANNEL_RECOVERED = 8,  /**< A gas channel is back in service; arg is the channel index (REQ-SAF-002). */
-    EVENTLOG_BANDGAP = 9  /**< First bandgap measurement out of tolerance since boot; arg is the raw value, 0 if the read failed (REQ-SAF-004, REQ-LOG-001). */
+    EVENTLOG_BANDGAP = 9,  /**< First bandgap measurement out of tolerance since boot; arg is the raw value, 0 if the read failed (REQ-SAF-004, REQ-LOG-001). */
+    EVENTLOG_MAINT_PEAK = 10  /**< End of MAINTENANCE: highest reading of one channel during it; arg packs the channel and the peak (REQ-LOG-001). */
 } eventlog_code_t;
+
+/**
+ * @brief Argument of EVENTLOG_MAINT_PEAK: channel index in the top 4 bits, peak in
+ * 0.1 %LEL in the low 12 bits (0 .. 4095, well above the 100 %LEL scale end).
+ */
+#define EVENTLOG_PEAK_CHANNEL_SHIFT 12u
+#define EVENTLOG_PEAK_VALUE_MASK 0x0FFFu
+
+/** @brief Last valid event code: the log refuses higher codes and the CLI sizes its name table on it. */
+#define EVENTLOG_CODE_LAST EVENTLOG_MAINT_PEAK
 
 /** @brief One logged event. */
 typedef struct {

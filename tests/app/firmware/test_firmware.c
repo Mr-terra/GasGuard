@@ -959,9 +959,51 @@ static void test_firmware_each_maintenance_starts_a_new_peak(void)
     maintenance_with_gas(MQ5_ALARM_1_RAW, ALARM_2_RAW);
     /* Second test, the MQ-2 only: the MQ-5 peak of the first test is not carried over. */
     maintenance_with_gas(CLEAN_RAW, ALARM_1_RAW);
-    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ5, 0u)));
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ5, ALARM_1_RAW)));
     TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ2, ALARM_1_RAW)));
     TEST_ASSERT_EQUAL_UINT8(4u, count_entries(EVENTLOG_MAINT_PEAK, ANY_ARG));
+}
+
+/* @verifies REQ-LOG-001 REQ-SAF-008 */
+static void test_firmware_peaks_are_logged_one_per_sample_after_the_mode_change(void)
+{
+    uint32_t guard = 0u;
+
+    boot_and_reach_normal();
+    fw_ticks(HOLD_LONG_TICKS, false, true);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
+    while ((firmware_state(&fw) == DET_STATE_MAINTENANCE) && (guard < (2u * MAINT_TICKS))) {
+        set_gas_raw(((guard % 2u) == 0u) ? CLEAN_RAW : CLEAN_RAW_PLUS_2);
+        fw_tick(false, false);
+        guard++;
+    }
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    /* The sample that ends MAINTENANCE writes only its MODE entry; each next sample writes one PEAK. */
+    TEST_ASSERT_EQUAL_UINT8(0u, count_entries(EVENTLOG_MAINT_PEAK, ANY_ARG));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, ANY_ARG));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_UINT8(2u, count_entries(EVENTLOG_MAINT_PEAK, ANY_ARG));
+}
+
+/* @verifies REQ-LOG-001 REQ-SAF-007 */
+static void test_firmware_a_failed_peak_write_does_not_stop_the_sample(void)
+{
+    uint32_t guard = 0u;
+
+    boot_and_reach_normal();
+    fw_ticks(HOLD_LONG_TICKS, false, true);
+    while ((firmware_state(&fw) == DET_STATE_MAINTENANCE) && (guard < (2u * MAINT_TICKS))) {
+        set_gas_raw(((guard % 2u) == 0u) ? CLEAN_RAW : CLEAN_RAW_PLUS_2);
+        fw_tick(false, false);
+        guard++;
+    }
+    hal_eeprom_fake_fail_writes(true);
+    /* The PEAK writes fail: each sample still returns GG_OK (checked in fw_tick). */
+    fw_ticks(3u, false, false);
+    hal_eeprom_fake_fail_writes(false);
+    TEST_ASSERT_EQUAL_UINT8(0u, count_entries(EVENTLOG_MAINT_PEAK, ANY_ARG));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
 }
 
 /* @verifies REQ-LOG-001 REQ-LOG-003 */
@@ -1027,5 +1069,7 @@ int main(void)
     RUN_TEST(test_firmware_maintenance_end_logs_the_peak_of_each_channel);
     RUN_TEST(test_firmware_each_maintenance_starts_a_new_peak);
     RUN_TEST(test_firmware_no_peak_is_logged_outside_maintenance);
+    RUN_TEST(test_firmware_peaks_are_logged_one_per_sample_after_the_mode_change);
+    RUN_TEST(test_firmware_a_failed_peak_write_does_not_stop_the_sample);
     return UNITY_END();
 }

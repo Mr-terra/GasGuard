@@ -60,6 +60,10 @@
 
 /** @brief Number of gas channels. */
 #define FIRMWARE_CHANNELS 2u
+/* A PEAK log entry keeps the channel index in 4 bits (EVENTLOG_PEAK_CHANNEL_SHIFT). */
+#if FIRMWARE_CHANNELS > 16u
+#error "FIRMWARE_CHANNELS does not fit in the 4-bit channel field of a PEAK entry"
+#endif
 
 /**
  * @brief EEPROM address of the start counter, right after the event log (REQ-SAF-011).
@@ -112,6 +116,8 @@ typedef struct {
     bool reset_pending;                      /**< A long press asked for the ALARM_2 reset, for the next sample. */
     bool maint_pending;                      /**< A touch of 3 s asked for MAINTENANCE, for the next sample. */
     uint32_t maint_start_ms;                 /**< Start of MAINTENANCE: its 10-minute limit counts from here. */
+    gg_conc_t maint_peak[FIRMWARE_CHANNELS]; /**< Highest valid reading of each channel since the last MAINTENANCE request (REQ-LOG-001). */
+    uint8_t maint_peak_next;                 /**< Next channel whose peak is to be logged, one per sample; FIRMWARE_CHANNELS when none. */
     bool test_running;                       /**< The functional test is running (REQ-HMI-006). */
     uint32_t test_start_ms;                  /**< The six test steps are timed from here. */
     detector_fault_code_t pending_fault;     /**< System fault to give the detector at the next sample. */
@@ -138,10 +144,14 @@ gg_status_t firmware_boot(firmware_t *fw, hal_reset_cause_t cause, uint32_t now_
 
 /**
  * @brief One sampling step: read, filter, correct and select the channels, then run the detector.
+ *
+ * At the end of MAINTENANCE, the highest reading of each channel during it is
+ * logged (PEAK), as the record of the periodic gas test.
+ *
  * @param fw      Firmware state. Must not be NULL.
  * @param now_ms  Current time.
  * @return GG_OK or GG_ERR_NULL. A channel that cannot be read is reported to the detector as a fault.
- * @req REQ-ALM-001 REQ-SAF-007
+ * @req REQ-ALM-001 REQ-SAF-007 REQ-LOG-001
  */
 gg_status_t firmware_sample(firmware_t *fw, uint32_t now_ms);
 

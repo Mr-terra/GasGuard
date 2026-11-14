@@ -12,7 +12,9 @@
  * the calibration; the maximum of the valid channels is the detector input
  * (REQ-FUN-005). No valid channel is a fault; when every channel is only stuck
  * (calm air) that fault ends by itself as soon as a channel moves again. Every change of mode and every new
- * fault is written to the event log.
+ * fault is written to the event log. During MAINTENANCE the highest reading of
+ * each channel is kept; it is logged when MAINTENANCE ends, as the record of the
+ * periodic gas test.
  *
  * A start counter in EEPROM counts the starts that did not run 60 s past the warm-up.
  * From the fourth one on, each start enters FAULT at once and logs it, after its
@@ -52,6 +54,8 @@
 
 /** @brief Result of one reading of the gas channels. */
 typedef struct {
+    gg_conc_t conc[FIRMWARE_CHANNELS];  /**< Concentration of each channel, 0 when invalid. */
+    bool valid[FIRMWARE_CHANNELS];      /**< Validity of each channel. */
     gg_conc_t max_conc;  /**< Maximum concentration of the valid channels. */
     bool any_valid;      /**< True when at least one channel is valid. */
     bool all_stuck_only; /**< Every channel has a stuck fault and no other one (REQ-SAF-003). */
@@ -283,6 +287,19 @@ static gg_status_t boot_init_channels(firmware_t *fw)
 }
 
 /**
+ * @brief Start a new peak record for the next MAINTENANCE (REQ-LOG-001).
+ * @param fw  Firmware state.
+ */
+static void maint_peak_clear(firmware_t *fw)
+{
+    uint8_t ch;
+
+    for (ch = 0u; ch < FIRMWARE_CHANNELS; ch++) {
+        fw->maint_peak[ch] = 0;
+    }
+}
+
+/**
  * @brief Initialise the operator inputs: debounce, press tracking, silence, pending requests.
  * @param fw  Firmware state.
  * @return The first error, or GG_OK.
@@ -306,6 +323,8 @@ static gg_status_t boot_init_inputs(firmware_t *fw)
     fw->reset_pending = false;
     fw->maint_pending = false;
     fw->maint_start_ms = 0u;
+    maint_peak_clear(fw);
+    fw->maint_peak_next = FIRMWARE_CHANNELS;
     fw->test_running = false;
     fw->test_start_ms = 0u;
     fw->pending_fault = DET_FAULT_NONE;
@@ -323,20 +342,20 @@ static gg_status_t boot_init_inputs(firmware_t *fw)
  */
 static gg_status_t sample_gas(firmware_t *fw, uint32_t now_ms, firmware_gas_t *gas)
 {
-    gg_conc_t concs[FIRMWARE_CHANNELS];
-    bool valid[FIRMWARE_CHANNELS];
     uint8_t ch;
 
+    gas->max_conc = 0;
+    gas->any_valid = false;
     gas->all_stuck_only = true;
     for (ch = 0u; ch < FIRMWARE_CHANNELS; ch++) {
         bool stuck_only = false;
-        bool clean_read = sample_channel(ch, fw, now_ms, &concs[ch], &valid[ch]);
+        bool clean_read = sample_channel(ch, fw, now_ms, &gas->conc[ch], &gas->valid[ch]);
         /* Fails only on a NULL pointer; the default then counts as a real fault. */
         (void)diag_stuck_only(&fw->diag[ch], &stuck_only);
         /* A failed read or a reading at the rails is a real fault, never calm air (REQ-SAF-007). */
         gas->all_stuck_only = gas->all_stuck_only && stuck_only && clean_read;
     }
-    return channel_select_max(concs, valid, FIRMWARE_CHANNELS, &gas->max_conc, &gas->any_valid);
+    return channel_select_max(gas->conc, gas->valid, FIRMWARE_CHANNELS, &gas->max_conc, &gas->any_valid);
 }
 
 /**
@@ -404,6 +423,63 @@ static gg_status_t sample_report_channels(firmware_t *fw, uint32_t now_ms)
         }
     }
     return status;
+}
+
+/**
+ * @brief Keep the highest reading of each channel during MAINTENANCE (REQ-LOG-001).
+ *
+ * The sample that ends MAINTENANCE still counts. When it ends, the peaks are
+ * queued for the log. A stuck-only FAULT inside MAINTENANCE queues the peaks so
+ * far, and the final exit queues them again with the later readings.
+ *
+ * @param fw      Firmware state.
+ * @param gas     Selection of this sample.
+ * @param before  State before this sample; nothing is done unless it is MAINTENANCE.
+ */
+static void maint_peak_track(firmware_t *fw, const firmware_gas_t *gas, detector_state_t before)
+{
+    if (before == DET_STATE_MAINTENANCE) {
+        uint8_t ch;
+
+        for (ch = 0u; ch < FIRMWARE_CHANNELS; ch++) {
+            if (gas->valid[ch] && (gas->conc[ch] > fw->maint_peak[ch])) {
+                fw->maint_peak[ch] = gas->conc[ch];
+            }
+        }
+        if (firmware_state(fw) != DET_STATE_MAINTENANCE) {
+            fw->maint_peak_next = 0u;
+        }
+    }
+}
+
+/**
+ * @brief Log the next queued peak: one entry per sample, at most (REQ-LOG-001).
+ *
+ * One entry per sample keeps the EEPROM time of a sample to one write besides the
+ * MODE and FAULT entries, within the 100 ms cycle (REQ-SAF-008, FMEA F47). The
+ * write error is ignored on purpose: a PEAK entry is a record, and its failure
+ * must never stop the sample that drives the relay (FMEA F47, as F44).
+ *
+ * @param fw      Firmware state.
+ * @param now_ms  Current time.
+ */
+static void maint_peak_log_next(firmware_t *fw, uint32_t now_ms)
+{
+    if (fw->maint_peak_next < FIRMWARE_CHANNELS) {
+        uint8_t ch = fw->maint_peak_next;
+        /* The peak starts at 0 and only grows, so it is never negative. */
+        uint16_t peak = (uint16_t)fw->maint_peak[ch];
+        eventlog_entry_t event;
+
+        if (peak > EVENTLOG_PEAK_VALUE_MASK) {
+            peak = EVENTLOG_PEAK_VALUE_MASK;
+        }
+        event.uptime_s = now_ms / FIRMWARE_MS_PER_S;
+        event.code = EVENTLOG_MAINT_PEAK;
+        event.arg = (uint16_t)(((uint16_t)ch << EVENTLOG_PEAK_CHANNEL_SHIFT) | peak);
+        (void)eventlog_append(&event);
+        fw->maint_peak_next++;
+    }
 }
 
 /**
@@ -510,6 +586,7 @@ static void act_touch(hmi_press_event_t event, firmware_t *fw, uint32_t now_ms)
     if ((event == HMI_PRESS_LONG) && (firmware_state(fw) == DET_STATE_NORMAL)) {
         fw->maint_pending = true;
         fw->maint_start_ms = now_ms;
+        maint_peak_clear(fw);
     }
 }
 
@@ -610,7 +687,7 @@ gg_status_t firmware_boot(firmware_t *fw, hal_reset_cause_t cause, uint32_t now_
 
 /**
  * @brief One sampling step.
- * @req REQ-ALM-001 REQ-SAF-007
+ * @req REQ-ALM-001 REQ-SAF-007 REQ-LOG-001
  */
 gg_status_t firmware_sample(firmware_t *fw, uint32_t now_ms)
 {
@@ -626,8 +703,13 @@ gg_status_t firmware_sample(firmware_t *fw, uint32_t now_ms)
             status = sample_report_channels(fw, now_ms);
         }
         if (status == GG_OK) {
+            detector_state_t before = firmware_state(fw);
+
+            /* A peak queued by an earlier sample: written before this one can queue more. */
+            maint_peak_log_next(fw, now_ms);
             fw->last_conc = gas.max_conc;
             status = sample_detector_step(fw, now_ms, &gas);
+            maint_peak_track(fw, &gas, before);
         }
         if (status == GG_OK) {
             status = sample_report_fault(fw, now_ms);
