@@ -24,6 +24,7 @@
 #include "hal/reset_cause/reset_cause.h"
 #include "services/calib/calib.h"
 #include "services/diag/diag.h"
+#include "services/eventlog/eventlog.h"
 #include "services/filter/filter.h"
 
 /** @brief ADC channels of the two gas sensors (docs/02-architecture.md §2). */
@@ -59,6 +60,18 @@
 
 /** @brief Number of gas channels. */
 #define FIRMWARE_CHANNELS 2u
+
+/**
+ * @brief EEPROM address of the start counter, right after the event log (REQ-SAF-011).
+ *
+ * Two bytes: the count and its complement, so a corrupted counter reads as 0.
+ * Derived from the log layout, so a larger log moves the counter with it.
+ */
+#define FIRMWARE_ADDR_START_COUNT (EVENTLOG_ADDR_ENTRIES + (EVENTLOG_ENTRIES * EVENTLOG_ENTRY_SIZE))
+/** @brief Starts in a row that may end before FIRMWARE_STABLE_RUN_MS; the next one enters FAULT (REQ-SAF-011). */
+#define FIRMWARE_SHORT_STARTS_MAX 3u
+/** @brief Running time outside WARMUP after which the start counter is cleared, in milliseconds (REQ-SAF-011). */
+#define FIRMWARE_STABLE_RUN_MS 60000u
 
 /** @brief Milliseconds per second, for the uptime stamps of the event log. */
 #define FIRMWARE_MS_PER_S 1000u
@@ -103,15 +116,23 @@ typedef struct {
     uint32_t test_start_ms;                  /**< The six test steps are timed from here. */
     detector_fault_code_t pending_fault;     /**< System fault to give the detector at the next sample. */
     gg_conc_t last_conc;                     /**< Concentration of the last sample, for the display (REQ-HMI-001). */
+    uint32_t start_ms;                       /**< Time of the start: the start counter is cleared 60 s after the warm-up (REQ-SAF-011). */
+    bool start_count_cleared;                /**< The start counter was cleared during this run. */
 } firmware_t;
 
 /**
- * @brief Boot: log the reset cause, load the configuration, start the detector.
+ * @brief Boot: count the start, log the reset cause, load the configuration, start the detector.
+ *
+ * The fourth start in a row without 60 s of running past the warm-up enters FAULT (RESET_LOOP)
+ * at the first sample, and so does every following start until the counter is
+ * cleared. Each start logs its reset, its configuration source and, in a loop,
+ * the RESET_LOOP fault (REQ-SAF-011).
+ *
  * @param fw         Firmware state. Must not be NULL.
  * @param cause      Reset cause read from the hardware.
  * @param now_ms     Current time, the start of the warm-up.
  * @return GG_OK, GG_ERR_NULL, or the first error of a driver or service.
- * @req REQ-SAF-006 REQ-CFG-002
+ * @req REQ-SAF-006 REQ-CFG-002 REQ-SAF-011
  */
 gg_status_t firmware_boot(firmware_t *fw, hal_reset_cause_t cause, uint32_t now_ms);
 
@@ -156,12 +177,13 @@ gg_status_t firmware_output(const firmware_t *fw, uint32_t now_ms);
  * measurement latches a fault at the next sample. A failed measurement is not
  * returned as an error: the fault is the answer, and the watchdog keeps running.
  * The first bad bandgap measurement since boot is written to the event log; a failed
- * write is ignored, so it never delays the fault.
+ * write is ignored, so it never delays the fault. The start counter is cleared
+ * 60 s after the end of the warm-up (REQ-SAF-011).
  *
  * @param fw      Firmware state. Must not be NULL.
  * @param now_ms  Current time.
  * @return GG_OK or GG_ERR_NULL.
- * @req REQ-SAF-004 REQ-SAF-009 REQ-LOG-003
+ * @req REQ-SAF-004 REQ-SAF-009 REQ-LOG-003 REQ-SAF-011
  */
 // DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage
 // cppcheck-suppress misra-c2012-8.7

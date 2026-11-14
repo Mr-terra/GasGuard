@@ -13,6 +13,10 @@
  * (REQ-FUN-005). No valid channel is a fault. Every change of mode and every new
  * fault is written to the event log.
  *
+ * A start counter in EEPROM counts the starts that did not run 60 s past the warm-up.
+ * From the fourth one on, each start enters FAULT at once and logs it, after its
+ * reset and configuration entries (REQ-SAF-011).
+ *
  * The operator inputs are debounced and classified in firmware_inputs(). The
  * requests they make (ALARM_2 reset, maintenance) reach the detector at the next
  * sample, so the detector stays the only place that changes the state. The
@@ -35,6 +39,7 @@
 #include "drivers/button/button.h"
 #include "drivers/relay/relay.h"
 #include "hal/adc/adc.h"
+#include "hal/eeprom/eeprom.h"
 #include "hal/stack/stack.h"
 #include "services/config/config.h"
 #include "services/eventlog/eventlog.h"
@@ -49,6 +54,44 @@ typedef struct {
     gg_conc_t max_conc;  /**< Maximum concentration of the valid channels. */
     bool any_valid;      /**< True when at least one channel is valid. */
 } firmware_gas_t;
+
+/** @brief Bytes of the start counter in EEPROM: the count, then its complement (REQ-SAF-011). */
+#define FIRMWARE_START_COUNT_BYTES 2u
+/** @brief The counter stops at this value, so a long reset loop stops writing the EEPROM. */
+#define FIRMWARE_START_COUNT_MAX 255u
+
+/**
+ * @brief Count this start in EEPROM and return the number of starts in a row.
+ *
+ * A counter whose complement byte does not match reads as 0, so a corrupted or
+ * erased EEPROM never raises the reset-loop fault on its own.
+ *
+ * @param out_count  Receives the count, this start included, 1 .. FIRMWARE_START_COUNT_MAX.
+ * @return GG_OK, or the EEPROM error.
+ * @req REQ-SAF-011
+ */
+static gg_status_t boot_count_start(uint8_t *out_count)
+{
+    uint8_t bytes[FIRMWARE_START_COUNT_BYTES] = { 0u, 0u };
+    uint8_t count = 0u;
+    gg_status_t status = hal_eeprom_read(FIRMWARE_ADDR_START_COUNT, bytes, FIRMWARE_START_COUNT_BYTES);
+
+    if (status == GG_OK) {
+        uint8_t check = (uint8_t)~bytes[0];
+
+        if (bytes[1] == check) {
+            count = bytes[0];
+        }
+        if (count < FIRMWARE_START_COUNT_MAX) {
+            count++;
+        }
+        bytes[0] = count;
+        bytes[1] = (uint8_t)~count;
+        status = hal_eeprom_write(FIRMWARE_ADDR_START_COUNT, bytes, FIRMWARE_START_COUNT_BYTES);
+    }
+    *out_count = count;
+    return status;
+}
 
 /**
  * @brief ADC input of a gas channel (REQ-FUN-006).
@@ -357,7 +400,8 @@ static gg_status_t sample_report_fault(firmware_t *fw, uint32_t now_ms)
     detector_fault_code_t fault_code = DET_FAULT_NONE;
 
     status = detector_take_new_fault(&fw->det, &new_fault, &fault_code);
-    if ((status == GG_OK) && new_fault) {
+    /* The reset-loop fault was logged at boot, before anything else could fail (REQ-SAF-011). */
+    if ((status == GG_OK) && new_fault && (fault_code != DET_FAULT_RESET_LOOP)) {
         eventlog_entry_t event = { now_ms / FIRMWARE_MS_PER_S, EVENTLOG_FAULT, (uint16_t)fault_code };
 
         status = eventlog_append(&event);
@@ -460,8 +504,8 @@ static gg_status_t output_levels(const firmware_t *fw, uint32_t now_ms, firmware
 }
 
 /**
- * @brief Boot: log the reset cause, load the configuration, start the detector.
- * @req REQ-SAF-006 REQ-CFG-002
+ * @brief Boot: count the start, log the reset cause, load the configuration, start the detector.
+ * @req REQ-SAF-006 REQ-CFG-002 REQ-SAF-011
  */
 gg_status_t firmware_boot(firmware_t *fw, hal_reset_cause_t cause, uint32_t now_ms)
 {
@@ -471,8 +515,14 @@ gg_status_t firmware_boot(firmware_t *fw, hal_reset_cause_t cause, uint32_t now_
         status = GG_ERR_NULL;
     } else {
         config_t cfg;
+        uint8_t starts = 0u;
 
-        status = boot_load_config(&cfg, cause, now_ms);
+        status = boot_count_start(&starts);
+        fw->start_ms = now_ms;
+        fw->start_count_cleared = false;
+        if (status == GG_OK) {
+            status = boot_load_config(&cfg, cause, now_ms);
+        }
         if (status == GG_OK) {
             status = boot_start_detector(fw, &cfg, now_ms);
         }
@@ -487,6 +537,16 @@ gg_status_t firmware_boot(firmware_t *fw, hal_reset_cause_t cause, uint32_t now_
         }
         if (status == GG_OK) {
             status = buzzer_init();
+        }
+        if ((status == GG_OK) && (starts > FIRMWARE_SHORT_STARTS_MAX)) {
+            /* Reset loop (REQ-SAF-011): FAULT at the first sample, the relay stays off.
+             * The fault is logged here at each such start, so the log shows it even if
+             * the start fails later. */
+            eventlog_entry_t loop_event = { now_ms / FIRMWARE_MS_PER_S, EVENTLOG_FAULT,
+                                            (uint16_t)DET_FAULT_RESET_LOOP };
+
+            fw->pending_fault = DET_FAULT_RESET_LOOP;
+            status = eventlog_append(&loop_event);
         }
     }
     return status;
@@ -642,6 +702,33 @@ static void health_bandgap(firmware_t *fw, uint32_t now_ms)
     }
 }
 
+/**
+ * @brief 60 s after the end of the warm-up, clear the start counter: the next start is a normal one (REQ-SAF-011).
+ *
+ * The warm-up does not count, so a start that hangs during or right after it is
+ * still counted as short. A failed write is tried again at the next health check;
+ * it never stops the cycle.
+ *
+ * @param fw      Firmware state.
+ * @param now_ms  Current time.
+ * @req REQ-SAF-011
+ */
+static void health_start_count(firmware_t *fw, uint32_t now_ms)
+{
+    /* Differences from the start, so the comparison stays right when the timer wraps. */
+    uint32_t warmup_ms = fw->warmup_end_ms - fw->start_ms;
+
+    if (!fw->start_count_cleared && ((now_ms - fw->start_ms) >= (warmup_ms + FIRMWARE_STABLE_RUN_MS))) {
+        uint8_t bytes[FIRMWARE_START_COUNT_BYTES];
+
+        bytes[0] = 0u;
+        bytes[1] = (uint8_t)~bytes[0];
+        if (hal_eeprom_write(FIRMWARE_ADDR_START_COUNT, bytes, FIRMWARE_START_COUNT_BYTES) == GG_OK) {
+            fw->start_count_cleared = true;
+        }
+    }
+}
+
 gg_status_t firmware_health(firmware_t *fw, uint32_t now_ms)
 {
     gg_status_t status = GG_OK;
@@ -651,6 +738,7 @@ gg_status_t firmware_health(firmware_t *fw, uint32_t now_ms)
     } else {
         health_stack(fw);
         health_bandgap(fw, now_ms);
+        health_start_count(fw, now_ms);
     }
     return status;
 }

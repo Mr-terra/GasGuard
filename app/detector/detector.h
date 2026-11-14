@@ -62,7 +62,7 @@ typedef enum {
     DET_FAULT_INTERNAL,     /**< Impossible internal state (coding standard: default -> diag_raise). */
     DET_FAULT_TIMING,       /**< Three consecutive task overruns (REQ-SAF-008). */
     DET_FAULT_STACK,        /**< Stack watermark below its limit (REQ-SAF-009). */
-    DET_FAULT_RESET_LOOP    /**< Three starts in a row without 60 s of running (REQ-SAF-011). */
+    DET_FAULT_RESET_LOOP    /**< Fourth start after three in a row without 60 s of running past the warm-up (REQ-SAF-011). */
 } detector_fault_code_t;
 
 /** @brief One sample for the state machine. */

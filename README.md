@@ -62,6 +62,7 @@ process is the point:
 | Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) | Done: tested on the PC (Day 2); wired into the firmware on Day 5 |
 | Diagnostics | Bandgap raw read against AVcc, checked at start-up and every 60 s; ten conversions discarded first so the reference settles; the first bad raw value of each boot is logged as `BANDGAP` (REQ-SAF-004, FMEA F43) | Done (Day 5); settling fix to confirm on the board |
 | Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) | Done (Day 4); stack measurement on the bench in Day 5 |
+| Diagnostics | Reset loop: three starts in a row without 60 s of running past the warm-up, from the fourth on each start enters FAULT and logs it with its reset and configuration source (REQ-SAF-011, FMEA F33). Manual resets less than 3 min apart (with the default 120 s warm-up) count too | Done (Day 5, after v1.0); to check on the board |
 | Alarms | Two-level alarm with hysteresis, latched ALARM_2, warm-up inhibition, max of valid channels | Done (Day 2) |
 | Alarms | Relay normally energised: energised in WARMUP and NORMAL only, de-energised on alarm and fault (state logic done; driving the pin is Day 3) | Logic done (Day 2); pin Day 3 |
 | Storage | A/B configuration with CRC-16 and safe defaults, repair of the other copy (REQ-CFG-001..004) | Done (Day 4) |

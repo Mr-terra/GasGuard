@@ -272,6 +272,9 @@ static void test_sc09_both_sensors_unplugged_is_fault_with_relay_off(void)
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, run(SC_ZERO_RAW, SC_ZERO_RAW, 50u));
 }
 
+/** @brief SC-10 length in 100 ms ticks: the stuck window plus one minute. */
+#define SC10_TICKS ((DIAG_STUCK_MS / 100u) + 600u)
+
 /* SC-10: one sensor stuck for more than 10 minutes after warm-up: channel fault only. */
 /* @verifies REQ-SAF-003 REQ-SAF-007 */
 static void test_sc10_stuck_sensor_is_channel_fault(void)
@@ -283,7 +286,7 @@ static void test_sc10_stuck_sensor_is_channel_fault(void)
     boot_to_normal();
     /* Channel 1 keeps moving by 2 LSB, so it is not stuck. Channel 0 is frozen. */
     state = DET_STATE_NORMAL;
-    for (i = 0u; i < 6100u; i++) {
+    for (i = 0u; i < SC10_TICKS; i++) {
         state = sc_tick(SC_ZERO_RAW, ((i % 2u) == 0u) ? SC_ZERO_RAW : SC_JITTER_RAW, false);
     }
     TEST_ASSERT_TRUE(state != DET_STATE_FAULT);

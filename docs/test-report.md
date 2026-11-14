@@ -30,6 +30,7 @@ analyser or the serial monitor.
 | Relay pull-down | Relay state at reset, with and without the proposed 10 kΩ pull-down | REQ-SAF-001, FMEA F21 |
 | Buzzer rate | Alarm 2 measured on the buzzer pin: 4 beeps per second | REQ-HMI-003 |
 | Simulation build | `make avr-sim`: the potentiometer on A2 drives the MQ-5 channel | REQ-FUN-006 |
+| Reset loop | 4 manual resets less than 3 min apart: the 4th start is in FAULT (`FAULT 5` in the log); 3 min of running, then a reset: normal start | REQ-SAF-011 |
 | Calibration in the configuration | REQ-FUN-003 is **only partly met**: the zero offsets are compiled in (`FIRMWARE_ZERO_RAW_*`), not stored in the configuration, and the span is not checked with a reference gas. The trace shows code and tests for REQ-FUN-003, not this gap. Decision of the author (Day 5): v1.0 ships with the current compiled-in values; the values are changed later | REQ-FUN-003 |
 
 ## Day 5 — full firmware on the board (2026-11-13)
@@ -58,7 +59,10 @@ Firmware: `main` at `60ac2b2` (button read as active high), flashed with
 | ALARM_2 with lighter gas (unlit) on the MQ-5 | Pass: up to 51.6 %LEL (first try) and 88 %LEL (second try), ALARM_2 entered, red backlight, buzzer 4 beeps per second | REQ-ALM-002, REQ-HMI-002, REQ-HMI-003 |
 | ALARM_2 short press | Pass: the buzzer stops, then sounds again after 60 s | REQ-HMI-004 |
 | ALARM_2 latch and reset | Pass: the state stays ALARM_2 after the gas is gone; a 3 s press between 8 and 10 %LEL is refused (above AL1 − hysteresis); the same press below 8 %LEL resets the latch | REQ-ALM-004, REQ-HMI-005 |
-| Unexplained channel event | With `60ac2b2`, `CHANNEL 0` at 832 s then `RECOVERED 0` at 1111 s (MQ-5). A cable was replaced during that session, maybe at that time; not confirmed. The detector reacted as designed (channel excluded, then back in service). **Open**: watch for it again with the wiring untouched | REQ-SAF-002 |
+| Night run (firmware: `day-5-fix-reset-loop` working tree, flashed at about 22:10; 13 h) | **Fail (false fault)**: both channels declared stuck and back again many times, each `CHANNEL` exactly 600 s after the previous `RECOVERED` of the same channel; values stable within 1 LSB for up to 2 h 10. Both channels out at once gives FAULT, seen again on the morning of Day 5+1 (display 0 %LEL, then FAULT latched). **Open**: the author keeps the 10 min window (F46); another mitigation is to decide | REQ-SAF-003, REQ-SAF-007 |
+| Display dark after a flash | The display stayed off for the whole first run (about 13 h), then worked after the next start. Probable cause, not confirmed: a reset in the middle of an I2C transfer leaves the LCD holding SDA low | REQ-HMI-001 |
+| Reset in the morning | The run ended after 47 024 s (about 13 h, near 11:15) with `RESET 4`. Probable cause: the PC was switched on and the USB enumeration reset the Uno; the watchdog is not proven | REQ-SAF-005 |
+| Unexplained channel event | With `60ac2b2`, `CHANNEL 0` at 832 s then `RECOVERED 0` at 1111 s (MQ-5). Explained by the night run: the stuck check (10 min window) declared the MQ-5 stuck about 10 min after the warm-up. Not a wiring fault | REQ-SAF-002 |
 
 ## Day 3 — first bench session (2026-11-05)
 

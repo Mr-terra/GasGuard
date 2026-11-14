@@ -4,6 +4,9 @@
 #include "hal/adc/adc.h"
 #include "services/diag/diag.h"
 
+/** @brief Time step of the stuck-window loops, in milliseconds. */
+#define DIAG_TEST_STEP_MS 1000u
+
 /* DEV-03: Unity hooks, called by the framework; MISRA 8.6 and unusedFunction do not apply. */
 // cppcheck-suppress misra-c2012-8.6
 void setUp(void);
@@ -87,9 +90,10 @@ static void test_diag_stuck_value_faulty_after_ten_minutes(void)
 {
     uint32_t t;
 
-    for (t = 0u; t < DIAG_STUCK_MS; t += 100u) {
+    for (t = 0u; t < DIAG_STUCK_MS; t += DIAG_TEST_STEP_MS) {
         TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(512u, t, false));
     }
+    TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(512u, DIAG_STUCK_MS - 1u, false));
     TEST_ASSERT_FALSE(is_faulty());
     TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(512u, DIAG_STUCK_MS, false));
     TEST_ASSERT_TRUE(is_faulty());
@@ -101,8 +105,8 @@ static void test_diag_moving_value_is_not_stuck(void)
     uint32_t t;
     uint16_t raw = 300u;
 
-    /* Two LSB of change every 100 ms: the window never settles, so no fault. */
-    for (t = 0u; t <= (DIAG_STUCK_MS + 1000u); t += 100u) {
+    /* Two LSB of change every step: the window never settles, so no fault. */
+    for (t = 0u; t <= (DIAG_STUCK_MS + 1000u); t += DIAG_TEST_STEP_MS) {
         raw = (uint16_t)((raw == 300u) ? 302u : 300u);
         TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(raw, t, false));
     }
@@ -114,7 +118,7 @@ static void test_diag_stuck_check_is_inhibited_during_warmup(void)
 {
     uint32_t t;
 
-    for (t = 0u; t <= (DIAG_STUCK_MS + 1000u); t += 100u) {
+    for (t = 0u; t <= (DIAG_STUCK_MS + 1000u); t += DIAG_TEST_STEP_MS) {
         TEST_ASSERT_EQUAL_INT(GG_OK, check_stuck(512u, t, true));
     }
     TEST_ASSERT_FALSE(is_faulty());

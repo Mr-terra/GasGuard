@@ -386,6 +386,9 @@ static void test_firmware_null_arguments_are_rejected(void)
     (void)energised;
 }
 
+/** @brief Samples of the frozen-channel test, one a second: warm-up, the stuck window, one minute more. */
+#define FROZEN_TEST_SAMPLES (CONFIG_WARMUP_DEFAULT_S + (DIAG_STUCK_MS / FIRMWARE_MS_PER_S) + 60u)
+
 /* @verifies REQ-SAF-003 */
 static void test_firmware_frozen_channel_is_excluded_after_ten_minutes(void)
 {
@@ -394,16 +397,17 @@ static void test_firmware_frozen_channel_is_excluded_after_ten_minutes(void)
     boot_defaults();
     /* MQ-5 frozen at a plausible gas level; MQ-2 moves by 2 LSB, so it is not stuck. */
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_1_RAW));
-    for (i = 0u; i < 7400u; i++) {
+    /* One sample a second keeps the test fast. */
+    for (i = 0u; i < FROZEN_TEST_SAMPLES; i++) {
         uint16_t mq2_raw = CLEAN_RAW;
 
         if (((i % 2u) == 1u)) {
             mq2_raw = CLEAN_RAW_PLUS_2;
         }
         TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, mq2_raw));
-        fw_tick(false, false);
-        if (i == 1300u) {
-            /* 130 s: warm-up over, the frozen MQ-5 reading holds ALARM_1. */
+        TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, i * FIRMWARE_MS_PER_S));
+        if (i == (CONFIG_WARMUP_DEFAULT_S + (DIAG_STUCK_MS / FIRMWARE_MS_PER_S) - 10u)) {
+            /* Just before the stuck window ends: the frozen MQ-5 reading still holds ALARM_1. */
             TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
         }
     }
@@ -529,6 +533,9 @@ static uint8_t count_entries(eventlog_code_t code, uint16_t arg)
     return count;
 }
 
+/** @brief Running time that clears the start counter: the default warm-up, then 60 s outside it. */
+#define START_CLEAR_MS (((uint32_t)CONFIG_WARMUP_DEFAULT_S * 1000u) + FIRMWARE_STABLE_RUN_MS)
+
 /** @brief Start the firmware and run one loop pass, as a start cut short by a reset. */
 static void short_start(void)
 {
@@ -536,8 +543,19 @@ static void short_start(void)
     fw_tick(false, false);
 }
 
+/** @brief Run the given number of short starts on clean air. */
+static void short_starts(uint8_t n)
+{
+    uint8_t i;
+
+    set_gas_raw(CLEAN_RAW);
+    for (i = 0u; i < n; i++) {
+        short_start();
+    }
+}
+
 /* @verifies REQ-SAF-011 */
-static void test_firmware_fourth_short_start_enters_fault_and_logs_it_once(void)
+static void test_firmware_fourth_short_start_enters_fault_and_logs_it(void)
 {
     uint8_t i;
     bool energised = true;
@@ -555,31 +573,24 @@ static void test_firmware_fourth_short_start_enters_fault_and_logs_it_once(void)
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
     TEST_ASSERT_FALSE(energised);
     TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_FAULT, (uint16_t)DET_FAULT_RESET_LOOP));
-    /* The fourth start does not log its reset: the loop is the event. */
-    TEST_ASSERT_EQUAL_UINT8(FIRMWARE_SHORT_STARTS_MAX, count_entries(EVENTLOG_RESET, ANY_ARG));
+    /* Every start logs its reset, the fourth one included. */
+    TEST_ASSERT_EQUAL_UINT8(FIRMWARE_SHORT_STARTS_MAX + 1u, count_entries(EVENTLOG_RESET, ANY_ARG));
 }
 
 /* @verifies REQ-SAF-011 */
-static void test_firmware_later_short_starts_stay_in_fault_and_write_nothing_to_the_log(void)
+static void test_firmware_later_short_starts_stay_in_fault_and_log_each_start(void)
 {
-    uint8_t i;
-    uint8_t modes;
-
-    set_gas_raw(CLEAN_RAW);
-    for (i = 0u; i <= FIRMWARE_SHORT_STARTS_MAX; i++) {
-        short_start();
-    }
-    modes = count_entries(EVENTLOG_MODE_CHANGE, ANY_ARG);
-    short_start();
-    short_start();
+    /* Six short starts: the 4th, 5th and 6th are in FAULT; each one logs its reset,
+     * its configuration source and the reset-loop fault (decision of the author). */
+    short_starts(FIRMWARE_SHORT_STARTS_MAX + 3u);
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
-    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_FAULT, ANY_ARG));
-    TEST_ASSERT_EQUAL_UINT8(FIRMWARE_SHORT_STARTS_MAX, count_entries(EVENTLOG_RESET, ANY_ARG));
-    TEST_ASSERT_EQUAL_UINT8(modes, count_entries(EVENTLOG_MODE_CHANGE, ANY_ARG));
+    TEST_ASSERT_EQUAL_UINT8(3u, count_entries(EVENTLOG_FAULT, (uint16_t)DET_FAULT_RESET_LOOP));
+    TEST_ASSERT_EQUAL_UINT8(FIRMWARE_SHORT_STARTS_MAX + 3u, count_entries(EVENTLOG_RESET, ANY_ARG));
+    TEST_ASSERT_EQUAL_UINT8(FIRMWARE_SHORT_STARTS_MAX + 3u, count_entries(EVENTLOG_CONFIG, ANY_ARG));
 }
 
 /* @verifies REQ-SAF-011 */
-static void test_firmware_sixty_seconds_of_running_clears_the_start_count(void)
+static void test_firmware_sixty_seconds_after_warmup_clear_the_start_count(void)
 {
     uint8_t i;
 
@@ -587,15 +598,15 @@ static void test_firmware_sixty_seconds_of_running_clears_the_start_count(void)
     for (i = 0u; i < FIRMWARE_SHORT_STARTS_MAX; i++) {
         short_start();
     }
-    /* The third start runs for 60 s: the next start is a normal one. */
-    fw_ticks(600u, false, false);
+    /* The third start runs through its warm-up and 60 s more: the next start is a normal one. */
+    fw_ticks(START_CLEAR_MS / TICK_MS, false, false);
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
     short_start();
     TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
 }
 
 /* @verifies REQ-SAF-011 */
-static void test_firmware_reset_loop_fault_clears_after_sixty_seconds_and_a_new_start(void)
+static void test_firmware_reset_loop_fault_clears_after_a_full_run_and_a_new_start(void)
 {
     uint8_t i;
 
@@ -604,8 +615,87 @@ static void test_firmware_reset_loop_fault_clears_after_sixty_seconds_and_a_new_
         short_start();
     }
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
-    fw_ticks(600u, false, false);
+    fw_ticks(START_CLEAR_MS / TICK_MS, false, false);
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-011 */
+static void test_firmware_start_count_is_cleared_sixty_seconds_after_warmup_not_before(void)
+{
+    short_starts(FIRMWARE_SHORT_STARTS_MAX);
+    /* 60 s from the start is not enough: the warm-up does not count (REQ-SAF-011). */
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, FIRMWARE_STABLE_RUN_MS));
+    /* 1 ms before the warm-up end plus 60 s: not cleared, the fourth start is still a loop. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, START_CLEAR_MS - 1u));
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+
+    hal_eeprom_fake_reset();
+    short_starts(FIRMWARE_SHORT_STARTS_MAX);
+    /* Exactly the warm-up end plus 60 s: cleared. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, START_CLEAR_MS));
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-011 */
+static void test_firmware_failed_clear_is_tried_again_at_the_next_check(void)
+{
+    short_starts(FIRMWARE_SHORT_STARTS_MAX);
+    hal_eeprom_fake_fail_writes(true);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, START_CLEAR_MS));
+    hal_eeprom_fake_fail_writes(false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, START_CLEAR_MS + 1000u));
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-011 */
+static void test_firmware_start_counter_fits_after_the_log_and_a_write_error_fails_the_boot(void)
+{
+    /* The counter (2 bytes) sits after the last log entry and inside the EEPROM. */
+    TEST_ASSERT_EQUAL_UINT32(309u, FIRMWARE_ADDR_START_COUNT);
+    TEST_ASSERT_TRUE((FIRMWARE_ADDR_START_COUNT + 2u) <= HAL_EEPROM_SIZE);
+    hal_eeprom_fake_fail_writes(true);
+    /* main.c then arms the watchdog without kicking it: the board restarts with the relay low. */
+    TEST_ASSERT_NOT_EQUAL(GG_OK, firmware_boot(&fw, HAL_RESET_POWER_ON, 0u));
+}
+
+/* @verifies REQ-SAF-011 */
+static void test_firmware_start_count_stays_at_its_maximum_in_a_long_loop(void)
+{
+    static const uint8_t full[2] = { 255u, 0u };   /* Count 255 and its complement. */
+    uint8_t stored[2] = { 0u, 0u };
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_write(FIRMWARE_ADDR_START_COUNT, full, 2u));
+    short_starts(1u);
+    /* No wrap to 0: the start is still a loop start, in FAULT with the relay off. */
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_read(FIRMWARE_ADDR_START_COUNT, stored, 2u));
+    TEST_ASSERT_EQUAL_UINT8(255u, stored[0]);
+    TEST_ASSERT_EQUAL_UINT8(0u, stored[1]);
+}
+
+/* @verifies REQ-SAF-011 */
+static void test_firmware_start_count_clear_follows_the_stored_warmup(void)
+{
+    config_t cfg;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_defaults(&cfg));
+    cfg.warmup_s = 600u;
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_store(&cfg));
+    short_starts(FIRMWARE_SHORT_STARTS_MAX);
+    /* 600 s of warm-up then 60 s: 659.999 s does not clear, 660 s does. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, 660000u - 1u));
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+
+    hal_eeprom_fake_reset();
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_store(&cfg));
+    short_starts(FIRMWARE_SHORT_STARTS_MAX);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, 660000u));
     short_start();
     TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
 }
@@ -734,11 +824,16 @@ int main(void)
     RUN_TEST(test_firmware_bandgap_fault_latches_even_when_the_log_write_fails);
     RUN_TEST(test_firmware_bandgap_is_logged_again_after_a_reset);
     RUN_TEST(test_firmware_alarm_2_buzzer_beeps_four_times_a_second_at_the_output_rate);
-    RUN_TEST(test_firmware_fourth_short_start_enters_fault_and_logs_it_once);
-    RUN_TEST(test_firmware_later_short_starts_stay_in_fault_and_write_nothing_to_the_log);
-    RUN_TEST(test_firmware_sixty_seconds_of_running_clears_the_start_count);
-    RUN_TEST(test_firmware_reset_loop_fault_clears_after_sixty_seconds_and_a_new_start);
+    RUN_TEST(test_firmware_fourth_short_start_enters_fault_and_logs_it);
+    RUN_TEST(test_firmware_later_short_starts_stay_in_fault_and_log_each_start);
+    RUN_TEST(test_firmware_sixty_seconds_after_warmup_clear_the_start_count);
+    RUN_TEST(test_firmware_reset_loop_fault_clears_after_a_full_run_and_a_new_start);
     RUN_TEST(test_firmware_corrupted_start_count_is_read_as_zero);
+    RUN_TEST(test_firmware_start_count_stays_at_its_maximum_in_a_long_loop);
+    RUN_TEST(test_firmware_start_count_clear_follows_the_stored_warmup);
+    RUN_TEST(test_firmware_start_count_is_cleared_sixty_seconds_after_warmup_not_before);
+    RUN_TEST(test_firmware_failed_clear_is_tried_again_at_the_next_check);
+    RUN_TEST(test_firmware_start_counter_fits_after_the_log_and_a_write_error_fails_the_boot);
     RUN_TEST(test_firmware_channel_fault_is_logged_once);
     RUN_TEST(test_firmware_missing_display_is_logged);
     RUN_TEST(test_firmware_channel_recovery_is_logged);
