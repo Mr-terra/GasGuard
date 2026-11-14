@@ -33,6 +33,22 @@ multimeter or the serial monitor (tools in
 | Reset loop | 4 manual resets less than 3 min apart: the 4th start is in FAULT (`FAULT 5` in the log); 3 min of running, then a reset: normal start | REQ-SAF-011 |
 | Calibration in the configuration | REQ-FUN-003 is **only partly met**: the zero offsets are compiled in (`FIRMWARE_ZERO_RAW_*`), not stored in the configuration, and the span is not checked with a reference gas. The trace shows code and tests for REQ-FUN-003, not this gap. Decision of the author (Day 5): v1.0 ships with the current compiled-in values; the values are changed later | REQ-FUN-003 |
 
+## Day 5 — second night run (2026-11-14 to 2026-11-15)
+
+Firmware: `main` at `863eb47` (stuck-only FAULT that ends by itself, PEAK record,
+cycle end time), normal build. Both MQ sensors in clean air. Log dumped in the
+morning (entries 17 to 56).
+
+| Check | Result | Requirement |
+|---|---|---|
+| Stuck-only FAULT | **Pass**: three `FAULT 6` episodes (at 2601 s, 3712 s and 6624 s), each with both channels stuck; each ended by itself 2 to 4 s later (`RECOVERED`, `MODE 1`), with no restart | REQ-SAF-003, REQ-SAF-007, FMEA F46 |
+| Single stuck channel | **Pass**: the MQ-2 alone was stuck four times (`CHANNEL 1` then `RECOVERED 1`); the detector stayed in NORMAL on the MQ-5 | REQ-SAF-003 |
+| Overrun detection | **Pass for normal running**: no `OVERRUN` entry over the run, the first one with the real cycle end time. The forced overrun (bench build) is still open | REQ-SAF-008 |
+| Log volume | About 25 entries in about 1 h 50 min of events, then no event until the next start. The 111-entry ring keeps the night | REQ-LOG-001, REQ-LOG-003 |
+| Bandgap at a start | **To explain**: one start logged `BANDGAP 266` then `FAULT 1` at 0 s (entries 49 to 53). 266 means AVcc about 1.1 × 1023 / 266 = 4.2 V, below the tolerance. The next start was normal. Probable cause: the board was powered by USB only while the temperature sensor was wired (USB gave 4.53 V without load on Day 5) | REQ-SAF-004 |
+
+The entries 0 to 16 are the simulation-build test of the same day.
+
 ## Day 5 — simulation build (2026-11-14)
 
 Firmware: `gasguard_sim.hex` built by `make avr-sim` from `main` at `7f41634`,
