@@ -407,7 +407,7 @@ static gg_status_t sample_report_channels(firmware_t *fw, uint32_t now_ms)
 }
 
 /**
- * @brief Run the detector on one sample and log a change of mode.
+ * @brief Run the detector on one sample, log a change of mode and end the silence it may carry.
  * @param fw      Firmware state.
  * @param now_ms  Current time.
  * @param gas     Selection of this sample; no valid channel is a fault.
@@ -432,7 +432,12 @@ static gg_status_t sample_detector_step(firmware_t *fw, uint32_t now_ms, const f
         if (after != before) {
             eventlog_entry_t event = { now_ms / FIRMWARE_MS_PER_S, EVENTLOG_MODE_CHANGE, (uint16_t)after };
 
-            status = eventlog_append(&event);
+            /* A silence belongs to the alarm it was given for: any change of state ends it,
+             * so a later alarm sounds again (REQ-HMI-004). */
+            status = hmi_silence_init(&fw->silence);
+            if (status == GG_OK) {
+                status = eventlog_append(&event);
+            }
         }
     }
     return status;
