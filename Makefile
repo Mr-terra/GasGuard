@@ -87,6 +87,9 @@ coverage: test
 	gcovr -r . --object-directory $(BUILD)/test \
 	      --filter '(common|hal|app|services|drivers)/' \
 	      --html-details $(COVERAGE_DIR)/index.html --print-summary
+	# Gate: at least 90 % of the lines of app/ and services/ (REQ-NFR-004).
+	gcovr -r . --object-directory $(BUILD)/test \
+	      --filter '(app|services)/' --fail-under-line 90 --print-summary
 
 # Cross-compile the firmware for the ATmega328P.
 $(AVR_ELF): $(AVR_SRCS)

@@ -345,7 +345,7 @@ failure and task overruns.
 |---|---|---|
 | Compiler | REQ-NFR-003 | Zero warnings with `-Wall -Wextra -Werror` and the extra flags of the standard |
 | Static analysis | Coding standard §6 | Zero findings outside the register of deviations |
-| Unit test coverage | REQ-NFR-004 | At least 90 % of lines in `app/` and `services/` (enforced from Day 2) |
+| Unit test coverage | REQ-NFR-004 | At least 90 % of lines in `app/` and `services/`; `make coverage` fails below |
 | Flash | REQ-NFR-005 | At most 80 % of 32 KB, measured on the firmware image (`make size`: about 13.8 KB, 53 % of the budget) |
 | RAM | REQ-NFR-005 | At most 60 % of 2 KB, static data only (`make size`: 630 B of 1228 B); the stack is watched at run time (REQ-SAF-009) |
 | Traceability | `trace.py` | Every requirement has code and a test (enforced on Day 5) |

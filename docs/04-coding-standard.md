@@ -85,6 +85,6 @@ the caller, which treats it as a fault (DEV-08).
 | `cppcheck --enable=all --addon=misra` | Static analysis + MISRA addon | 0 findings outside deviations |
 | `clang-tidy` (bugprone, cert, misc) | Static analysis | 0 findings |
 | `lizard -C 10 -L 60` | Complexity | pass |
-| `Unity` + `gcov`/`gcovr` | Unit tests + coverage | 100 % pass, ≥ 90 % lines |
+| `Unity` + `gcov`/`gcovr` | Unit tests + coverage | 100 % pass, ≥ 90 % lines of `app/` and `services/` (`--fail-under-line 90`) |
 | `avr-size` | Memory budget | REQ-NFR-005 |
 | `tools/trace.py` | Requirement traceability | every REQ has code + test |
