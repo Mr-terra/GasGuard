@@ -69,8 +69,10 @@ through the breadboard:
   the ADC input floating and the reading is random instead of ≈ 0, which
   defeats REQ-SAF-002. 100 kΩ is large compared with the module's load
   resistor, so the measurement error is negligible.
-- **Power:** each MQ heater draws ≈ 150 mA. Two sensors + LCD + relay fit within
-  the USB 500 mA budget; never connect more than 2 MQ modules at once (HW-003).
+- **Power:** each MQ heater draws ≈ 150 mA; never connect more than 2 MQ
+  modules at once (HW-003). On the bench a supply sagged by 0.25 V with one
+  heater on, so the board is powered from the 9 V jack (1 A): 5.12 to 5.15 V on
+  the 5V pin with both heaters on (docs/test-report.md).
 
 ### 2.2 Hardware requirements
 
@@ -80,15 +82,15 @@ code, so they use the `HW-` prefix instead of `REQ-`.
 | ID | Requirement |
 |---|---|
 | HW-001 | Each gas sensor input shall have a 100 kΩ pull-down to GND on the Arduino side of the cable. |
-
-**Proposed, not yet approved (Day 5 review, FMEA F21):** the relay driver should
-have a 10 kΩ pull-down from its base (or gate) to GND. While the MCU is held in
-reset, its pins float, and without the pull-down the coil may stay energised
-(healthy output while the detector is down). It is a hardware change and a
-new requirement (HW-002): it needs the author's approval before it becomes a
-requirement, and it is measured on the bench (docs/test-report.md).
 | HW-002 | The second signal wire of each Grove cable shall be left unconnected and insulated. |
 | HW-003 | No more than 2 MQ sensors shall be powered from the board at the same time. |
+
+**Proposed, not yet approved (Day 5 review, FMEA F21), HW-004:** the relay
+input (SIG of the relay module) should have a 10 kΩ pull-down to GND. While the
+MCU is held in reset, its pins float, and without the pull-down the coil may
+stay energised (healthy output while the detector is down). It is a hardware
+change and a new requirement: it needs the author's approval before it becomes
+a requirement, and it is measured on the bench (docs/test-report.md).
 
 ## 3. Detector state machine
 
