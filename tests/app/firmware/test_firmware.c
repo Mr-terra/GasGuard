@@ -314,6 +314,27 @@ static void test_firmware_short_press_silences_the_alarm_1_buzzer(void)
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
 }
 
+/* @verifies REQ-HMI-004 */
+static void test_firmware_a_new_alarm_1_sounds_after_a_silenced_one(void)
+{
+    boot_and_reach_normal();
+    set_gas_raw(ALARM_1_RAW);
+    fw_ticks(10u, false, false);
+    fw_ticks(5u, true, false);     /* Short press: this ALARM_1 is silenced. */
+    fw_ticks(3u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
+    /* The gas goes away: back to NORMAL. */
+    set_gas_raw(CLEAN_RAW);
+    fw_ticks(20u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    /* A new leak: the new ALARM_1 must sound, the old silence does not carry over. */
+    set_gas_raw(ALARM_1_RAW);
+    fw_ticks(10u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_output(&fw, 130000u));
+    TEST_ASSERT_TRUE(hal_gpio_fake_level(HAL_GPIO_PIN_BUZZER));
+}
+
 /* @verifies REQ-HMI-005 */
 static void test_firmware_long_press_in_alarm_2_resets_the_latch_when_gas_is_gone(void)
 {
@@ -911,6 +932,7 @@ int main(void)
     RUN_TEST(test_firmware_touch_for_three_seconds_enters_maintenance);
     RUN_TEST(test_firmware_touch_shorter_than_three_seconds_is_ignored);
     RUN_TEST(test_firmware_short_press_silences_the_alarm_1_buzzer);
+    RUN_TEST(test_firmware_a_new_alarm_1_sounds_after_a_silenced_one);
     RUN_TEST(test_firmware_long_press_in_alarm_2_resets_the_latch_when_gas_is_gone);
     RUN_TEST(test_firmware_long_press_in_normal_runs_the_functional_test);
     RUN_TEST(test_firmware_overrun_is_written_to_the_event_log);
