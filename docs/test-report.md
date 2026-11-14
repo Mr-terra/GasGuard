@@ -36,6 +36,19 @@ analyser or the serial monitor.
 | Reset loop | 4 manual resets less than 3 min apart: the 4th start is in FAULT (`FAULT 5` in the log); 3 min of running, then a reset: normal start | REQ-SAF-011 |
 | Calibration in the configuration | REQ-FUN-003 is **only partly met**: the zero offsets are compiled in (`FIRMWARE_ZERO_RAW_*`), not stored in the configuration, and the span is not checked with a reference gas. The trace shows code and tests for REQ-FUN-003, not this gap. Decision of the author (Day 5): v1.0 ships with the current compiled-in values; the values are changed later | REQ-FUN-003 |
 
+## Day 5 — dead heater (2026-11-14)
+
+Voltage measurement only, with the multimeter; the firmware does not matter.
+Question: is a sensor whose heater is dead seen as a fault, or does it look like
+calm air (FMEA F03)?
+
+| Check | Result | Requirement |
+|---|---|---|
+| MQ5 - VCC unplugged, MQ5 - AO read on Arduino A0 ↔ Arduino GND | **Pass**: 0 V after 10 minutes, below the 0.025 V open-circuit limit (`DIAG_OPEN_MAX` = 5 raw). A dead heater reads as an open circuit, so the channel is excluded within 5 samples and, with both channels out, the FAULT latches | REQ-SAF-002, REQ-SAF-003 |
+
+Not covered: a sensing element that ages while its heater still works, and the
+MQ-2 (same Grove module type, not measured). The monthly gas test covers both.
+
 ## Day 5 — full firmware on the board (2026-11-13)
 
 Firmware: `main` at `60ac2b2` (button read as active high), flashed with
