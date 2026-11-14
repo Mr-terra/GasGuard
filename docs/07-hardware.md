@@ -19,16 +19,18 @@ part itself.
 | 7 | Touch sensor | Seeed Grove Touch Sensor v1.1 (same kit), 5 V when touched, 0 V otherwise | 1 | Port D3 (SIG) | In use | 3 s touch in NORMAL: MAINTENANCE |
 | 8 | Buzzer | Seeed Grove Buzzer v1.2 (same kit), active buzzer | 1 | Port D6 (SIG) | In use | Switched on and off as a plain output; Timer0 is left free |
 | 9 | Gas simulator | Seeed Grove Rotary Angle Sensor v1.2 (same kit) | 1 | Port A2 | Bench only | Read only by the simulation build (`make avr-sim`, FMEA F41) |
-| 10 | Temperature sensor | Seeed Grove Temperature Sensor v1.2 (same kit, NTC thermistor) | 1 | Port A3, planned | **In stock, not wired** | Compensation not wired in the firmware (A3 is not read) |
-| 11 | Pull-down resistors | 100 kΩ, 1/4 W | 2 | A0–GND and A1–GND, Arduino side | In use | HW-001: an unplugged cable reads 0 instead of noise |
-| 12 | Cables | Grove to female Dupont | 2 | MQ-5, MQ-2 | In use | White wire not connected, insulated (HW-002) |
-| 13 | Breadboard and jumper wires | — | 1 | Pull-downs, MQ wiring | In use | — |
+| 10 | Pull-down resistors | 100 kΩ, 1/4 W | 2 | A0–GND and A1–GND, Arduino side | In use | HW-001: an unplugged cable reads 0 instead of noise |
+| 11 | Cables | Grove to female Dupont | 2 | MQ-5, MQ-2 | In use | White wire not connected, insulated (HW-002) |
+| 12 | Breadboard and jumper wires | — | 1 | Pull-downs, MQ wiring | In use | — |
 
 No relay module is fitted. The firmware still drives the relay output on D5
 (REQ-SAF-001): high when healthy, low on alarm, fault and reset. On the bench
-that output is checked by its pin level (multimeter or logic analyser). The
+that output is checked by its pin level with the multimeter. The
 pull-down proposed for the relay input (HW-004, FMEA F21) applies only once a
 relay module is fitted.
+
+No temperature sensor is fitted: port A3 is reserved for it, and the firmware
+does not read it (temperature compensation not wired).
 
 ## 2. Supply
 
@@ -45,13 +47,11 @@ report, Day 5). No more than two MQ modules on the board (HW-003).
 | Tool | Use |
 |---|---|
 | Multimeter | Supply voltages, sensor outputs (A0, A1), the dead-heater check |
-| Logic analyser, 24 MHz, 8 channels | Pin timing: buzzer rate, watchdog period, relay output level at reset (D5), I2C frames to the LCD |
-| Room thermometer | Room temperature noted with the sensor readings (not connected to the board) |
 | PC with Windows, avrdude, WSL Ubuntu | Flashing (`tools/flash.ps1`), build and checks (`make check`) |
 | Butane lighter, **unlit** | Gas test of the sensors (README, "Periodic gas test") |
 
-Not available: oscilloscope. Analogue signals (sensor outputs, supply ripple)
-are read with the multimeter only.
+Not used on the bench: oscilloscope, logic analyser. Voltages are read with the
+multimeter; timing is checked by ear, by counting, or from the event log.
 
 ## 4. Safety notes for the bench
 

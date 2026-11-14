@@ -7,12 +7,12 @@ yet run are listed as open, so nothing is reported as passed by default.
 ## Open steps for the next bench session (Day 5 and after)
 
 No result is recorded for these steps yet. Each one needs the board, the
-multimeter, the logic analyser or the serial monitor (tools in
+multimeter or the serial monitor (tools in
 [`07-hardware.md`](07-hardware.md)).
 
 | Step | What to check | Requirement |
 |---|---|---|
-| Relay at reset | Pin D5 low before the first GPIO init, seen on the logic analyser (FMEA F21) | REQ-SAF-001 |
+| Relay at reset | Pin D5 low before the first GPIO init (FMEA F21) | REQ-SAF-001 |
 | Watchdog timing | Reset after 500 ms without kick; no reset in normal running | REQ-SAF-005 |
 | Stack watermark | Value of `hal_stack_free_bytes` after boot and after a minute | REQ-SAF-009 |
 | Buzzer patterns | 1 Hz (ALARM_1), 4 Hz (ALARM_2), one beep every 5 s (FAULT) | REQ-HMI-003 |

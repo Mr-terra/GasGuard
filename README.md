@@ -218,7 +218,6 @@ mitigation, is in [`docs/03-safety-analysis.md`](docs/03-safety-analysis.md).
 | Grove Button v1.2, Grove Touch Sensor v1.1 | Operator input |
 | Grove Buzzer v1.2 | Audible alarm |
 | Grove Rotary Angle Sensor v1.2 | Gas simulator (simulation build only) |
-| Grove Temperature Sensor v1.2 | Compensation input (in stock, not wired) |
 | 100 kΩ resistors (×2) | Pull-downs on the gas inputs |
 | 9 V 1 A wall adapter | Supply on the barrel jack |
 
@@ -333,7 +332,7 @@ Verification follows four levels, defined in
 | L1 Static | CI | Warnings, MISRA subset, complexity, AVR header isolation | gcc, cppcheck, clang-tidy, lizard |
 | L2 Unit | CI (PC) | Each `services/` and `app/` module with host fakes | Unity, gcov |
 | L3 Scenario | CI (PC) | Full detector driven by scripted ADC sequences, time-stepped | Unity, `hal/*/*_fake.c` |
-| L4 Hardware | Bench | Real board, potentiometer, then butane from an unlit lighter | Manual, multimeter, logic analyser |
+| L4 Hardware | Bench | Real board, potentiometer, then butane from an unlit lighter | Manual, multimeter, event log |
 
 Scenario tests SC-01 to SC-10 and SC-13 are implemented (Day 2), with two deviations: SC-01 starts in WARMUP (INIT and SELF_TEST come on Day 4), and SC-15 is unit-tested only. SC-11, SC-12, SC-14 and SC-16 are implemented on Day 4 (`tests/scenarios/test_scenarios_day4.c`). They cover boot, alarms,
 latching, sensor faults, configuration recovery, maintenance timeout, bandgap
