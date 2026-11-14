@@ -66,7 +66,7 @@ process is the point:
 | Alarms | Two-level alarm with hysteresis, latched ALARM_2, warm-up inhibition, max of valid channels | Done (Day 2) |
 | Alarms | Relay normally energised: energised in WARMUP and NORMAL only, de-energised on alarm and fault (state logic done; driving the pin is Day 3) | Logic done (Day 2); pin Day 3 |
 | Storage | A/B configuration with CRC-16 and safe defaults, repair of the other copy (REQ-CFG-001..004) | Done (Day 4) |
-| Storage | Event log in a 32-entry EEPROM ring buffer, CRC-16 per entry, written on events only (REQ-LOG-001..003) | Done (Day 4); CRC-16 on Day 5 |
+| Storage | Event log in a 111-entry EEPROM ring buffer (the largest that fits), CRC-16 per entry, written on events only (REQ-LOG-001..003) | Done (Day 4); CRC-16 on Day 5 |
 | Interface | 16×2 LCD driver: two lines of text and backlight colour (`drivers/lcd_rgb`), verified on the board | Done (Day 3) |
 | Interface | Buzzer and button drivers (`drivers/buzzer`, `drivers/button` with 30 ms debounce) | Done (Day 3); patterns and actions Day 4 |
 | Interface | Buzzer patterns (1 Hz, 4 Hz, 1 beep / 5 s), short-press silence, long-press reset and functional test, debounce (REQ-HMI-003..007) | Done (Day 4) |

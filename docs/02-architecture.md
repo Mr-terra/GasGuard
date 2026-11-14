@@ -137,7 +137,7 @@ in that loop has returned (REQ-SAF-005).
 |---|---|
 | Flash | ≤ 26 214 B (80 % of 32 KB, REQ-NFR-005) |
 | SRAM static | ≤ 1 228 B (60 % of 2 KB, REQ-NFR-005), leaves ≥ 800 B for stack |
-| EEPROM | Config A @0 (10 B), Config B @10 (10 B), log head @20 (1 B), log @21 (32 × 9 B), start counter @309 (2 B: count and its complement, REQ-SAF-011); 311 of 1024 B used |
+| EEPROM | Config A @0 (10 B), Config B @10 (10 B), log head @20 (1 B), log @21 (111 × 9 B), start counter @1020 (2 B: count and its complement, REQ-SAF-011); 1022 of 1024 B used |
 
 ## 6. Key design decisions (ADR summary)
 

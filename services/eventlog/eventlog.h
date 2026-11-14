@@ -1,6 +1,6 @@
 /**
  * @file eventlog.h
- * @brief Event log: a ring of 32 entries in EEPROM, written only on events.
+ * @brief Event log: a ring of 111 entries in EEPROM, written only on events.
  *
  * Each entry holds an uptime timestamp in seconds, an event code, a 16-bit
  * argument and a CRC-16 (REQ-LOG-002). The ring head (the next slot
@@ -19,8 +19,14 @@
 
 #include "common/gg_types/gg_types.h"
 
-/** @brief Number of entries in the ring (REQ-LOG-001). */
-#define EVENTLOG_ENTRIES 32u
+/**
+ * @brief Number of entries in the ring (REQ-LOG-001).
+ *
+ * 111 is the largest ring that fits in the 1 KB EEPROM: 20 bytes of
+ * configuration, 1 byte of head, 111 x 9 bytes of entries and the 2-byte start
+ * counter that follows them end at byte 1021 of 1024.
+ */
+#define EVENTLOG_ENTRIES 111u
 /** @brief Bytes per stored entry: 4 timestamp, 1 code, 2 argument, 2 CRC-16. */
 #define EVENTLOG_ENTRY_SIZE 9u
 /** @brief EEPROM address of the ring head (one byte), and of the first entry. */

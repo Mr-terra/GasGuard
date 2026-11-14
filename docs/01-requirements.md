@@ -107,7 +107,7 @@ Any mode → `FAULT`. `NORMAL` ⇄ `MAINTENANCE` (operator request, time-limited
 
 | ID | Requirement |
 |---|---|
-| REQ-LOG-001 | The firmware shall record mode transitions, faults, resets, and configuration events in a ring buffer of 110 entries in EEPROM (the largest that fits in the 1 KB EEPROM). |
+| REQ-LOG-001 | The firmware shall record mode transitions, faults, resets, and configuration events in a ring buffer of 111 entries in EEPROM (the largest that fits in the 1 KB EEPROM). |
 | REQ-LOG-002 | Each entry shall contain an uptime timestamp (s), an event code, and a 16-bit argument, and shall be protected by an 8-bit checksum. |
 | REQ-LOG-003 | The firmware shall write the log only on events (never periodically), to limit EEPROM wear. |
 | REQ-LOG-004 | The log shall be dumpable over UART (38400 baud, 8N1) on the command `log`. |

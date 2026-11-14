@@ -1,4 +1,4 @@
-/* Unit tests for the event log: a 110-entry ring in EEPROM, one write per event (REQ-LOG-001..003). */
+/* Unit tests for the event log: a 111-entry ring in EEPROM, one write per event (REQ-LOG-001..003). */
 #include "unity.h"
 #include "common/gg_types/gg_types.h"
 #include "hal/eeprom/eeprom.h"
@@ -56,19 +56,19 @@ static void test_eventlog_append_stores_timestamp_code_and_argument(void)
 }
 
 /* @verifies REQ-LOG-001 */
-static void test_eventlog_ring_overwrites_the_oldest_entry_after_110_appends(void)
+static void test_eventlog_ring_overwrites_the_oldest_entry_after_111_appends(void)
 {
     eventlog_entry_t entry;
     uint8_t i;
 
-    /* The ring holds 110 entries: the largest that fits in the 1 KB EEPROM (REQ-LOG-001). */
-    TEST_ASSERT_EQUAL_UINT32(110u, EVENTLOG_ENTRIES);
-    for (i = 0u; i < 111u; i++) {
+    /* The ring holds 111 entries: the largest that fits in the 1 KB EEPROM (REQ-LOG-001). */
+    TEST_ASSERT_EQUAL_UINT32(111u, EVENTLOG_ENTRIES);
+    for (i = 0u; i < 112u; i++) {
         TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append((uint32_t)i, EVENTLOG_FAULT, 0u));
     }
-    /* Append 110 went to slot 0, which held append 0: slot 0 now holds 110. */
+    /* Append 111 went to slot 0, which held append 0: slot 0 now holds 111. */
     TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(0u, &entry));
-    TEST_ASSERT_EQUAL_UINT32(110u, entry.uptime_s);
+    TEST_ASSERT_EQUAL_UINT32(111u, entry.uptime_s);
     /* Slot 1 still holds append 1. */
     TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(1u, &entry));
     TEST_ASSERT_EQUAL_UINT32(1u, entry.uptime_s);
@@ -165,7 +165,7 @@ int main(void)
     UNITY_BEGIN();
     RUN_TEST(test_eventlog_head_starts_at_zero_after_reset);
     RUN_TEST(test_eventlog_append_stores_timestamp_code_and_argument);
-    RUN_TEST(test_eventlog_ring_overwrites_the_oldest_entry_after_110_appends);
+    RUN_TEST(test_eventlog_ring_overwrites_the_oldest_entry_after_111_appends);
     RUN_TEST(test_eventlog_unwritten_slot_is_reported_invalid);
     RUN_TEST(test_eventlog_corrupted_entry_is_detected_by_its_checksum);
     RUN_TEST(test_eventlog_head_out_of_range_is_treated_as_zero);
