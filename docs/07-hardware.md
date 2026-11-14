@@ -11,19 +11,24 @@ part itself.
 | # | Part | Model | Qty | Connected to | Status | Notes |
 |---|---|---|---|---|---|---|
 | 1 | Microcontroller board | Elegoo Uno R3 (ATmega328P, 16 MHz, 32 KB flash, 2 KB SRAM, 1 KB EEPROM), optiboot bootloader | 1 | — | In use | The bootloader clears the reset flags, so the reset cause reads as unknown (FMEA F23) |
-| 2 | Connector shield | Seeed Grove Base Shield v2.1 | 1 | On the Uno | In use | Supply switch on 5 V (**to confirm**) |
+| 2 | Connector shield | Seeed Grove Base Shield v2.1 | 1 | On the Uno | In use | Its VCC switch (3.3 V / 5 V) selects the supply of every Grove port: it must be on 5 V (**position to confirm**) |
 | 3 | Gas sensor, natural gas / LPG | Generic MQ-5 module (pins VCC, GND, DO, AO) | 1 | Port A0 (AO), see §2 | In use | Heater about 150 mA. Zero offset 113 (provisional, REQ-FUN-003) |
 | 4 | Gas sensor, combustible gas / smoke | Generic MQ-2 module (pins VCC, GND, DO, AO) | 1 | Port A1 (AO), see §2 | In use | Heater about 150 mA. Zero offset 0 until its preheat is over |
 | 5 | Display | Seeed Grove LCD RGB Backlight v4.0 (16×2) | 1 | Port I2C | In use | LCD at 0x3E, backlight at 0x62 (v5.0 boards use 0x30) |
-| 6 | Push button | Button module, output high when pressed (**model to confirm**) | 1 | Port D2 (SIG) | In use | Short press: silence; long press: ALARM_2 reset or functional test |
-| 7 | Touch sensor | Capacitive touch module, 5 V when touched, 0 V otherwise (**model to confirm**) | 1 | Port D3 (SIG) | In use | 3 s touch in NORMAL: MAINTENANCE |
-| 8 | Buzzer | Active buzzer module (**model to confirm**) | 1 | Port D6 (SIG) | In use | Switched on and off as a plain output; Timer0 is left free |
-| 9 | Relay | Relay module v1.2 (pins GND, VCC, NC, SIG), relay HLS8L-DC3V-S-C | 1 | Port D5 (SIG), planned | **Not wired** | The relay is rated for a 3 V DC coil: **check the module's supply voltage before powering it from 5 V**. Proposed 10 kΩ pull-down on SIG (HW-004, FMEA F21) |
-| 10 | Gas simulator | Seeed Grove Rotary Angle Sensor | 1 | Port A2 | Bench only | Read only by the simulation build (`make avr-sim`, FMEA F41) |
-| 11 | Temperature sensor | **Model to confirm** | 1 | Port A3, planned | **Not wired** | Compensation not wired in the firmware (A3 is not read) |
-| 12 | Pull-down resistors | 100 kΩ, 1/4 W | 2 | A0–GND and A1–GND, Arduino side | In use | HW-001: an unplugged cable reads 0 instead of noise |
-| 13 | Cables | Grove to female Dupont | 2 | MQ-5, MQ-2 | In use | White wire not connected, insulated (HW-002) |
-| 14 | Breadboard and jumper wires | — | 1 | Pull-downs, MQ wiring | In use | — |
+| 6 | Push button | Seeed Grove Button v1.2 (Grove Starter Kit for Arduino), output high when pressed | 1 | Port D2 (SIG) | In use | Short press: silence; long press: ALARM_2 reset or functional test |
+| 7 | Touch sensor | Seeed Grove Touch Sensor v1.1 (same kit), 5 V when touched, 0 V otherwise | 1 | Port D3 (SIG) | In use | 3 s touch in NORMAL: MAINTENANCE |
+| 8 | Buzzer | Seeed Grove Buzzer v1.2 (same kit), active buzzer | 1 | Port D6 (SIG) | In use | Switched on and off as a plain output; Timer0 is left free |
+| 9 | Gas simulator | Seeed Grove Rotary Angle Sensor v1.2 (same kit) | 1 | Port A2 | Bench only | Read only by the simulation build (`make avr-sim`, FMEA F41) |
+| 10 | Temperature sensor | Seeed Grove Temperature Sensor v1.2 (same kit, NTC thermistor) | 1 | Port A3, planned | **In stock, not wired** | Compensation not wired in the firmware (A3 is not read) |
+| 11 | Pull-down resistors | 100 kΩ, 1/4 W | 2 | A0–GND and A1–GND, Arduino side | In use | HW-001: an unplugged cable reads 0 instead of noise |
+| 12 | Cables | Grove to female Dupont | 2 | MQ-5, MQ-2 | In use | White wire not connected, insulated (HW-002) |
+| 13 | Breadboard and jumper wires | — | 1 | Pull-downs, MQ wiring | In use | — |
+
+No relay module is fitted. The firmware still drives the relay output on D5
+(REQ-SAF-001): high when healthy, low on alarm, fault and reset. On the bench
+that output is checked by its pin level (multimeter or logic analyser). The
+pull-down proposed for the relay input (HW-004, FMEA F21) applies only once a
+relay module is fitted.
 
 ## 2. Supply
 
@@ -40,16 +45,17 @@ report, Day 5). No more than two MQ modules on the board (HW-003).
 | Tool | Use |
 |---|---|
 | Multimeter | Supply voltages, sensor outputs (A0, A1), the dead-heater check |
+| Logic analyser, 24 MHz, 8 channels | Pin timing: buzzer rate, watchdog period, relay output level at reset (D5), I2C frames to the LCD |
+| Room thermometer | Room temperature noted with the sensor readings (not connected to the board) |
 | PC with Windows, avrdude, WSL Ubuntu | Flashing (`tools/flash.ps1`), build and checks (`make check`) |
 | Butane lighter, **unlit** | Gas test of the sensors (README, "Periodic gas test") |
 
-Not available: oscilloscope and logic analyser. The timing checks (buzzer
-rate, watchdog period) are done by ear, by counting, or from the event log.
+Not available: oscilloscope. Analogue signals (sensor outputs, supply ripple)
+are read with the multimeter only.
 
 ## 4. Safety notes for the bench
 
-- The relay contact is rated for mains voltage, but the bench never switches
-  mains: GasGuard is a learning project, not a certified detector (README,
-  limitations).
+- The bench never switches mains: GasGuard is a learning project, not a
+  certified detector (README, limitations).
 - Gas tests use a short puff from an unlit lighter, in a ventilated room, away
   from any flame.

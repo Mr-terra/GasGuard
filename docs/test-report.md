@@ -7,12 +7,12 @@ yet run are listed as open, so nothing is reported as passed by default.
 ## Open steps for the next bench session (Day 5 and after)
 
 No result is recorded for these steps yet. Each one needs the board, the
-multimeter or the serial monitor (no logic analyser is available, see
+multimeter, the logic analyser or the serial monitor (tools in
 [`07-hardware.md`](07-hardware.md)).
 
 | Step | What to check | Requirement |
 |---|---|---|
-| Relay at reset | Pin D5 low before the first GPIO init (FMEA F21) | REQ-SAF-001 |
+| Relay at reset | Pin D5 low before the first GPIO init, seen on the logic analyser (FMEA F21) | REQ-SAF-001 |
 | Watchdog timing | Reset after 500 ms without kick; no reset in normal running | REQ-SAF-005 |
 | Stack watermark | Value of `hal_stack_free_bytes` after boot and after a minute | REQ-SAF-009 |
 | Buzzer patterns | 1 Hz (ALARM_1), 4 Hz (ALARM_2), one beep every 5 s (FAULT) | REQ-HMI-003 |
@@ -29,7 +29,7 @@ multimeter or the serial monitor (no logic analyser is available, see
 | Display time | Longest display task on the board (I2C): stays well under 100 ms per cycle | REQ-SAF-008 |
 | Overrun detection | With the end time fix (`day-5-fix-overrun`): no `OVERRUN` in normal running over one hour; a cycle made longer on purpose (bench build only) logs `OVERRUN` and three in a row give `FAULT 3` | REQ-SAF-008 |
 | UART input | Paste a 16-character command: no byte lost | REQ-LOG-004 |
-| Relay pull-down | Relay state at reset, with and without the proposed 10 kΩ pull-down | REQ-SAF-001, FMEA F21 |
+| Relay pull-down | Only once a relay module is fitted (none on the bench): relay state at reset, with and without the proposed 10 kΩ pull-down | REQ-SAF-001, FMEA F21 |
 | Buzzer rate | Alarm 2 measured on the buzzer pin: 4 beeps per second | REQ-HMI-003 |
 | All channels stuck | One night with both sensors in clean air: any FAULT `6` (stuck) ends by itself when a channel moves; no restart needed | REQ-SAF-003, REQ-SAF-007 |
 | Periodic gas test | The procedure of the README, in MAINTENANCE (unlit lighter on each sensor): each reading rises above 10 %LEL, no relay drop and no buzzer; after MAINTENANCE ends, each `PEAK` entry is above 100 (10 %LEL) and no `OVERRUN` follows | REQ-SAF-003, REQ-HMI-009, REQ-LOG-001 |

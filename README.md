@@ -215,11 +215,10 @@ mitigation, is in [`docs/03-safety-analysis.md`](docs/03-safety-analysis.md).
 | Seeed Grove Base Shield v2.1 | Connectors for the Grove modules |
 | MQ-5 and MQ-2 gas sensor modules | Gas channels (generic modules, not Grove) |
 | Grove LCD RGB Backlight v4.0 | 16×2 display (I2C) |
-| Button, touch sensor | Operator input |
-| Buzzer | Audible alarm |
-| Relay module v1.2 | Alarm contact (not wired yet) |
-| Grove Rotary Angle Sensor | Gas simulator (simulation build only) |
-| Temperature sensor | Compensation input (not wired yet) |
+| Grove Button v1.2, Grove Touch Sensor v1.1 | Operator input |
+| Grove Buzzer v1.2 | Audible alarm |
+| Grove Rotary Angle Sensor v1.2 | Gas simulator (simulation build only) |
+| Grove Temperature Sensor v1.2 | Compensation input (in stock, not wired) |
 | 100 kΩ resistors (×2) | Pull-downs on the gas inputs |
 | 9 V 1 A wall adapter | Supply on the barrel jack |
 
@@ -334,7 +333,7 @@ Verification follows four levels, defined in
 | L1 Static | CI | Warnings, MISRA subset, complexity, AVR header isolation | gcc, cppcheck, clang-tidy, lizard |
 | L2 Unit | CI (PC) | Each `services/` and `app/` module with host fakes | Unity, gcov |
 | L3 Scenario | CI (PC) | Full detector driven by scripted ADC sequences, time-stepped | Unity, `hal/*/*_fake.c` |
-| L4 Hardware | Bench | Real board, potentiometer, then butane from an unlit lighter | Manual, multimeter, event log |
+| L4 Hardware | Bench | Real board, potentiometer, then butane from an unlit lighter | Manual, multimeter, logic analyser |
 
 Scenario tests SC-01 to SC-10 and SC-13 are implemented (Day 2), with two deviations: SC-01 starts in WARMUP (INIT and SELF_TEST come on Day 4), and SC-15 is unit-tested only. SC-11, SC-12, SC-14 and SC-16 are implemented on Day 4 (`tests/scenarios/test_scenarios_day4.c`). They cover boot, alarms,
 latching, sensor faults, configuration recovery, maintenance timeout, bandgap
@@ -402,8 +401,10 @@ Accepted deviations from the coding standard are listed in
 - **Maintenance inhibits the alarm outputs** for up to 10 minutes, as REQ-HMI-009
   states. The relay stays energised and the buzzer stays silent during that time
   (FMEA F36, accepted by the author).
-- **Not yet checked on the board:** the stack watermark value, the relay (not
-  wired: relay state at reset, functional-test release), and the watchdog timing.
+- **No relay module is fitted.** The firmware drives the relay output (D5) as
+  specified; on the bench only its pin level can be checked.
+- **Not yet checked on the board:** the stack watermark value, the D5 level at
+  reset and during the functional test, and the watchdog timing.
   The open steps are listed in
   [`docs/test-report.md`](docs/test-report.md).
 - **The `log` command needs a newline** (`\n`): a carriage return alone is ignored.
