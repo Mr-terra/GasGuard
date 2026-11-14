@@ -415,6 +415,40 @@ static void test_firmware_frozen_channel_is_excluded_after_ten_minutes(void)
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
 }
 
+/** @brief Run the firmware one sample a second through the warm-up and past the stuck window. */
+static void run_past_the_stuck_window(void)
+{
+    uint32_t i;
+
+    for (i = 0u; i < FROZEN_TEST_SAMPLES; i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, i * FIRMWARE_MS_PER_S));
+    }
+}
+
+/* @verifies REQ-SAF-003 REQ-SAF-007 */
+static void test_firmware_both_channels_frozen_in_clean_air_stay_in_use(void)
+{
+    boot_defaults();
+    /* Calm clean air: both channels steady for more than 10 min after the warm-up. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5 + 20u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW));
+    run_past_the_stuck_window();
+    /* Both stuck at once is calm air, not two dead sensors: no FAULT, the value is still read. */
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(20, firmware_concentration(&fw));
+}
+
+/* @verifies REQ-SAF-003 REQ-SAF-007 */
+static void test_firmware_stuck_channel_with_the_other_open_is_a_fault(void)
+{
+    boot_defaults();
+    /* MQ-2 open circuit: out at once. MQ-5 steady: stuck after 10 min, not saved by the rule. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5 + 20u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, 0u));
+    run_past_the_stuck_window();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+}
+
 /* @verifies REQ-SAF-004 */
 static void test_firmware_bandgap_out_of_tolerance_raises_fault(void)
 {
@@ -817,6 +851,8 @@ int main(void)
     RUN_TEST(test_firmware_three_overruns_latch_fault);
     RUN_TEST(test_firmware_stack_below_64_bytes_latches_fault);
     RUN_TEST(test_firmware_frozen_channel_is_excluded_after_ten_minutes);
+    RUN_TEST(test_firmware_both_channels_frozen_in_clean_air_stay_in_use);
+    RUN_TEST(test_firmware_stuck_channel_with_the_other_open_is_a_fault);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_raises_fault);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_logs_its_raw_value_once);
     RUN_TEST(test_firmware_bandgap_within_tolerance_logs_nothing);
