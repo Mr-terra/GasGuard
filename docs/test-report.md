@@ -27,7 +27,7 @@ multimeter or the serial monitor (tools in
 | Relay pull-down | Only once a relay module is fitted (none on the bench): relay state at reset, with and without the proposed 10 kΩ pull-down | REQ-SAF-001, FMEA F21 |
 | All channels stuck | One night with both sensors in clean air: any FAULT `6` (stuck) ends by itself when a channel moves; no restart needed | REQ-SAF-003, REQ-SAF-007 |
 | Periodic gas test | The procedure of the README, in MAINTENANCE (unlit lighter on each sensor): each reading rises above 10 %LEL, no relay drop and no buzzer; after MAINTENANCE ends, each `PEAK` entry is above 100 (10 %LEL) and no `OVERRUN` follows | REQ-SAF-003, REQ-HMI-009, REQ-LOG-001 |
-| Temperature coefficient | Clean air, one to two days with the room warming and cooling: `status` every few minutes, then the slope of the MQ raw values against the temperature raw value | REQ-FUN-004 |
+| Temperature coefficient | Clean air, one to two days with the room warming and cooling: `tools/status-log.ps1` records `status` every 5 minutes into a CSV, then the slope of the MQ raw values against the temperature raw value | REQ-FUN-004 |
 | Calibration in the configuration | REQ-FUN-003 is **only partly met**: the zero offsets are compiled in (`FIRMWARE_ZERO_RAW_*`), not stored in the configuration, and the span is not checked with a reference gas. The trace shows code and tests for REQ-FUN-003, not this gap. Decision of the author (Day 5): v1.0 ships with the current compiled-in values; the values are changed later | REQ-FUN-003 |
 
 ## Day 5 — temperature pull-down (2026-11-15)

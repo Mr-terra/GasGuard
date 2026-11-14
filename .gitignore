@@ -6,5 +6,6 @@ build/
 *.gcda
 *.gcno
 __pycache__/
+status-log*.csv
 .vscode/
 .claude/settings.local.json

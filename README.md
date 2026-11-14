@@ -333,7 +333,12 @@ Two helper scripts, both run from Windows in the project folder:
 ```powershell
 tools\monitor.ps1 -Port COM3              # read the serial log (Ctrl+C to stop)
 tools\flash-monitor.ps1 -Port COM3        # flash, then read the log
+tools\status-log.ps1 -Port COM3           # send `status` every 5 min, append it to status-log.csv
 ```
+
+`status-log.ps1` records the state, the concentration and the raw inputs over
+hours, for the measurement of the temperature coefficient (REQ-FUN-004). Run it
+in clean air for one to two days while the room warms and cools.
 
 If PowerShell refuses to run a script (execution policy), start it with
 `powershell -ExecutionPolicy Bypass -File tools\flash-monitor.ps1 -Port COM3`.
@@ -445,6 +450,9 @@ Accepted deviations from the coding standard are listed in
 - **Start-up needs the USB, then the 9 V jack, then RESET** (see "Power-up
   order"): a start on USB alone ends in FAULT, and with the jack first the
   board's USB chip is not recognised by Windows.
+- **The buzzer is not connected on the bench** (since 2026-11-15): its cable feeds
+  the temperature sensor. The firmware still drives D6; alarms are visible on the
+  display only.
 - **No relay module is fitted.** The firmware drives the relay output (D5) as
   specified; on the bench only its pin level can be checked.
 - **Not yet checked on the board:** the stack watermark value, the D5 level at
