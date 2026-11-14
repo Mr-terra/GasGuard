@@ -60,7 +60,7 @@ process is the point:
 | Sensing | Moving average over the last 8 samples per channel (`services/filter`) |
 | Sensing | Linear calibration to %LEL in Q8 fixed point, zero offset per channel (provisional bench values: MQ-5 113, MQ-2 0); temperature on A3 read and checked every sample (valid between 0 and 50 degC, 1 MΩ pull-down so an unplugged sensor is invalid), compensation coefficient still 0 until measured on the bench (REQ-FUN-004, see limitations) |
 | Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) |
-| Diagnostics | Bandgap raw read against AVcc, checked at start-up and every 60 s; ten conversions discarded first so the reference settles; the first bad raw value of each boot is logged as `BANDGAP` (REQ-SAF-004, FMEA F43) |
+| Diagnostics | Bandgap raw read against AVcc, checked 1 s after the start (the AREF capacitor charges at power-on) and every 60 s; ten conversions discarded first so the reference settles; the first bad raw value of each boot is logged as `BANDGAP` (REQ-SAF-004, FMEA F43) |
 | Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) |
 | Diagnostics | Stuck-only FAULT: when every sensor is out only because it is stuck (calm air), FAULT code 6 ends by itself as soon as a sensor moves; any real fault latches (REQ-SAF-007, FMEA F46) |
 | Diagnostics | Reset loop: three starts in a row without 60 s of running past the warm-up, from the fourth on each start enters FAULT and logs it with its reset and configuration source (REQ-SAF-011, FMEA F33). Manual resets less than 3 min apart (with the default 120 s warm-up) count too |

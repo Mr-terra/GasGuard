@@ -610,6 +610,9 @@ static void test_firmware_first_bandgap_check_waits_for_the_reference_to_settle(
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, 0u));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, FIRMWARE_BANDGAP_FIRST_MS - 1u));
     TEST_ASSERT_EQUAL_UINT8(0u, count_bandgap_entries());
+    /* No fault is pending either: the detector is still warming up. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, FIRMWARE_BANDGAP_FIRST_MS - 1u));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
     /* One second later the reference has settled: a value still out of tolerance is a fault. */
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, FIRMWARE_BANDGAP_FIRST_MS));
     TEST_ASSERT_EQUAL_UINT8(1u, count_bandgap_entries());

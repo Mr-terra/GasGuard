@@ -102,8 +102,20 @@
 /** @brief Maintenance mode ends by itself after this time, in milliseconds (REQ-HMI-010). */
 #define FIRMWARE_MAINT_MAX_MS 600000u
 
-/** @brief Bandgap measurement period, in milliseconds: at start-up and every 60 s (REQ-SAF-004). */
+/** @brief Bandgap measurement period, in milliseconds: every 60 s after the first one (REQ-SAF-004). */
 #define FIRMWARE_BANDGAP_PERIOD_MS 60000u
+
+/**
+ * @brief Time from the start to the first bandgap measurement, in milliseconds (REQ-SAF-004).
+ *
+ * The capacitor on AREF charges only once the ADC first selects AVcc. At power-on
+ * it is empty, so the first checks read the reference low and the bandgap high
+ * (266 on the bench, with a correct 5.1 V supply). After a reset it still holds
+ * its charge (AREF floats while the reference bits are cleared). One second is
+ * far longer than the charge, and costs nothing: the warm-up (30 s at least,
+ * REQ-CFG-004) inhibits the alarms anyway (FMEA F43).
+ */
+#define FIRMWARE_BANDGAP_FIRST_MS 1000u
 
 /**
  * @brief Output period (relay and buzzer), in milliseconds. A 4 Hz buzzer has a 250 ms period:
