@@ -55,7 +55,7 @@ morning (entries 17 to 56).
 | Single stuck channel | **Pass**: the MQ-2 alone was stuck four times (`CHANNEL 1` then `RECOVERED 1`); the detector stayed in NORMAL on the MQ-5 | REQ-SAF-003 |
 | Overrun detection | **Pass for normal running**: no `OVERRUN` entry over the run, the first one with the real cycle end time. The forced overrun (bench build) is still open | REQ-SAF-008 |
 | Log volume | About 25 entries in about 1 h 50 min of events, then no event until the next start. The 111-entry ring keeps the night | REQ-LOG-001, REQ-LOG-003 |
-| Bandgap at a start | **To explain**: one start logged `BANDGAP 266` then `FAULT 1` at 0 s (entries 49 to 53). 266 means AVcc about 1.1 × 1023 / 266 = 4.2 V, below the tolerance. The next start was normal. Probable cause: the board was powered by USB only while the temperature sensor was wired (USB gave 4.53 V without load on Day 5) | REQ-SAF-004 |
+| Bandgap at a start | **To explain**: one start logged `BANDGAP 266` then `FAULT 1` at 0 s (entries 49 to 53). 266 means AVcc about 1.1 × 1023 / 266 = 4.2 V, below the tolerance. The next start was normal. Not the USB supply and not a hot plug: the author confirmed the 9 V jack was in use and the wires were changed with the power off. Hypothesis to check: the cold MQ heaters draw more current at power-on and pull the 5 V down while the first bandgap check runs. To watch at the next cold starts; open | REQ-SAF-004 |
 
 The entries 0 to 16 are the simulation-build test of the same day.
 
