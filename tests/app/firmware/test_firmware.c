@@ -1016,6 +1016,70 @@ static void test_firmware_no_peak_is_logged_outside_maintenance(void)
     TEST_ASSERT_EQUAL_UINT8(0u, count_entries(EVENTLOG_MAINT_PEAK, ANY_ARG));
 }
 
+/** @brief Raw value of the temperature input at about 25 degC (Grove Temperature Sensor v1.2). */
+#define TEMP_ROOM_RAW 512u
+
+/* @verifies REQ-FUN-004 REQ-LOG-005 */
+static void test_firmware_status_reports_the_raw_inputs_and_a_valid_temperature(void)
+{
+    cli_status_t snap;
+
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, TEMP_ROOM_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, CLEAN_RAW_PLUS_2));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &snap));
+    TEST_ASSERT_EQUAL_UINT8((uint8_t)DET_STATE_NORMAL, snap.state);
+    TEST_ASSERT_EQUAL_UINT16(CLEAN_RAW, snap.raw_mq5);
+    TEST_ASSERT_EQUAL_UINT16(CLEAN_RAW_PLUS_2, snap.raw_mq2);
+    TEST_ASSERT_EQUAL_UINT16(TEMP_ROOM_RAW, snap.raw_temp);
+    TEST_ASSERT_TRUE(snap.temp_valid);
+}
+
+/* @verifies REQ-FUN-004 */
+static void test_firmware_temperature_outside_its_range_or_unread_is_invalid(void)
+{
+    cli_status_t snap;
+
+    boot_and_reach_normal();
+    /* Thermistor open: the 100 kOhm resistor of the module pulls the output near 0. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, FIRMWARE_TEMP_RAW_MIN - 1u));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &snap));
+    TEST_ASSERT_FALSE(snap.temp_valid);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, FIRMWARE_TEMP_RAW_MAX + 1u));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &snap));
+    TEST_ASSERT_FALSE(snap.temp_valid);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, TEMP_ROOM_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_TEMP, true));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &snap));
+    TEST_ASSERT_FALSE(snap.temp_valid);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_TEMP, false));
+    /* A faulty temperature input is never a gas fault: the detector stays in NORMAL. */
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+}
+
+/* @verifies REQ-FUN-004 */
+static void test_firmware_valid_temperature_does_not_move_the_gas_reading_while_the_coefficient_is_zero(void)
+{
+    cli_status_t cold;
+    cli_status_t warm;
+
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, FIRMWARE_TEMP_RAW_MIN));
+    fw_ticks(10u, false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &cold));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, FIRMWARE_TEMP_RAW_MAX));
+    fw_ticks(10u, false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &warm));
+    TEST_ASSERT_TRUE(cold.temp_valid && warm.temp_valid);
+    TEST_ASSERT_EQUAL_INT16(cold.conc, warm.conc);
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_status(NULL, &warm));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, firmware_status(&fw, NULL));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1070,6 +1134,9 @@ int main(void)
     RUN_TEST(test_firmware_maintenance_end_logs_the_peak_of_each_channel);
     RUN_TEST(test_firmware_each_maintenance_starts_a_new_peak);
     RUN_TEST(test_firmware_no_peak_is_logged_outside_maintenance);
+    RUN_TEST(test_firmware_status_reports_the_raw_inputs_and_a_valid_temperature);
+    RUN_TEST(test_firmware_temperature_outside_its_range_or_unread_is_invalid);
+    RUN_TEST(test_firmware_valid_temperature_does_not_move_the_gas_reading_while_the_coefficient_is_zero);
     RUN_TEST(test_firmware_peaks_are_logged_one_per_sample_after_the_mode_change);
     RUN_TEST(test_firmware_a_failed_peak_write_does_not_stop_the_sample);
     return UNITY_END();
