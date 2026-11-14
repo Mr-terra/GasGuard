@@ -28,9 +28,23 @@ multimeter or the serial monitor (tools in
 | All channels stuck | One night with both sensors in clean air: any FAULT `6` (stuck) ends by itself when a channel moves; no restart needed | REQ-SAF-003, REQ-SAF-007 |
 | Periodic gas test | The procedure of the README, in MAINTENANCE (unlit lighter on each sensor): each reading rises above 10 %LEL, no relay drop and no buzzer; after MAINTENANCE ends, each `PEAK` entry is above 100 (10 %LEL) and no `OVERRUN` follows | REQ-SAF-003, REQ-HMI-009, REQ-LOG-001 |
 | Temperature coefficient | Clean air, one to two days with the room warming and cooling: `status` every few minutes, then the slope of the MQ raw values against the temperature raw value | REQ-FUN-004 |
-| Bandgap at power-on | With the change (first check 1 s after the start): unplug and plug the 9 V jack 3 times, then `log`. No `BANDGAP` entry: the AREF cause is confirmed. A `BANDGAP` entry at 1 s: the 5 V really sags at power-on (heaters), to measure | REQ-SAF-004, FMEA F43 |
-| Reset loop | 4 manual resets less than 3 min apart: the 4th start is in FAULT (`FAULT 5` in the log); 3 min of running, then a reset: normal start | REQ-SAF-011 |
 | Calibration in the configuration | REQ-FUN-003 is **only partly met**: the zero offsets are compiled in (`FIRMWARE_ZERO_RAW_*`), not stored in the configuration, and the span is not checked with a reference gas. The trace shows code and tests for REQ-FUN-003, not this gap. Decision of the author (Day 5): v1.0 ships with the current compiled-in values; the values are changed later | REQ-FUN-003 |
+
+## Day 5 — power-up and reset loop (2026-11-15)
+
+Firmware: `day-5-temp` at `4faff2c`. Log entries 74 to 110, then 0 to 4 (the
+111-entry ring wrapped).
+
+| Check | Result | Requirement |
+|---|---|---|
+| Start on USB alone | **Pass (FAULT as specified)**: with the USB cable plugged before the 9 V jack, `BANDGAP 268` at 1 s then `FAULT 1` (entries 88 to 92 and 104). 268 is an AVcc of about 4.2 V: the USB port of the PC cannot supply the two heaters (the author checked it: USB holds the LCD, not the sensors). The earlier `BANDGAP 266` and `267` (entries 51 and 69) had the same cause | REQ-SAF-004 |
+| Jack first, then USB | The board starts normally, but Windows shows an unknown USB device (the board's USB chip is not recognised). Not a firmware matter. Procedure kept: USB, then jack, then RESET (README, "Power-up order") | — |
+| USB, jack, RESET | **Pass**: after the reset the board starts on the jack, warm-up, then `MODE 1` at 120 s (entries 2 to 4) | REQ-SAF-004, REQ-ALM-006 |
+| Reset loop | **Pass**: the fourth short start in a row entered FAULT with `FAULT 5` (entries 83, 102, 107 and 0), and each start kept its `RESET` and `CONFIG` entries. After 3 minutes powered and one RESET, the board started normally | REQ-SAF-011 |
+| Display at a start on USB alone | `DISPLAY 0` twice (entries 78 and 97), both during the USB-only starts: the LCD did not answer at the low supply. The detector ran on without it, as specified | REQ-HMI-001 |
+
+The first-check delay of 1 s (`4faff2c`) was based on a wrong cause (the AREF
+capacitor): the reading was still 268 at 1 s, because the supply itself was low.
 
 ## Day 5 — temperature input and status command (2026-11-15)
 
@@ -56,7 +70,7 @@ morning (entries 17 to 56).
 | Single stuck channel | **Pass**: the MQ-2 alone was stuck four times (`CHANNEL 1` then `RECOVERED 1`); the detector stayed in NORMAL on the MQ-5 | REQ-SAF-003 |
 | Overrun detection | **Pass for normal running**: no `OVERRUN` entry over the run, the first one with the real cycle end time. The forced overrun (bench build) is still open | REQ-SAF-008 |
 | Log volume | About 25 entries in about 1 h 50 min of events, then no event until the next start. The 111-entry ring keeps the night | REQ-LOG-001, REQ-LOG-003 |
-| Bandgap at a start | **To explain**: one start logged `BANDGAP 266` then `FAULT 1` at 0 s (entries 49 to 53). 266 means AVcc about 1.1 × 1023 / 266 = 4.2 V, below the tolerance. The next start was normal. Not the USB supply and not a hot plug: the author confirmed the 9 V jack was in use and the wires were changed with the power off. The same `BANDGAP 267` came back at the next power-on, and never after a reset. Most likely cause, to confirm: the AREF capacitor charges only once the ADC first selects AVcc, so it is empty at power-on and still charged after a reset. Alternative: the cold MQ heaters pull the 5 V down at power-on. Change on `day-5-temp`: first check 1 s after the start; the power-on test below tells the two apart | REQ-SAF-004 |
+| Bandgap at a start | **To explain**: one start logged `BANDGAP 266` then `FAULT 1` at 0 s (entries 49 to 53). 266 means AVcc about 1.1 × 1023 / 266 = 4.2 V, below the tolerance. The next start was normal. **Explained on 2026-11-15**: the board had started on USB alone, which cannot supply the two heaters (4.2 V); the FAULT was right (section "power-up and reset loop") | REQ-SAF-004 |
 
 The entries 0 to 16 are the simulation-build test of the same day.
 

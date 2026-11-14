@@ -325,8 +325,8 @@ Flashing is done by hand from Windows, never from the build system:
 tools\flash.ps1 -Port COM3
 ```
 
-Open the serial monitor at 38400 baud. The boot banner, reset cause and
-configuration CRC status appear there once the firmware is complete (Day 4).
+The firmware prints nothing by itself on the serial port: send `log` (event
+log) or `status` (state and raw inputs) at 38400 baud, with a newline.
 
 Two helper scripts, both run from Windows in the project folder:
 
@@ -341,6 +341,28 @@ The flash needs `avrdude` in the `Path` (see `tools/flash.ps1`).
 
 The simulation image (`make avr-sim`, `gasguard_sim.hex`) has no real gas sensor, so
 `flash.ps1` refuses it unless `-Bench` is given (FMEA F41).
+
+### Power-up order
+
+The USB port of the PC cannot supply the two gas sensor heaters: on USB alone
+the 5 V rail falls to about 4.2 V. The board's USB chip, on the other hand, is
+not recognised by Windows when the 9 V jack is plugged in first. Start the
+board in this order:
+
+1. Plug the **USB cable** first. Windows finds the serial port (COMx). The
+   board starts on USB alone, sees its supply too low (`BANDGAP` about 268 in
+   the log) and enters **FAULT**. That is the expected, safe reaction
+   (REQ-SAF-004): with 4.2 V the gas readings would be wrong.
+2. Plug the **9 V jack**. The 5 V rail rises to about 5.1 V; the FAULT stays
+   latched.
+3. Press the **RESET** button of the Arduino **once**. The board starts again
+   on the jack: warm-up (2 min), then NORMAL. The serial port stays recognised.
+
+Do not press RESET again within 3 minutes, and do not unplug and replug the
+supply several times in a row: from the fourth start in a row that runs less
+than 3 minutes, the board starts in FAULT (`FAULT 5`, reset-loop protection,
+REQ-SAF-011). To leave it, keep the board powered for 3 minutes without
+touching it, then press RESET once.
 
 ## Verification and quality gates
 
@@ -420,6 +442,9 @@ Accepted deviations from the coding standard are listed in
 - **Maintenance inhibits the alarm outputs** for up to 10 minutes, as REQ-HMI-009
   states. The relay stays energised and the buzzer stays silent during that time
   (FMEA F36, accepted by the author).
+- **Start-up needs the USB, then the 9 V jack, then RESET** (see "Power-up
+  order"): a start on USB alone ends in FAULT, and with the jack first the
+  board's USB chip is not recognised by Windows.
 - **No relay module is fitted.** The firmware drives the relay output (D5) as
   specified; on the bench only its pin level can be checked.
 - **Not yet checked on the board:** the stack watermark value, the D5 level at
