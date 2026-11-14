@@ -656,7 +656,7 @@ static void test_firmware_failed_clear_is_tried_again_at_the_next_check(void)
 static void test_firmware_start_counter_fits_after_the_log_and_a_write_error_fails_the_boot(void)
 {
     /* The counter (2 bytes) sits after the last log entry and inside the EEPROM. */
-    TEST_ASSERT_EQUAL_UINT32(309u, FIRMWARE_ADDR_START_COUNT);
+    TEST_ASSERT_EQUAL_UINT32(1011u, FIRMWARE_ADDR_START_COUNT);
     TEST_ASSERT_TRUE((FIRMWARE_ADDR_START_COUNT + 2u) <= HAL_EEPROM_SIZE);
     hal_eeprom_fake_fail_writes(true);
     /* main.c then arms the watchdog without kicking it: the board restarts with the relay low. */
