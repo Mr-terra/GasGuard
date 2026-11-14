@@ -30,11 +30,27 @@ analyser or the serial monitor.
 | UART input | Paste a 16-character command: no byte lost | REQ-LOG-004 |
 | Relay pull-down | Relay state at reset, with and without the proposed 10 kΩ pull-down | REQ-SAF-001, FMEA F21 |
 | Buzzer rate | Alarm 2 measured on the buzzer pin: 4 beeps per second | REQ-HMI-003 |
-| Simulation build | `make avr-sim`: the potentiometer on A2 drives the MQ-5 channel | REQ-FUN-006 |
 | All channels stuck | One night with both sensors in clean air: any FAULT `6` (stuck) ends by itself when a channel moves; no restart needed | REQ-SAF-003, REQ-SAF-007 |
 | Periodic gas test | The procedure of the README, in MAINTENANCE (unlit lighter on each sensor): each reading rises above 10 %LEL, no relay drop and no buzzer; after MAINTENANCE ends, each `PEAK` entry is above 100 (10 %LEL) and no `OVERRUN` follows | REQ-SAF-003, REQ-HMI-009, REQ-LOG-001 |
 | Reset loop | 4 manual resets less than 3 min apart: the 4th start is in FAULT (`FAULT 5` in the log); 3 min of running, then a reset: normal start | REQ-SAF-011 |
 | Calibration in the configuration | REQ-FUN-003 is **only partly met**: the zero offsets are compiled in (`FIRMWARE_ZERO_RAW_*`), not stored in the configuration, and the span is not checked with a reference gas. The trace shows code and tests for REQ-FUN-003, not this gap. Decision of the author (Day 5): v1.0 ships with the current compiled-in values; the values are changed later | REQ-FUN-003 |
+
+## Day 5 — simulation build (2026-11-14)
+
+Firmware: `gasguard_sim.hex` built by `make avr-sim` from `main` at `7f41634`,
+flashed with `tools/flash.ps1 -Bench`. Grove Rotary Angle Sensor on A2 in place
+of the MQ-5 channel; A1 read as usual. Validated by the author.
+
+| Check | Result | Requirement |
+|---|---|---|
+| Potentiometer drives the MQ-5 channel | **Pass**: NORMAL, ALARM_1, ALARM_2 and the return below the hysteresis follow the potentiometer | REQ-FUN-006, REQ-ALM-001..004 |
+| Potentiometer at 0 V (open circuit) | **Pass**: the channel is excluded; A1 still answers to gas and breath | REQ-SAF-002, REQ-FUN-005 |
+| Recovery of the channel | **Pass, as specified**: the channel comes back 2 to 3 minutes after 0 V. Turned to full scale first, the potentiometer read as a short circuit (raw ≥ 1018), which restarts the 600 valid samples (60 s) of REQ-SAF-002; the author keeps 60 s | REQ-SAF-002 |
+| Gas test record (`PEAK`) | Not run | REQ-LOG-001 |
+
+Open point: the author reported that the MQ-5 answers to breath and gas while
+this build reads A1, which should be the MQ-2. To check: MQ-5 - SIG on Arduino
+A0, MQ-2 - SIG on Arduino A1.
 
 ## Day 5 — dead heater (2026-11-14)
 
