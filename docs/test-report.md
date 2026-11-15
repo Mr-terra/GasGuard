@@ -37,7 +37,8 @@ GND on the breadboard (HW-005), temperature SIG on the same row.
 
 | Check | Result | Requirement |
 |---|---|---|
-| Sensor plugged | **Pass**: `STATUS 1 37 117 37 441 1`: raw 441 with the pull-down is a thermistor of about 120 kOhm, that is about 21.3 degC, inside 0 to 50 degC; `temp valid` 1 | REQ-FUN-004, HW-005 |
+| Sensor plugged | **Pass**: `STATUS 1 37 117 37 441 1`: raw 441, about 19.3 degC (the module output is buffered, so the pull-down does not change the reading; see the conversion check below), inside 0 to 50 degC; `temp valid` 1 | REQ-FUN-004, HW-005 |
+| Conversion check | 11:48, sensor moved 20 to 30 cm away from the board at 11:40: raw 417 against 17.3 degC on the room thermometer. The divider alone gives 17.4 degC; a calculation with the pull-down in parallel gave 19.3 degC, wrong. So the module output is buffered, and the range limits move to 217 .. 769 (0 to 50 degC) on `day-5-fix-temp-range`. Near the board the sensor read about 2 degC too high (heat of the MQ heaters and the board) | REQ-FUN-004 |
 | Sensor unplugged (SIG off) | **Pass**: `STATUS 1 37 117 37 3 0`: the pull-down holds A3 at 3, out of the valid range, `temp valid` 0. Before the pull-down the same test read 53 and valid (FMEA F48) | REQ-FUN-004, HW-005 |
 
 ## Day 5 — power-up and reset loop (2026-11-15)

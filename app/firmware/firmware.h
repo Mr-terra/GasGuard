@@ -46,16 +46,18 @@
  * @brief Temperature input: Grove Temperature Sensor v1.2 on A3 (REQ-FUN-004).
  *
  * The module is an NTC thermistor (100 kOhm at 25 degC, B = 4275) above a 100 kOhm
- * resistor to GND. A 1 MOhm pull-down on A3, on the Arduino side (HW-005), is in
- * parallel with that resistor: about 487 at 25 degC, lower when colder. An
- * unplugged sensor then reads 0 instead of floating near the last channel read.
+ * resistor to GND, followed by a buffer: about 512 at 25 degC, lower when colder.
+ * The buffered output is not loaded by the 1 MOhm pull-down on A3 (HW-005): on
+ * the bench, raw 417 was 17.3 degC on a room thermometer, as the divider alone
+ * gives. The pull-down only acts when the sensor is unplugged: A3 then reads 0
+ * instead of floating near the last channel read.
  * A reading outside FIRMWARE_TEMP_RAW_MIN .. FIRMWARE_TEMP_RAW_MAX (0 to 50 degC,
  * the range of a room) is invalid: unplugged or open reads 0, a short near 1023.
  * An invalid temperature never corrects the gas reading.
  */
 #define FIRMWARE_ADC_TEMP 3u
-#define FIRMWARE_TEMP_RAW_MIN 200u
-#define FIRMWARE_TEMP_RAW_MAX 750u
+#define FIRMWARE_TEMP_RAW_MIN 217u
+#define FIRMWARE_TEMP_RAW_MAX 769u
 
 /**
  * @brief Zero offset of each gas channel: the raw clean-air value, read as 0 %LEL (REQ-FUN-003).

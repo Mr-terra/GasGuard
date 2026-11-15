@@ -32,9 +32,12 @@ relay module is fitted.
 
 Temperature sensor: Seeed Grove Temperature Sensor v1.2 (same kit, NTC
 thermistor, 100 kOhm at 25 degC, B = 4275) on A3: VCC to Arduino 5V, GND to
-Arduino GND, SIG to Arduino A3 (Dupont wires). A 1 MΩ pull-down from Arduino A3
-to Arduino GND (HW-005) makes an unplugged sensor read 0. The firmware reads it
-every sample, accepts 0 to 50 degC (raw 200 to 750), and prints it with
+Arduino GND, SIG to Arduino A3 (Dupont wires). The module output is buffered,
+so the 1 MΩ pull-down from Arduino A3 to Arduino GND (HW-005) does not change
+the reading; it only makes an unplugged sensor read 0. The sensor sits 20 to
+30 cm away from the board and the MQ modules, whose heat raised its reading by
+about 2 degC (bench, 2026-11-15). The firmware reads it every sample, accepts 0
+to 50 degC (raw 217 to 769), and prints it with
 `status`; its compensation coefficient stays at 0 until it is measured
 (REQ-FUN-004).
 
