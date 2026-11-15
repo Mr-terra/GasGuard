@@ -1018,7 +1018,7 @@ static void test_firmware_no_peak_is_logged_outside_maintenance(void)
 
 /** @brief Raw value of the temperature input at about 25 degC (Grove Temperature Sensor v1.2, buffered output). */
 #define TEMP_ROOM_RAW 512u
-/** @brief Raw values just outside 0 .. 50 degC: about -1 degC and +49 degC (bench conversion, 2026-11-15). */
+/** @brief Raw values just below 0 degC and just under 50 degC (about -0.7 and +48.8 degC, bench conversion). */
 #define TEMP_MINUS_1_RAW 210u
 #define TEMP_PLUS_49_RAW 760u
 /** @brief Raw value of the temperature input below 0 degC: valid for the sensor, out of the range of a room. */
