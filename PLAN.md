@@ -46,6 +46,19 @@ day 5), `trace-check` skill, one `explain-module` session (30–45 min), commit.
 - [x] Tag `v1.0` (after the author validates Day 5): on `cc7e4f5`
 - [ ] **Learn:** full `explain-module` pass on `detector` and `diag` — mock interview
 
+## Day 6 — On-board calibration (decided by the author on 2026-11-17)
+Calibrate the gas zero offsets on the board itself, with no PC, and warn when
+they are out of date. Requirement texts approved by the author: REQ-FUN-007,
+REQ-HMI-011; the calibration requirements are written from the design below and
+shown to the author before the code.
+- [ ] Requirements in `docs/01`: REQ-FUN-007 (`ZERO_LOW` event: filtered raw more than 5 LSB under the zero for 1 h, once per channel per boot), REQ-HMI-011 (`RECAL` next to `NORMAL` on line 1, no backlight or buzzer change, hidden in ALARM_1, ALARM_2 and FAULT), and the calibration requirements
+- [ ] Calibration design: start with button + touch held together for 5 s in NORMAL; 72 h with detection fully active on the old offsets, `CAL` and the hours left on the LCD, lowest filtered raw kept per channel; cancelled (old offsets kept, logged) on ALARM, FAULT, MAINTENANCE, an invalid channel or a reset; at the end the LCD shows old and new offsets, stored only on a long press (≥ 3 s) within 10 min
+- [ ] Guards against calibrating a slow leak as clean air: ceiling per channel (MQ-5 160, MQ-2 80) and at most ±30 raw of change per calibration; a result outside is refused and logged
+- [ ] `services/config`: zero offsets stored in the A/B copies with their CRC (REQ-CFG-001, completes REQ-FUN-003); the compiled-in offsets (MQ-5 111, MQ-2 35) become the defaults; handling of the copies written by the older, shorter layout
+- [ ] Tests first: new unit and scenario tests for `ZERO_LOW`, `RECAL`, the calibration (start, cancel cases, guards, accept, timeout), and the update of the existing tests (config size and layout, LCD line 1, firmware zero offsets read from the configuration)
+- [ ] `safety-impact` (new FMEA rows: slow leak calibrated as clean air, wrong gesture, offsets lost in EEPROM), docs/02 state machine and LCD, docs/05, README, `test-report` bench steps
+- [ ] Bench: full 72 h calibration on the board, `RECAL` forced with a raised offset
+
 ## Version 2 (during the hiring process)
 Modbus RTU over UART (industrial standard), MQ7 CO channel with heater cycling,
 PC simulator with plots, low-power mode, HIL test with a second board.
