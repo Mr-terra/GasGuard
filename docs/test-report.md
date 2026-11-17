@@ -83,8 +83,7 @@ again, as REQ-SAF-004 states.
 ## Day 5 — temperature input and status command (2026-11-15)
 
 Firmware: `day-5-temp` at `f565f15`. Grove Temperature Sensor v1.2 wired with
-Dupont wires: VCC to Arduino 5V, GND to Arduino GND, SIG to Arduino A3. The
-buzzer was unplugged to free the adapter cable.
+Dupont wires: VCC to Arduino 5V, GND to Arduino GND, SIG to Arduino A3.
 
 | Check | Result | Requirement |
 |---|---|---|
