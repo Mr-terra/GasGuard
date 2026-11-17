@@ -55,7 +55,12 @@ shown to the author before the code.
 - [ ] Calibration design: start with button + touch held together for 5 s in NORMAL; 72 h with detection fully active on the old offsets, `CAL` and the hours left on the LCD, lowest filtered raw kept per channel; cancelled (old offsets kept, logged) on ALARM, FAULT, MAINTENANCE, an invalid channel or a reset; at the end the LCD shows old and new offsets, stored only on a long press (≥ 3 s) within 10 min
 - [ ] Guards against calibrating a slow leak as clean air: ceiling per channel (MQ-5 160, MQ-2 80) and at most ±30 raw of change per calibration; a result outside is refused and logged
 - [ ] `services/config`: zero offsets stored in the A/B copies with their CRC (REQ-CFG-001, completes REQ-FUN-003); the compiled-in offsets (MQ-5 111, MQ-2 35) become the defaults; handling of the copies written by the older, shorter layout
-- [ ] Tests first: new unit and scenario tests for `ZERO_LOW`, `RECAL`, the calibration (start, cancel cases, guards, accept, timeout), and the update of the existing tests (config size and layout, LCD line 1, firmware zero offsets read from the configuration)
+- [ ] Tests first: new unit and scenario tests for `ZERO_LOW`, `RECAL`, the calibration (start, cancel cases, guards, accept, timeout), and the update of the existing tests (config size and layout, LCD line 1, firmware zero offsets read from the configuration). Each feature covers five kinds of case:
+  - positive: the expected action happens (raw 6 LSB under the zero for 1 h logs `ZERO_LOW`; a clean 72 h run with a long press stores the offsets)
+  - negative: nothing happens when it must not (raw at the zero or above; no press at the end; gesture held in ALARM or MAINTENANCE)
+  - false positive: a short dip, noise or a single sample under the zero does not log `ZERO_LOW`; a button press alone or a touch alone does not start a calibration; the 3 s touch still enters MAINTENANCE
+  - false negative: a real case is not missed (a dip that returns at 59 min and drops again still reaches 1 h on the next run; a slow leak during the calibration is refused by the ceiling or the ±30 limit; `RECAL` comes back after a reset)
+  - limits: exactly 5 and 6 LSB under the zero, 59 min 59 s and 1 h, 4.9 s and 5 s of gesture, 2.9 s and 3 s of long press, 9 min 59 s and 10 min of decision time, ceiling 160 / 161 and 80 / 81, change of 30 and 31 raw, offsets near 0 and near 1023
 - [ ] `safety-impact` (new FMEA rows: slow leak calibrated as clean air, wrong gesture, offsets lost in EEPROM), docs/02 state machine and LCD, docs/05, README, `test-report` bench steps
 - [ ] Bench: full 72 h calibration on the board, `RECAL` forced with a raised offset
 
