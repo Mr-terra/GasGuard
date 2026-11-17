@@ -14,7 +14,6 @@ multimeter or the serial monitor (tools in
 
 | Step | What to check | Requirement |
 |---|---|---|
-| Relay at reset | Pin D5 low before the first GPIO init (FMEA F21) | REQ-SAF-001 |
 | Watchdog timing | Reset after 500 ms without kick; no reset in normal running | REQ-SAF-005 |
 | Stack watermark | Value of `hal_stack_free_bytes` after boot and after a minute | REQ-SAF-009 |
 | Buzzer patterns | 1 Hz in ALARM_1 (4 Hz in ALARM_2 and one beep every 5 s in FAULT were heard on Day 5) | REQ-HMI-003 |
@@ -26,6 +25,19 @@ multimeter or the serial monitor (tools in
 | All channels stuck | One night with both sensors in clean air: any FAULT `6` (stuck) ends by itself when a channel moves; no restart needed | REQ-SAF-003, REQ-SAF-007 |
 | Zero offsets re-check | Every month for the first three months, then at each periodic gas test: `tools/status-log.ps1` for one day in clean air; the lowest MQ-5 and MQ-2 raw values must stay at or above the offsets (111 and 35). A value under an offset means a leak reads low by the gap: lower the offset (FMEA F45) | REQ-FUN-003 |
 | Calibration in the configuration | REQ-FUN-003 is **only partly met**: the zero offsets are compiled in (`FIRMWARE_ZERO_RAW_*`), not stored in the configuration, and the span is not checked with a reference gas. The trace shows code and tests for REQ-FUN-003, not this gap. Decision of the author (Day 5): v1.0 ships with the current compiled-in values; the values are changed later | REQ-FUN-003 |
+
+## Day 5 — relay output D5 at reset (2026-11-17)
+
+Firmware: `main` at `6debe95` (release v1.1). No relay module fitted (as in
+[`07-hardware.md`](07-hardware.md)). Multimeter on 20 V DC: COM to an
+Arduino GND pin, V to the Arduino D5 pin.
+
+| Check | Result | Requirement |
+|---|---|---|
+| D5 in NORMAL | About 5 V: the relay output is driven high (healthy) | REQ-SAF-001 |
+| D5 with RESET held | About 0.5 V: during reset the pin is an input and the MCU does not drive it high. The pin floats: the low reading comes partly from the 10 MΩ input of the multimeter. With a relay module, the pull-down HW-004 (FMEA F21) is still needed so that the driver input reads low | REQ-SAF-001, F21 |
+| D5 after RESET is released | Back to about 5 V once the firmware starts (WARMUP) | REQ-SAF-001 |
+| D5 in MAINTENANCE | About 5 V: the relay holds its last healthy state, as REQ-HMI-009 requires | REQ-HMI-009 |
 
 ## Day 5 — periodic gas test and UART input (2026-11-17)
 
@@ -225,7 +237,7 @@ with the I²C STOP fix from `day-3-fix-i2c-stop` (`2d0d056`).
 
 | Check | Why it matters | Reference |
 |---|---|---|
-| Relay pin D5 state at reset, before any init | Floating input at reset could energise the coil | F21 |
+| Relay pin D5 state at reset, before any init | Floating input at reset could energise the coil | F21 (done on Day 5, 2026-11-17) |
 | Watchdog reset timing with the longest blocking step | Must stay below 500 ms | F22 |
 | Power-on reset cause (PORF and BORF) | Reported as unknown when both flags are set | F23 |
 | Buzzer on D6 | Driver is host-tested only | REQ-HMI-003 |
