@@ -1167,6 +1167,150 @@ static void test_firmware_temperature_range_is_zero_to_fifty_degrees(void)
     TEST_ASSERT_TRUE(snap.temp_valid);
 }
 
+/** @brief Read the reset entry written by a boot with this cause (first slot of a blank log). */
+static uint16_t reset_arg_after_boot(hal_reset_cause_t cause)
+{
+    eventlog_entry_t entry;
+
+    hal_eeprom_fake_reset();
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_boot(&fw, cause, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(0u, &entry));
+    TEST_ASSERT_EQUAL_INT(EVENTLOG_RESET, entry.code);
+    return entry.arg;
+}
+
+/* @verifies REQ-SAF-006 */
+static void test_firmware_watchdog_and_brown_out_resets_are_logged_with_their_cause(void)
+{
+    TEST_ASSERT_EQUAL_UINT16((uint16_t)HAL_RESET_WATCHDOG, reset_arg_after_boot(HAL_RESET_WATCHDOG));
+    TEST_ASSERT_EQUAL_UINT16((uint16_t)HAL_RESET_BROWN_OUT, reset_arg_after_boot(HAL_RESET_BROWN_OUT));
+}
+
+/* @verifies REQ-SAF-006 */
+static void test_firmware_every_reset_cause_is_logged_even_the_unknown_one(void)
+{
+    TEST_ASSERT_EQUAL_UINT16((uint16_t)HAL_RESET_EXTERNAL, reset_arg_after_boot(HAL_RESET_EXTERNAL));
+    /* Several flags or none: logged as unknown, never dropped (a hidden watchdog reset). */
+    TEST_ASSERT_EQUAL_UINT16((uint16_t)HAL_RESET_UNKNOWN, reset_arg_after_boot(HAL_RESET_UNKNOWN));
+}
+
+/* @verifies REQ-SAF-004 */
+static void test_firmware_bandgap_is_measured_after_60_s_not_before(void)
+{
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(150u));
+    fw_ticks((FIRMWARE_BANDGAP_PERIOD_MS / TICK_MS) - 1u, false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));   /* 59.9 s: not due yet. */
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));   /* 60 s: measured, out of tolerance. */
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-004 */
+static void test_firmware_bandgap_at_the_tolerance_edges_raises_no_fault(void)
+{
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(DIAG_BANDGAP_NOMINAL - 22u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    fw_ticks(FIRMWARE_BANDGAP_PERIOD_MS / TICK_MS, false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_bandgap(DIAG_BANDGAP_NOMINAL + 22u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+}
+
+/* @verifies REQ-HMI-008 */
+static void test_firmware_touch_of_3_s_is_ignored_and_3_2_s_enters_maintenance(void)
+{
+    /* The test loop runs every 100 ms: the debounce accepts the touch one step
+     * after it starts, the 3 s count from there, and the request is acted on at
+     * the next sample. So 30 steps held (3.0 s) are one step short, 32 are enough. */
+    boot_and_reach_normal();
+    fw_ticks(30u, false, true);
+    fw_ticks(3u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    fw_ticks(32u, false, true);
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
+}
+
+/* @verifies REQ-HMI-008 */
+static void test_firmware_touch_during_an_alarm_does_not_hide_it(void)
+{
+    boot_and_reach_normal();
+    set_gas_level(ALARM_1_RAW);
+    fw_ticks(10u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
+    fw_ticks(HOLD_LONG_TICKS, false, true);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
+}
+
+/**
+ * @brief n loop steps in clean air that moves by 2 LSB every step, as a live sensor does.
+ *
+ * Ten minutes of a perfectly flat value would trip the stuck-sensor check
+ * (REQ-SAF-003) and hide what the test looks at.
+ */
+static void fw_ticks_live_air(uint32_t n, bool touch)
+{
+    uint32_t i;
+
+    for (i = 0u; i < n; i++) {
+        set_gas_raw(((i % 2u) == 0u) ? CLEAN_RAW : CLEAN_RAW_PLUS_2);
+        fw_tick(false, touch);
+    }
+}
+
+/* @verifies REQ-HMI-010 */
+static void test_firmware_maintenance_ends_after_ten_minutes_not_before(void)
+{
+    boot_and_reach_normal();
+    fw_ticks(HOLD_LONG_TICKS, false, true);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
+    fw_ticks_live_air((FIRMWARE_MAINT_MAX_MS / TICK_MS) - 20u, false);   /* About 598 s after the start. */
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
+    fw_ticks_live_air(40u, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+}
+
+/* @verifies REQ-HMI-010 */
+static void test_firmware_touch_held_during_maintenance_does_not_extend_it(void)
+{
+    /* A finger left on the sensor (or a stuck touch input) must not keep the
+     * alarms inhibited past 10 minutes. */
+    boot_and_reach_normal();
+    fw_ticks(HOLD_LONG_TICKS, false, true);
+    fw_ticks_live_air((FIRMWARE_MAINT_MAX_MS / TICK_MS) + 20u, true);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+}
+
+/* @verifies REQ-FUN-004 */
+static void test_firmware_temperature_valid_range_ends_exactly_at_217_and_769(void)
+{
+    cli_status_t snap;
+
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, FIRMWARE_TEMP_RAW_MIN));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &snap));
+    TEST_ASSERT_TRUE(snap.temp_valid);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, FIRMWARE_TEMP_RAW_MIN - 1u));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &snap));
+    TEST_ASSERT_FALSE(snap.temp_valid);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, FIRMWARE_TEMP_RAW_MAX));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &snap));
+    TEST_ASSERT_TRUE(snap.temp_valid);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, FIRMWARE_TEMP_RAW_MAX + 1u));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &snap));
+    TEST_ASSERT_FALSE(snap.temp_valid);
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1229,5 +1373,14 @@ int main(void)
     RUN_TEST(test_firmware_temperature_range_is_zero_to_fifty_degrees);
     RUN_TEST(test_firmware_peaks_are_logged_one_per_sample_after_the_mode_change);
     RUN_TEST(test_firmware_a_failed_peak_write_does_not_stop_the_sample);
+    RUN_TEST(test_firmware_watchdog_and_brown_out_resets_are_logged_with_their_cause);
+    RUN_TEST(test_firmware_every_reset_cause_is_logged_even_the_unknown_one);
+    RUN_TEST(test_firmware_bandgap_is_measured_after_60_s_not_before);
+    RUN_TEST(test_firmware_bandgap_at_the_tolerance_edges_raises_no_fault);
+    RUN_TEST(test_firmware_touch_of_3_s_is_ignored_and_3_2_s_enters_maintenance);
+    RUN_TEST(test_firmware_touch_during_an_alarm_does_not_hide_it);
+    RUN_TEST(test_firmware_maintenance_ends_after_ten_minutes_not_before);
+    RUN_TEST(test_firmware_touch_held_during_maintenance_does_not_extend_it);
+    RUN_TEST(test_firmware_temperature_valid_range_ends_exactly_at_217_and_769);
     return UNITY_END();
 }

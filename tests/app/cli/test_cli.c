@@ -242,6 +242,113 @@ static void test_cli_status_with_extra_text_is_refused(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, cli_set_status(NULL, NULL));
 }
 
+/** @brief Forget what the CLI printed so far. */
+static void clear_capture(void)
+{
+    capture_len = 0u;
+    capture[0] = '\0';
+}
+
+/* @verifies REQ-LOG-004 */
+static void test_cli_log_with_a_carriage_return_is_accepted(void)
+{
+    /* Terminals send CR LF: the CR must not make "log" an unknown command. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, type_line("log\r"));
+    drain();
+    TEST_ASSERT_EQUAL_STRING("END\r\n", capture);
+}
+
+/* @verifies REQ-LOG-004 */
+static void test_cli_command_after_a_refused_line_works(void)
+{
+    TEST_ASSERT_EQUAL_INT(GG_OK, type_line("logxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
+    TEST_ASSERT_EQUAL_STRING("ERR\r\n", capture);
+    clear_capture();
+    TEST_ASSERT_EQUAL_INT(GG_OK, type_line("log"));
+    drain();
+    TEST_ASSERT_EQUAL_STRING("END\r\n", capture);
+}
+
+/* @verifies REQ-LOG-004 */
+static void test_cli_command_that_starts_like_log_is_refused(void)
+{
+    TEST_ASSERT_EQUAL_INT(GG_OK, type_line("lo"));
+    TEST_ASSERT_EQUAL_STRING("ERR\r\n", capture);
+    clear_capture();
+    TEST_ASSERT_EQUAL_INT(GG_OK, type_line("logs"));
+    TEST_ASSERT_EQUAL_STRING("ERR\r\n", capture);
+    TEST_ASSERT_FALSE(cli.dumping);
+}
+
+/* @verifies REQ-LOG-004 */
+static void test_cli_line_of_the_maximum_length_is_refused_and_does_not_overflow(void)
+{
+    char line[CLI_LINE_MAX + 1u];
+    uint8_t i;
+
+    for (i = 0u; i < CLI_LINE_MAX; i++) {
+        line[i] = 'x';
+    }
+    line[CLI_LINE_MAX] = '\0';
+    TEST_ASSERT_EQUAL_INT(GG_OK, type_line(line));
+    TEST_ASSERT_EQUAL_STRING("ERR\r\n", capture);
+}
+
+/* @verifies REQ-LOG-004 */
+static void test_cli_full_log_dumps_all_111_entries_then_the_end_line(void)
+{
+    uint8_t i;
+    uint16_t lines = 0u;
+    uint16_t c;
+
+    for (i = 0u; i < EVENTLOG_ENTRIES; i++) {
+        log_event((uint32_t)i, EVENTLOG_FAULT, 0u);
+    }
+    TEST_ASSERT_EQUAL_INT(GG_OK, type_line("log"));
+    /* The capture holds 512 bytes: count the lines as they come, poll by poll. */
+    for (c = 0u; (c < 1000u) && cli.dumping; c++) {
+        clear_capture();
+        (void)cli_poll(&cli, capture_write);
+        if (capture_len > 0u) {
+            lines++;
+        }
+    }
+    TEST_ASSERT_FALSE(cli.dumping);
+    TEST_ASSERT_EQUAL_UINT16(EVENTLOG_ENTRIES + 1u, lines);   /* 111 entries and END. */
+    TEST_ASSERT_EQUAL_STRING("END\r\n", capture);
+}
+
+/* @verifies REQ-LOG-005 */
+static void test_cli_status_prints_the_largest_values_in_full(void)
+{
+    cli_status_t snap = { 5u, INT16_MAX, 1023u, 1023u, 1023u, true };
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, cli_set_status(&cli, &snap));
+    TEST_ASSERT_EQUAL_INT(GG_OK, type_line("status"));
+    TEST_ASSERT_EQUAL_STRING("STATUS 5 32767 1023 1023 1023 1\r\n", capture);
+}
+
+/* @verifies REQ-LOG-005 */
+static void test_cli_status_shows_the_latest_snapshot_not_an_older_one(void)
+{
+    cli_status_t first = { 1u, 10, 120u, 40u, 430u, true };
+    cli_status_t second = { 2u, 150, 260u, 40u, 430u, true };
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, cli_set_status(&cli, &first));
+    TEST_ASSERT_EQUAL_INT(GG_OK, cli_set_status(&cli, &second));
+    TEST_ASSERT_EQUAL_INT(GG_OK, type_line("status"));
+    TEST_ASSERT_EQUAL_STRING("STATUS 2 150 260 40 430 1\r\n", capture);
+}
+
+/* @verifies REQ-LOG-005 */
+static void test_cli_set_status_rejects_null(void)
+{
+    cli_status_t snap = { 1u, 0, 0u, 0u, 0u, false };
+
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, cli_set_status(NULL, &snap));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, cli_set_status(&cli, NULL));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -263,5 +370,13 @@ int main(void)
     RUN_TEST(test_cli_empty_line_prints_nothing);
     RUN_TEST(test_cli_write_error_on_an_answer_is_returned);
     RUN_TEST(test_cli_rejects_null_arguments);
+    RUN_TEST(test_cli_log_with_a_carriage_return_is_accepted);
+    RUN_TEST(test_cli_command_after_a_refused_line_works);
+    RUN_TEST(test_cli_command_that_starts_like_log_is_refused);
+    RUN_TEST(test_cli_line_of_the_maximum_length_is_refused_and_does_not_overflow);
+    RUN_TEST(test_cli_full_log_dumps_all_111_entries_then_the_end_line);
+    RUN_TEST(test_cli_status_prints_the_largest_values_in_full);
+    RUN_TEST(test_cli_status_shows_the_latest_snapshot_not_an_older_one);
+    RUN_TEST(test_cli_set_status_rejects_null);
     return UNITY_END();
 }

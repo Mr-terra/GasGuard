@@ -263,6 +263,153 @@ static void test_hmi_format_lel_rejects_small_buffer_and_null(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, hmi_format_lel(1, NULL, HMI_LEL_TEXT_MAX));
 }
 
+/** @brief Press at 0 ms, release at @p release_ms; return the event of the release. */
+static hmi_press_event_t press_for(uint32_t release_ms)
+{
+    hmi_press_t press;
+    hmi_press_event_t event = HMI_PRESS_NONE;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_press_init(&press));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_press_step(&press, true, 0u, &event));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_press_step(&press, false, release_ms, &event));
+    return event;
+}
+
+/* @verifies REQ-HMI-004 */
+static void test_hmi_short_press_ends_at_999_ms(void)
+{
+    TEST_ASSERT_EQUAL_INT(HMI_PRESS_SHORT, press_for(HMI_SHORT_PRESS_MAX_MS - 1u));
+    TEST_ASSERT_EQUAL_INT(HMI_PRESS_NONE, press_for(HMI_SHORT_PRESS_MAX_MS));
+}
+
+/* @verifies REQ-HMI-004 */
+static void test_hmi_release_without_a_press_is_no_event(void)
+{
+    hmi_press_t press;
+    hmi_press_event_t event = HMI_PRESS_SHORT;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_press_init(&press));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_press_step(&press, false, 100u, &event));
+    TEST_ASSERT_EQUAL_INT(HMI_PRESS_NONE, event);
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, hmi_press_step(&press, true, 0u, NULL));
+}
+
+/* @verifies REQ-HMI-004 */
+static void test_hmi_short_press_across_the_clock_wrap_is_still_short(void)
+{
+    hmi_press_t press;
+    hmi_press_event_t event = HMI_PRESS_NONE;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_press_init(&press));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_press_step(&press, true, UINT32_MAX - 100u, &event));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_press_step(&press, false, 300u, &event));
+    TEST_ASSERT_EQUAL_INT(HMI_PRESS_SHORT, event);
+}
+
+/* @verifies REQ-HMI-004 */
+static void test_hmi_ack_in_warmup_or_maintenance_silences_nothing_later(void)
+{
+    hmi_silence_t silence;
+    bool on = false;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_WARMUP, &silence, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_MAINTENANCE, &silence, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_buzzer_on(DET_STATE_ALARM_1, &silence, 0u, &on));
+    TEST_ASSERT_TRUE(on);
+}
+
+/* @verifies REQ-HMI-003 */
+static void test_hmi_alarm_1_beep_lasts_exactly_half_a_second(void)
+{
+    hmi_silence_t silence;
+    bool on = false;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_buzzer_on(DET_STATE_ALARM_1, &silence, HMI_ALARM_1_ON_MS - 1u, &on));
+    TEST_ASSERT_TRUE(on);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_buzzer_on(DET_STATE_ALARM_1, &silence, HMI_ALARM_1_PERIOD_MS - 1u, &on));
+    TEST_ASSERT_FALSE(on);
+}
+
+/* @verifies REQ-HMI-003 */
+static void test_hmi_alarm_2_beep_lasts_exactly_125_ms(void)
+{
+    hmi_silence_t silence;
+    bool on = false;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_buzzer_on(DET_STATE_ALARM_2, &silence, HMI_ALARM_2_ON_MS - 1u, &on));
+    TEST_ASSERT_TRUE(on);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_buzzer_on(DET_STATE_ALARM_2, &silence, HMI_ALARM_2_PERIOD_MS - 1u, &on));
+    TEST_ASSERT_FALSE(on);
+}
+
+/* @verifies REQ-HMI-003 */
+static void test_hmi_fault_beep_lasts_exactly_200_ms(void)
+{
+    hmi_silence_t silence;
+    bool on = false;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_buzzer_on(DET_STATE_FAULT, &silence, HMI_FAULT_BEEP_MS - 1u, &on));
+    TEST_ASSERT_TRUE(on);
+}
+
+/* @verifies REQ-HMI-003 */
+static void test_hmi_patterns_keep_their_rhythm_across_the_clock_wrap(void)
+{
+    hmi_silence_t silence;
+    bool on = true;
+
+    /* UINT32_MAX % 1000 = 295: on phase. After the wrap, 0 is on too, so the rhythm
+     * goes on (one beep of 705 ms at worst, once every 49 days). */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_buzzer_on(DET_STATE_ALARM_1, &silence, UINT32_MAX, &on));
+    TEST_ASSERT_TRUE(on);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_buzzer_on(DET_STATE_ALARM_1, &silence, 0u, &on));
+    TEST_ASSERT_TRUE(on);
+}
+
+/* @verifies REQ-HMI-006 */
+static void test_hmi_functional_test_runs_until_its_last_millisecond(void)
+{
+    hmi_test_out_t out;
+    bool running = false;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_test_outputs(HMI_TEST_TOTAL_MS - 1u, &out, &running));
+    TEST_ASSERT_TRUE(running);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_test_outputs(UINT32_MAX, &out, &running));
+    TEST_ASSERT_FALSE(running);
+}
+
+/* @verifies REQ-HMI-006 */
+static void test_hmi_functional_test_releases_the_relay_for_exactly_one_step(void)
+{
+    hmi_test_out_t out;
+    bool running = false;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_test_outputs((4u * HMI_TEST_STEP_MS) - 1u, &out, &running));
+    TEST_ASSERT_TRUE(out.relay_energised);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_test_outputs((5u * HMI_TEST_STEP_MS) - 1u, &out, &running));
+    TEST_ASSERT_FALSE(out.relay_energised);
+}
+
+/* @verifies REQ-HMI-001 */
+static void test_hmi_format_lel_small_values_and_whole_numbers(void)
+{
+    char text[HMI_LEL_TEXT_MAX];
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_format_lel(0, text, HMI_LEL_TEXT_MAX));
+    TEST_ASSERT_EQUAL_STRING("0.0 %LEL", text);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_format_lel(9, text, HMI_LEL_TEXT_MAX));
+    TEST_ASSERT_EQUAL_STRING("0.9 %LEL", text);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_format_lel(10, text, HMI_LEL_TEXT_MAX));
+    TEST_ASSERT_EQUAL_STRING("1.0 %LEL", text);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_format_lel(INT16_MIN, text, HMI_LEL_TEXT_MAX));
+    TEST_ASSERT_EQUAL_STRING("0.0 %LEL", text);
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -285,5 +432,16 @@ int main(void)
     RUN_TEST(test_hmi_format_lel_puts_the_tenth_after_the_point);
     RUN_TEST(test_hmi_format_lel_shows_negative_values_as_zero);
     RUN_TEST(test_hmi_format_lel_rejects_small_buffer_and_null);
+    RUN_TEST(test_hmi_short_press_ends_at_999_ms);
+    RUN_TEST(test_hmi_release_without_a_press_is_no_event);
+    RUN_TEST(test_hmi_short_press_across_the_clock_wrap_is_still_short);
+    RUN_TEST(test_hmi_ack_in_warmup_or_maintenance_silences_nothing_later);
+    RUN_TEST(test_hmi_alarm_1_beep_lasts_exactly_half_a_second);
+    RUN_TEST(test_hmi_alarm_2_beep_lasts_exactly_125_ms);
+    RUN_TEST(test_hmi_fault_beep_lasts_exactly_200_ms);
+    RUN_TEST(test_hmi_patterns_keep_their_rhythm_across_the_clock_wrap);
+    RUN_TEST(test_hmi_functional_test_runs_until_its_last_millisecond);
+    RUN_TEST(test_hmi_functional_test_releases_the_relay_for_exactly_one_step);
+    RUN_TEST(test_hmi_format_lel_small_values_and_whole_numbers);
     return UNITY_END();
 }
