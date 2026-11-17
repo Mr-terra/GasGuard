@@ -159,6 +159,119 @@ static void test_eventlog_corrupted_crc_bytes_are_detected(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_CRC, eventlog_read_slot(0u, &entry));
 }
 
+/* @verifies REQ-LOG-001 */
+static void test_eventlog_head_wraps_to_zero_on_the_111th_append(void)
+{
+    uint8_t head = 0u;
+    uint8_t i;
+
+    for (i = 0u; i < (EVENTLOG_ENTRIES - 1u); i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append((uint32_t)i, EVENTLOG_FAULT, 0u));
+    }
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_head(&head));
+    TEST_ASSERT_EQUAL_UINT8(EVENTLOG_ENTRIES - 1u, head);
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append(110u, EVENTLOG_FAULT, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_head(&head));
+    TEST_ASSERT_EQUAL_UINT8(0u, head);
+}
+
+/* @verifies REQ-LOG-001 */
+static void test_eventlog_first_and_last_codes_are_accepted(void)
+{
+    const int past_last = (int)EVENTLOG_CODE_LAST + 1;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append(0u, EVENTLOG_MODE_CHANGE, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append(0u, EVENTLOG_CODE_LAST, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, eventlog_test_append(0u, (eventlog_code_t)past_last, 0u));
+}
+
+/* @verifies REQ-LOG-001 */
+static void test_eventlog_refused_entry_writes_nothing(void)
+{
+    uint8_t head = 0u;
+    uint32_t before = hal_eeprom_fake_write_count();
+
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, eventlog_test_append(0u, (eventlog_code_t)0, 0u));
+    TEST_ASSERT_EQUAL_UINT32(before, hal_eeprom_fake_write_count());
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_head(&head));
+    TEST_ASSERT_EQUAL_UINT8(0u, head);
+}
+
+/* @verifies REQ-LOG-001 */
+static void test_eventlog_failed_eeprom_write_is_reported_not_hidden(void)
+{
+    hal_eeprom_fake_fail_writes(true);
+    TEST_ASSERT_NOT_EQUAL(GG_OK, eventlog_test_append(1u, EVENTLOG_FAULT, 0u));
+    hal_eeprom_fake_fail_writes(false);
+}
+
+/* @verifies REQ-LOG-002 */
+static void test_eventlog_largest_uptime_and_argument_round_trip(void)
+{
+    eventlog_entry_t entry;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append(UINT32_MAX, EVENTLOG_RESET, UINT16_MAX));
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(0u, &entry));
+    TEST_ASSERT_EQUAL_UINT32(UINT32_MAX, entry.uptime_s);
+    TEST_ASSERT_EQUAL_INT(EVENTLOG_RESET, entry.code);
+    TEST_ASSERT_EQUAL_UINT16(UINT16_MAX, entry.arg);
+}
+
+/* @verifies REQ-LOG-002 */
+static void test_eventlog_zero_uptime_and_argument_are_a_valid_entry(void)
+{
+    eventlog_entry_t entry;
+
+    /* An entry written at power-up with argument 0 is genuine: it must read back
+     * as valid, not be taken for a blank or damaged slot. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append(0u, EVENTLOG_MODE_CHANGE, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(0u, &entry));
+    TEST_ASSERT_EQUAL_UINT32(0u, entry.uptime_s);
+    TEST_ASSERT_EQUAL_UINT16(0u, entry.arg);
+}
+
+/* @verifies REQ-LOG-002 */
+static void test_eventlog_head_at_its_last_valid_value_is_kept(void)
+{
+    uint8_t head = 0u;
+    uint8_t last = EVENTLOG_ENTRIES - 1u;
+    uint8_t over = EVENTLOG_ENTRIES;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_write(EVENTLOG_ADDR_HEAD, &last, 1u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_head(&head));
+    TEST_ASSERT_EQUAL_UINT8(EVENTLOG_ENTRIES - 1u, head);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_write(EVENTLOG_ADDR_HEAD, &over, 1u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_head(&head));
+    TEST_ASSERT_EQUAL_UINT8(0u, head);
+}
+
+/* @verifies REQ-LOG-002 */
+static void test_eventlog_last_slot_is_readable(void)
+{
+    eventlog_entry_t entry;
+    uint8_t i;
+
+    for (i = 0u; i < EVENTLOG_ENTRIES; i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append((uint32_t)i, EVENTLOG_FAULT, (uint16_t)i));
+    }
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(EVENTLOG_ENTRIES - 1u, &entry));
+    TEST_ASSERT_EQUAL_UINT16(EVENTLOG_ENTRIES - 1u, entry.arg);
+}
+
+/* @verifies REQ-LOG-003 */
+static void test_eventlog_append_at_the_ring_end_still_writes_twice(void)
+{
+    uint32_t before = 0u;
+    uint8_t i;
+
+    for (i = 0u; i < (EVENTLOG_ENTRIES - 1u); i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append((uint32_t)i, EVENTLOG_FAULT, 0u));
+    }
+    before = hal_eeprom_fake_write_count();
+    TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_test_append(110u, EVENTLOG_FAULT, 0u));
+    TEST_ASSERT_EQUAL_UINT32(before + 2u, hal_eeprom_fake_write_count());
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -173,5 +286,14 @@ int main(void)
     RUN_TEST(test_eventlog_rejects_unknown_codes_and_bad_arguments);
     RUN_TEST(test_eventlog_writes_only_when_an_event_is_appended);
     RUN_TEST(test_eventlog_corrupted_crc_bytes_are_detected);
+    RUN_TEST(test_eventlog_head_wraps_to_zero_on_the_111th_append);
+    RUN_TEST(test_eventlog_first_and_last_codes_are_accepted);
+    RUN_TEST(test_eventlog_refused_entry_writes_nothing);
+    RUN_TEST(test_eventlog_failed_eeprom_write_is_reported_not_hidden);
+    RUN_TEST(test_eventlog_largest_uptime_and_argument_round_trip);
+    RUN_TEST(test_eventlog_zero_uptime_and_argument_are_a_valid_entry);
+    RUN_TEST(test_eventlog_head_at_its_last_valid_value_is_kept);
+    RUN_TEST(test_eventlog_last_slot_is_readable);
+    RUN_TEST(test_eventlog_append_at_the_ring_end_still_writes_twice);
     return UNITY_END();
 }

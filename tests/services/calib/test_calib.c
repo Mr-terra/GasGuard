@@ -143,6 +143,134 @@ static void test_calib_temp_correct_rejects_null(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, calib_temp_correct(&calib_test_state, &reading, NULL));
 }
 
+/* @verifies REQ-FUN-003 */
+static void test_calib_one_lsb_each_side_of_the_zero(void)
+{
+    gg_conc_t conc = 99;
+
+    /* Zero at raw 100, 10 units (1 %LEL) per LSB. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_to_lel(&calib_test_state, 99u, &conc));
+    TEST_ASSERT_EQUAL_INT16(0, conc);
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_to_lel(&calib_test_state, 101u, &conc));
+    TEST_ASSERT_EQUAL_INT16(10, conc);
+}
+
+/* @verifies REQ-FUN-003 */
+static void test_calib_full_scale_raw_is_accepted(void)
+{
+    gg_conc_t conc = 0;
+
+    /* 1023 is the last valid ADC value: (1023 - 100) x 10 = 9230 units. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_to_lel(&calib_test_state, HAL_ADC_RAW_MAX, &conc));
+    TEST_ASSERT_EQUAL_INT16(9230, conc);
+}
+
+/* @verifies REQ-FUN-003 */
+static void test_calib_large_gain_saturates_and_never_wraps_negative(void)
+{
+    /* The largest gain (255.99 units per LSB) at full scale would be about 262 000
+     * units: it must saturate at INT16_MAX. A wrap to a negative value would hide
+     * the gas (missed alarm). */
+    calib_config_t big = {0u, UINT16_MAX, 0u, 0};
+    gg_conc_t conc = 0;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_init(&calib_test_state, &big));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_to_lel(&calib_test_state, HAL_ADC_RAW_MAX, &conc));
+    TEST_ASSERT_EQUAL_INT16(INT16_MAX, conc);
+}
+
+/* @verifies REQ-FUN-003 */
+static void test_calib_smallest_gain_is_accepted(void)
+{
+    calib_config_t small = {0u, 1u, 0u, 0};
+    gg_conc_t conc = 99;
+
+    /* Gain 1/256 unit per LSB: 1023 LSB give 3 units (rounded down). */
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_init(&calib_test_state, &small));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_to_lel(&calib_test_state, HAL_ADC_RAW_MAX, &conc));
+    TEST_ASSERT_EQUAL_INT16(3, conc);
+}
+
+/* @verifies REQ-FUN-003 */
+static void test_calib_rejected_init_keeps_the_previous_configuration(void)
+{
+    calib_config_t bad = {0u, 0u, 0u, 0};
+    gg_conc_t conc = 0;
+
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, calib_init(&calib_test_state, &bad));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_to_lel(&calib_test_state, 150u, &conc));
+    TEST_ASSERT_EQUAL_INT16(500, conc);
+}
+
+/* @verifies REQ-FUN-003 */
+static void test_calib_out_of_range_raw_leaves_the_output_unchanged(void)
+{
+    gg_conc_t conc = 77;
+
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, calib_to_lel(&calib_test_state, UINT16_MAX, &conc));
+    TEST_ASSERT_EQUAL_INT16(77, conc);
+}
+
+/* @verifies REQ-FUN-004 */
+static void test_calib_temperature_at_the_reference_changes_nothing(void)
+{
+    calib_config_t cfg = {100u, CALIB_TEST_GAIN_10, 500u, -CALIB_GAIN_ONE / 2};
+    calib_reading_t reading = {300u, 500u, true};
+    uint16_t corrected = 0u;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_init(&calib_test_state, &cfg));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&calib_test_state, &reading, &corrected));
+    TEST_ASSERT_EQUAL_UINT16(300u, corrected);
+}
+
+/* @verifies REQ-FUN-004 */
+static void test_calib_zero_coefficient_never_moves_the_gas_reading(void)
+{
+    /* The coefficient in use is 0 (measured on the bench): any valid temperature
+     * leaves the reading as it is, so the compensation can neither add a false
+     * alarm nor hide a leak. */
+    calib_config_t cfg = {100u, CALIB_TEST_GAIN_10, 500u, 0};
+    calib_reading_t cold = {300u, 0u, true};
+    calib_reading_t hot = {300u, HAL_ADC_RAW_MAX, true};
+    uint16_t corrected = 0u;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_init(&calib_test_state, &cfg));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&calib_test_state, &cold, &corrected));
+    TEST_ASSERT_EQUAL_UINT16(300u, corrected);
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&calib_test_state, &hot, &corrected));
+    TEST_ASSERT_EQUAL_UINT16(300u, corrected);
+}
+
+/* @verifies REQ-FUN-004 */
+static void test_calib_temperature_correction_rejects_out_of_range_raw(void)
+{
+    calib_reading_t reading = {HAL_ADC_RAW_MAX + 1u, 500u, true};
+    uint16_t corrected = 7u;
+
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, calib_temp_correct(&calib_test_state, &reading, &corrected));
+    TEST_ASSERT_EQUAL_UINT16(7u, corrected);
+}
+
+/* @verifies REQ-FUN-004 */
+static void test_calib_temperature_correction_stops_exactly_at_the_adc_ends(void)
+{
+    calib_config_t up = {100u, CALIB_TEST_GAIN_10, 0u, CALIB_GAIN_ONE};
+    calib_reading_t top = {1000u, 23u, true};       /* 1000 + 23 = 1023: the last valid value. */
+    calib_reading_t over = {1000u, 24u, true};      /* 1024: clamped to 1023. */
+    calib_config_t down = {100u, CALIB_TEST_GAIN_10, 100u, -CALIB_GAIN_ONE};
+    calib_reading_t floor0 = {10u, 110u, true};     /* 10 - 10 = 0. */
+    uint16_t corrected = 0u;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_init(&calib_test_state, &up));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&calib_test_state, &top, &corrected));
+    TEST_ASSERT_EQUAL_UINT16(HAL_ADC_RAW_MAX, corrected);
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&calib_test_state, &over, &corrected));
+    TEST_ASSERT_EQUAL_UINT16(HAL_ADC_RAW_MAX, corrected);
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_init(&calib_test_state, &down));
+    TEST_ASSERT_EQUAL_INT(GG_OK, calib_temp_correct(&calib_test_state, &floor0, &corrected));
+    TEST_ASSERT_EQUAL_UINT16(0u, corrected);
+}
+
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
@@ -158,5 +286,15 @@ int main(void)
     RUN_TEST(test_calib_temperature_ignored_when_sensor_invalid);
     RUN_TEST(test_calib_temperature_correction_is_clamped_to_adc_range);
     RUN_TEST(test_calib_temp_correct_rejects_null);
+    RUN_TEST(test_calib_one_lsb_each_side_of_the_zero);
+    RUN_TEST(test_calib_full_scale_raw_is_accepted);
+    RUN_TEST(test_calib_large_gain_saturates_and_never_wraps_negative);
+    RUN_TEST(test_calib_smallest_gain_is_accepted);
+    RUN_TEST(test_calib_rejected_init_keeps_the_previous_configuration);
+    RUN_TEST(test_calib_out_of_range_raw_leaves_the_output_unchanged);
+    RUN_TEST(test_calib_temperature_at_the_reference_changes_nothing);
+    RUN_TEST(test_calib_zero_coefficient_never_moves_the_gas_reading);
+    RUN_TEST(test_calib_temperature_correction_rejects_out_of_range_raw);
+    RUN_TEST(test_calib_temperature_correction_stops_exactly_at_the_adc_ends);
     return UNITY_END();
 }

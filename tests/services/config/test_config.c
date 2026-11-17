@@ -284,6 +284,192 @@ static void test_config_failed_repair_keeps_the_valid_copy_in_use(void)
 }
 
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
+/** @brief Flip one bit of one stored byte, as a worn or half-written EEPROM cell would. */
+static void flip_stored_bit(uint16_t addr, uint8_t mask)
+{
+    uint8_t byte = 0u;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_read(addr, &byte, 1u));
+    byte = (uint8_t)(byte ^ mask);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_write(addr, &byte, 1u));
+}
+
+/* @verifies REQ-ALM-005 */
+static void test_config_validate_al2_one_step_above_al1_is_accepted(void)
+{
+    config_t cfg = sample_config();
+
+    cfg.al2 = (int16_t)(cfg.al1 + 1);
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_validate(&cfg));
+    cfg.al2 = (int16_t)(cfg.al1 - 1);
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, config_validate(&cfg));
+}
+
+/* @verifies REQ-ALM-005 */
+static void test_config_validate_negative_thresholds_are_rejected(void)
+{
+    config_t cfg = sample_config();
+
+    cfg.al1 = -1;
+    cfg.hysteresis = 0;
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, config_validate(&cfg));
+    cfg = sample_config();
+    cfg.al2 = -1;
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, config_validate(&cfg));
+    cfg = sample_config();
+    cfg.al1 = INT16_MIN;
+    cfg.al2 = INT16_MAX;
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, config_validate(&cfg));
+}
+
+/* @verifies REQ-ALM-005 */
+static void test_config_validate_accepts_the_widest_valid_settings(void)
+{
+    config_t cfg = sample_config();
+
+    /* Every limit at once, on its valid side: none may be refused (a refused
+     * valid setting would put the unit on its defaults for no reason). */
+    cfg.al1 = 1;
+    cfg.al2 = CONFIG_AL2_MAX;
+    cfg.hysteresis = 0;
+    cfg.warmup_s = CONFIG_WARMUP_MIN_S;
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_validate(&cfg));
+    cfg.al1 = CONFIG_AL2_MAX - 1;
+    cfg.hysteresis = (int16_t)(cfg.al1 - 1);
+    cfg.warmup_s = CONFIG_WARMUP_MAX_S;
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_validate(&cfg));
+}
+
+/* @verifies REQ-ALM-005 */
+static void test_config_validate_hysteresis_one_below_al1_is_accepted(void)
+{
+    config_t cfg = sample_config();
+
+    cfg.hysteresis = (int16_t)(cfg.al1 - 1);
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_validate(&cfg));
+}
+
+/* @verifies REQ-CFG-001 */
+static void test_config_store_writes_two_identical_copies(void)
+{
+    config_t stored = sample_config();
+    uint8_t copy_a[CONFIG_COPY_SIZE];
+    uint8_t copy_b[CONFIG_COPY_SIZE];
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_store(&stored));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_read(CONFIG_ADDR_A, copy_a, CONFIG_COPY_SIZE));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_eeprom_read(CONFIG_ADDR_B, copy_b, CONFIG_COPY_SIZE));
+    TEST_ASSERT_EQUAL_MEMORY(copy_a, copy_b, CONFIG_COPY_SIZE);
+}
+
+/* @verifies REQ-CFG-001 */
+static void test_config_flipped_bit_in_a_crc_byte_is_caught(void)
+{
+    config_t stored = sample_config();
+    config_t loaded;
+    config_source_t source = CONFIG_SRC_COPY_A;
+    uint16_t crc_high_addr = CONFIG_ADDR_A;   /* Becomes the last byte of copy A. */
+
+    /* The damage is in the checksum itself, not in the values: copy A must
+     * still be refused, and copy B used. */
+    crc_high_addr = (uint16_t)(crc_high_addr + CONFIG_COPY_SIZE);
+    crc_high_addr--;
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_store(&stored));
+    flip_stored_bit(crc_high_addr, 0x01u);
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_load(&loaded, &source));
+    TEST_ASSERT_EQUAL_INT(CONFIG_SRC_COPY_B, source);
+    TEST_ASSERT_EQUAL_INT16(stored.al1, loaded.al1);
+}
+
+/* @verifies REQ-CFG-001 */
+static void test_config_flipped_bit_in_each_value_byte_is_caught(void)
+{
+    config_t stored = sample_config();
+    config_t loaded;
+    config_source_t source = CONFIG_SRC_COPY_A;
+    uint16_t offset;
+
+    /* One flipped bit in any of the eight value bytes of copy A: never used. */
+    for (offset = 0u; offset < (CONFIG_COPY_SIZE - 2u); offset++) {
+        hal_eeprom_fake_reset();
+        TEST_ASSERT_EQUAL_INT(GG_OK, config_store(&stored));
+        flip_stored_bit((uint16_t)(CONFIG_ADDR_A + offset), 0x80u);
+        TEST_ASSERT_EQUAL_INT(GG_OK, config_load(&loaded, &source));
+        TEST_ASSERT_EQUAL_INT(CONFIG_SRC_COPY_B, source);
+        TEST_ASSERT_EQUAL_INT16(stored.al2, loaded.al2);
+    }
+}
+
+/* @verifies REQ-CFG-002 */
+static void test_config_copy_a_wins_when_both_copies_are_valid_but_differ(void)
+{
+    config_t older = sample_config();
+    config_t newer = sample_config();
+    config_t loaded;
+    config_source_t source = CONFIG_SRC_DEFAULTS;
+
+    newer.al1 = 120;
+    TEST_ASSERT_EQUAL_INT(GG_OK, write_raw_copy(CONFIG_ADDR_A, &newer));
+    TEST_ASSERT_EQUAL_INT(GG_OK, write_raw_copy(CONFIG_ADDR_B, &older));
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_load(&loaded, &source));
+    TEST_ASSERT_EQUAL_INT(CONFIG_SRC_COPY_A, source);
+    TEST_ASSERT_EQUAL_INT16(120, loaded.al1);
+}
+
+/* @verifies REQ-CFG-002 */
+static void test_config_both_copies_damaged_give_the_defaults_not_a_half_copy(void)
+{
+    config_t stored = sample_config();
+    config_t loaded;
+    config_source_t source = CONFIG_SRC_COPY_A;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_store(&stored));
+    flip_stored_bit(CONFIG_ADDR_A, 0x01u);
+    flip_stored_bit(CONFIG_ADDR_B, 0x01u);
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_load(&loaded, &source));
+    TEST_ASSERT_EQUAL_INT(CONFIG_SRC_DEFAULTS, source);
+    TEST_ASSERT_EQUAL_INT16(CONFIG_AL1_DEFAULT, loaded.al1);
+    TEST_ASSERT_EQUAL_INT16(CONFIG_AL2_DEFAULT, loaded.al2);
+    TEST_ASSERT_EQUAL_INT16(CONFIG_HYSTERESIS_DEFAULT, loaded.hysteresis);
+    TEST_ASSERT_EQUAL_UINT16(CONFIG_WARMUP_DEFAULT_S, loaded.warmup_s);
+}
+
+/* @verifies REQ-CFG-003 */
+static void test_config_extreme_valid_values_survive_a_store_and_load(void)
+{
+    config_t stored = sample_config();
+    config_t loaded;
+    config_source_t source = CONFIG_SRC_DEFAULTS;
+
+    stored.al1 = CONFIG_AL2_MAX - 1;
+    stored.al2 = CONFIG_AL2_MAX;
+    stored.hysteresis = (int16_t)(stored.al1 - 1);
+    stored.warmup_s = CONFIG_WARMUP_MAX_S;
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_store(&stored));
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_load(&loaded, &source));
+    TEST_ASSERT_EQUAL_INT(CONFIG_SRC_COPY_A, source);
+    TEST_ASSERT_EQUAL_INT16(stored.al1, loaded.al1);
+    TEST_ASSERT_EQUAL_INT16(stored.al2, loaded.al2);
+    TEST_ASSERT_EQUAL_INT16(stored.hysteresis, loaded.hysteresis);
+    TEST_ASSERT_EQUAL_UINT16(stored.warmup_s, loaded.warmup_s);
+}
+
+/* @verifies REQ-CFG-003 */
+static void test_config_copy_with_a_valid_crc_and_warmup_out_of_range_is_not_used(void)
+{
+    config_t bad = sample_config();
+    config_t good = sample_config();
+    config_t loaded;
+    config_source_t source = CONFIG_SRC_DEFAULTS;
+
+    bad.warmup_s = CONFIG_WARMUP_MAX_S + 1u;
+    TEST_ASSERT_EQUAL_INT(GG_OK, write_raw_copy(CONFIG_ADDR_A, &bad));
+    TEST_ASSERT_EQUAL_INT(GG_OK, write_raw_copy(CONFIG_ADDR_B, &good));
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_load(&loaded, &source));
+    TEST_ASSERT_EQUAL_INT(CONFIG_SRC_COPY_B, source);
+    TEST_ASSERT_EQUAL_UINT16(good.warmup_s, loaded.warmup_s);
+}
+
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
@@ -303,5 +489,16 @@ int main(void)
     RUN_TEST(test_config_load_rejects_a_valid_crc_with_out_of_range_values);
     RUN_TEST(test_config_failed_repair_keeps_the_valid_copy_in_use);
     RUN_TEST(test_config_null_arguments_are_rejected);
+    RUN_TEST(test_config_validate_al2_one_step_above_al1_is_accepted);
+    RUN_TEST(test_config_validate_negative_thresholds_are_rejected);
+    RUN_TEST(test_config_validate_accepts_the_widest_valid_settings);
+    RUN_TEST(test_config_validate_hysteresis_one_below_al1_is_accepted);
+    RUN_TEST(test_config_store_writes_two_identical_copies);
+    RUN_TEST(test_config_flipped_bit_in_a_crc_byte_is_caught);
+    RUN_TEST(test_config_flipped_bit_in_each_value_byte_is_caught);
+    RUN_TEST(test_config_copy_a_wins_when_both_copies_are_valid_but_differ);
+    RUN_TEST(test_config_both_copies_damaged_give_the_defaults_not_a_half_copy);
+    RUN_TEST(test_config_extreme_valid_values_survive_a_store_and_load);
+    RUN_TEST(test_config_copy_with_a_valid_crc_and_warmup_out_of_range_is_not_used);
     return UNITY_END();
 }
