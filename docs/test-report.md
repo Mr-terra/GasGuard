@@ -22,12 +22,22 @@ multimeter or the serial monitor (tools in
 | Watchdog reset cause | After a watchdog reset, WDRF is seen (the bootloader can clear the reset flags first) | REQ-SAF-006 |
 | Display time | Longest display task on the board (I2C): stays well under 100 ms per cycle | REQ-SAF-008 |
 | Overrun detection | With the end time fix (`day-5-fix-overrun`): no `OVERRUN` in normal running over one hour; a cycle made longer on purpose (bench build only) logs `OVERRUN` and three in a row give `FAULT 3` | REQ-SAF-008 |
-| UART input | Paste a 16-character command: no byte lost | REQ-LOG-004 |
 | Relay pull-down | Only once a relay module is fitted (none on the bench): relay state at reset, with and without the proposed 10 kΩ pull-down | REQ-SAF-001, FMEA F21 |
 | All channels stuck | One night with both sensors in clean air: any FAULT `6` (stuck) ends by itself when a channel moves; no restart needed | REQ-SAF-003, REQ-SAF-007 |
-| Periodic gas test | The procedure of the README, in MAINTENANCE (unlit lighter on each sensor): each reading rises above 10 %LEL, no relay drop and no buzzer; after MAINTENANCE ends, each `PEAK` entry is above 100 (10 %LEL) and no `OVERRUN` follows | REQ-SAF-003, REQ-HMI-009, REQ-LOG-001 |
 | Zero offsets re-check | Every month for the first three months, then at each periodic gas test: `tools/status-log.ps1` for one day in clean air; the lowest MQ-5 and MQ-2 raw values must stay at or above the offsets (111 and 35). A value under an offset means a leak reads low by the gap: lower the offset (FMEA F45) | REQ-FUN-003 |
 | Calibration in the configuration | REQ-FUN-003 is **only partly met**: the zero offsets are compiled in (`FIRMWARE_ZERO_RAW_*`), not stored in the configuration, and the span is not checked with a reference gas. The trace shows code and tests for REQ-FUN-003, not this gap. Decision of the author (Day 5): v1.0 ships with the current compiled-in values; the values are changed later | REQ-FUN-003 |
+
+## Day 5 — periodic gas test and UART input (2026-11-17)
+
+Firmware: `main` at `6debe95` (release v1.1). Sensors in clean air before the
+test; lighter gas (unlit lighter) on each sensor in MAINTENANCE.
+
+| Check | Result | Requirement |
+|---|---|---|
+| Periodic gas test | **Pass**: `MODE 5` at 9294 s, `MODE 1` at 9894 s, exactly 10 minutes later, then `PEAK 0 676` (MQ-5, 67.6 %LEL) and `PEAK 1 784` (MQ-2, 78.4 %LEL), both above 100 (10 %LEL); no `OVERRUN`. During MAINTENANCE `STATUS 5 54 165 40 432 1`: the reading was shown, no alarm state was entered. The relay is not fitted and the buzzer was not plugged in, so "no relay drop and no buzzer" was not checked on the board (host tests cover it) | REQ-SAF-003, REQ-HMI-009, REQ-HMI-010, REQ-LOG-001 |
+| Highest reading | About 80 %LEL at most, with the lighter held on the sensor. The module output cannot reach 5 V (the sensor resistance never falls to 0), so the reading tops out near raw 900, that is about 80 to 90 %LEL with the zero offsets. Far above AL2 (25 %LEL); the span is not checked with a reference gas | REQ-FUN-003 |
+| UART input | **Pass**: `status` twice in one write (14 bytes): two `STATUS` lines. A 16-character line, then `status`: `ERR` then `STATUS`. An 18-character line, then `status`: `ERR` then `STATUS` (the line is cut at 16 characters, refused, and the parser is ready for the next line) | REQ-LOG-004, REQ-LOG-005 |
+| Stuck-channel faults in clean air | Seen in the same log: one channel drops (`CHANNEL`) and, when the other one is also flat for 10 minutes, `FAULT 6`, cleared by itself (`RECOVERED`) seconds to minutes later. Since the flash of v1.1 (2.7 h): 4 `FAULT 6`, about one every 40 minutes; in the run before it (entries 102 to 62, the old offsets): one every 10 to 15 minutes. Behaviour as specified (REQ-SAF-003, REQ-SAF-007), but frequent in a still room: each one drops the relay. To review (proposal to the author) | REQ-SAF-003, REQ-SAF-007 |
 
 ## Day 5 — temperature coefficient and buffer (2026-11-15 to 2026-11-17)
 
