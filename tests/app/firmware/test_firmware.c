@@ -1531,6 +1531,52 @@ static void test_firmware_spike_on_a_channel_coming_back_from_stuck_raises_no_al
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
 }
 
+/* @verifies REQ-FUN-002 REQ-SAF-002 */
+static void test_firmware_spike_right_after_a_rail_reading_raises_no_alarm(void)
+{
+    /* A bouncing contact: one reading at the short-circuit rail, then one wild
+     * reading just below it (1017), then clean air. The rail reading is left out
+     * and must not wipe the filter history, so the median still removes 1017. */
+    uint8_t i;
+
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, DIAG_SHORT_MIN));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, 1017u));
+    fw_tick(false, false);
+    for (i = 0u; i < 20u; i++) {
+        set_gas_raw(CLEAN_RAW);
+        fw_tick(false, false);
+        TEST_ASSERT_TRUE(firmware_state(&fw) != DET_STATE_ALARM_1);
+        TEST_ASSERT_TRUE(firmware_state(&fw) != DET_STATE_ALARM_2);
+    }
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-002 REQ-FUN-002 */
+static void test_firmware_gas_during_range_recovery_is_ignored_then_seen_at_recovery(void)
+{
+    /* The MQ-5 reads open circuit long enough for a range fault, then reads gas
+     * above AL2 while it recovers. Until the 600 valid samples are done it stays
+     * out (negative case); from the recovery sample on, its filter already holds
+     * the gas, so ALARM_2 follows after the usual 3 samples (no hidden gas). */
+    uint32_t i;
+
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, 0u));
+    fw_ticks(DIAG_RANGE_SAMPLES + 1u, false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_2_RAW));
+    for (i = 0u; i < (DIAG_RECOVER_SAMPLES - 1u); i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2,
+                                                            ((i % 2u) == 0u) ? CLEAN_RAW : CLEAN_RAW_PLUS_2));
+        fw_tick(false, false);
+        TEST_ASSERT_TRUE(firmware_state(&fw) != DET_STATE_ALARM_1);
+        TEST_ASSERT_TRUE(firmware_state(&fw) != DET_STATE_ALARM_2);
+    }
+    fw_ticks(DETECTOR_ENTER_SAMPLES, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, firmware_state(&fw));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1613,5 +1659,7 @@ int main(void)
     RUN_TEST(test_firmware_alarm_2_back_from_a_stuck_fault_gets_a_new_silence);
     RUN_TEST(test_firmware_spike_that_ends_a_stuck_fault_raises_no_alarm);
     RUN_TEST(test_firmware_spike_on_a_channel_coming_back_from_stuck_raises_no_alarm);
+    RUN_TEST(test_firmware_spike_right_after_a_rail_reading_raises_no_alarm);
+    RUN_TEST(test_firmware_gas_during_range_recovery_is_ignored_then_seen_at_recovery);
     return UNITY_END();
 }
