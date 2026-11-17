@@ -194,15 +194,15 @@ static void test_firmware_mq5_channel_reads_the_mapped_adc_input(void)
 static void test_firmware_each_channel_subtracts_its_own_zero(void)
 {
     boot_defaults();
-    /* MQ-5 at its clean-air value reads 0; the MQ-2 has no offset yet, so 10 raw is 1 %LEL. */
+    /* MQ-5 20 raw above its zero reads 2 %LEL; the MQ-2 10 raw above its own zero reads 1 %LEL. */
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5 + 20u));
-    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, MQ2_LOW_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, FIRMWARE_ZERO_RAW_MQ2 + 10u));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, 130000u));
     TEST_ASSERT_EQUAL_INT(20, firmware_concentration(&fw));
-    TEST_ASSERT_EQUAL_UINT16(0u, FIRMWARE_ZERO_RAW_MQ2);
+    /* Lowest clean-air values seen by the ADC over 2.5 days on the bench (2026-11-15 to 17). */
+    TEST_ASSERT_EQUAL_UINT16(35u, FIRMWARE_ZERO_RAW_MQ2);
 #ifndef GG_SIM_POT
-    /* Provisional clean-air value of the MQ-5 seen by the ADC (bench, Day 5). */
-    TEST_ASSERT_EQUAL_UINT16(113u, FIRMWARE_ZERO_RAW_MQ5);
+    TEST_ASSERT_EQUAL_UINT16(111u, FIRMWARE_ZERO_RAW_MQ5);
 #endif
 }
 
