@@ -19,8 +19,8 @@
 #include "hal/uart/uart.h"
 #include "hal/uart/uart_fake.h"
 
-/** @brief Capacity of the transmit capture, in bytes. */
-#define UART_FAKE_TX_CAPACITY 16u
+/** @brief Capacity of the transmit capture: the transmit buffer of the board. */
+#define UART_FAKE_TX_CAPACITY HAL_UART_FAKE_TX_CAPACITY
 
 /** @brief Capacity of the receive queue, in bytes. */
 #define UART_FAKE_RX_CAPACITY 8u

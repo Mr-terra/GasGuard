@@ -11,6 +11,9 @@
 
 #include "common/gg_types/gg_types.h"
 
+/** @brief Bytes the transmit capture holds: 64, the transmit buffer of the board driver. */
+#define HAL_UART_FAKE_TX_CAPACITY 64u
+
 /**
  * @brief Empty both the transmit capture and the receive queue.
  * @req REQ-LOG-004

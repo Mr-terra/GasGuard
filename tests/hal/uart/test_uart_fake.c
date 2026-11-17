@@ -40,10 +40,22 @@ static void test_hal_uart_write_is_captured_by_fake(void)
 /* @verifies REQ-LOG-004 */
 static void test_hal_uart_write_is_all_or_nothing_when_buffer_full(void)
 {
-    static uint8_t big[20]; /* zero-initialised by the C runtime (MISRA 9.3) */
+    static uint8_t big[HAL_UART_FAKE_TX_CAPACITY + 1u]; /* zero-initialised by the C runtime (MISRA 9.3) */
 
-    TEST_ASSERT_EQUAL_INT(GG_ERR_TIMEOUT, hal_uart_write(big, 20u));
+    TEST_ASSERT_EQUAL_INT(GG_ERR_TIMEOUT, hal_uart_write(big, (uint8_t)(HAL_UART_FAKE_TX_CAPACITY + 1u)));
     TEST_ASSERT_EQUAL_UINT8(0u, hal_uart_fake_tx_count());
+}
+
+/* @verifies REQ-LOG-004 */
+static void test_hal_uart_write_fills_the_buffer_exactly_then_refuses_one_more_byte(void)
+{
+    static uint8_t full[HAL_UART_FAKE_TX_CAPACITY]; /* zero-initialised by the C runtime (MISRA 9.3) */
+    const uint8_t one = 1u;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_uart_write(full, (uint8_t)HAL_UART_FAKE_TX_CAPACITY));
+    TEST_ASSERT_EQUAL_UINT8(HAL_UART_FAKE_TX_CAPACITY, hal_uart_fake_tx_count());
+    TEST_ASSERT_EQUAL_INT(GG_ERR_TIMEOUT, hal_uart_write(&one, 1u));
+    TEST_ASSERT_EQUAL_UINT8(HAL_UART_FAKE_TX_CAPACITY, hal_uart_fake_tx_count());
 }
 
 /* @verifies REQ-LOG-004 */
@@ -74,6 +86,7 @@ int main(void)
     RUN_TEST(test_hal_uart_init_succeeds);
     RUN_TEST(test_hal_uart_write_is_captured_by_fake);
     RUN_TEST(test_hal_uart_write_is_all_or_nothing_when_buffer_full);
+    RUN_TEST(test_hal_uart_write_fills_the_buffer_exactly_then_refuses_one_more_byte);
     RUN_TEST(test_hal_uart_read_returns_received_byte_then_timeout);
     RUN_TEST(test_hal_uart_rejects_null_pointers);
     return UNITY_END();
