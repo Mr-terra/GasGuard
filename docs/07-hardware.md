@@ -38,8 +38,8 @@ the reading; it only makes an unplugged sensor read 0. The sensor sits 20 to
 30 cm away from the board and the MQ modules, whose heat raised its reading by
 about 2 degC (bench, 2026-11-15). The firmware reads it every sample, accepts 0
 to 50 degC (raw 217 to 769), and prints it with
-`status`; its compensation coefficient stays at 0 until it is measured
-(REQ-FUN-004).
+`status`; its compensation coefficient is 0: a two-day measurement found no
+usable temperature effect (REQ-FUN-004, test report 2026-11-17).
 
 ## 2. Supply
 

@@ -48,8 +48,10 @@
 #include "services/eventlog/eventlog.h"
 
 /* Temperature compensation: the input on A3 is read and checked, but the
- * coefficient stays at zero until it is measured on the bench (REQ-FUN-004), so
- * the correction does not move the reading yet. The reference and the coefficient
+ * coefficient is zero (REQ-FUN-004), so the correction does not move the
+ * reading. Measured on the bench over two days (2026-11-15 to 17, 16 to 19 degC):
+ * the gas readings moved with the time of day, not with the temperature, so no
+ * coefficient could be fitted (test report). The reference and the coefficient
  * must be set together: the reference is the raw temperature of the gas zero
  * (about 512 at 25 degC), and a coefficient with a reference of 0 would shift
  * every reading (FMEA F48). */

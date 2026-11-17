@@ -27,9 +27,29 @@ multimeter or the serial monitor (tools in
 | Relay pull-down | Only once a relay module is fitted (none on the bench): relay state at reset, with and without the proposed 10 kΩ pull-down | REQ-SAF-001, FMEA F21 |
 | All channels stuck | One night with both sensors in clean air: any FAULT `6` (stuck) ends by itself when a channel moves; no restart needed | REQ-SAF-003, REQ-SAF-007 |
 | Periodic gas test | The procedure of the README, in MAINTENANCE (unlit lighter on each sensor): each reading rises above 10 %LEL, no relay drop and no buzzer; after MAINTENANCE ends, each `PEAK` entry is above 100 (10 %LEL) and no `OVERRUN` follows | REQ-SAF-003, REQ-HMI-009, REQ-LOG-001 |
-| Temperature buffer | Same temperature, `status` with the 1 MΩ pull-down fitted, then removed: buffered output if the raw values match within 1 or 2 counts; about 23 counts lower with the pull-down at 25 degC if not. To settle before a non-zero coefficient | REQ-FUN-004, HW-005 |
-| Temperature coefficient | Clean air, one to two days with the room warming and cooling: `tools/status-log.ps1` records `status` every 5 minutes into a CSV, then the slope of the MQ raw values against the temperature raw value | REQ-FUN-004 |
 | Calibration in the configuration | REQ-FUN-003 is **only partly met**: the zero offsets are compiled in (`FIRMWARE_ZERO_RAW_*`), not stored in the configuration, and the span is not checked with a reference gas. The trace shows code and tests for REQ-FUN-003, not this gap. Decision of the author (Day 5): v1.0 ships with the current compiled-in values; the values are changed later | REQ-FUN-003 |
+
+## Day 5 — temperature coefficient and buffer (2026-11-15 to 2026-11-17)
+
+Firmware: `day-5-temp` for the measurement, then `day-5-fix-temp-range` at
+`2e8661a` (range 217 .. 769) for the buffer check. Sensors in clean air, board
+powered all along. `tools/status-log.ps1` sent `status` every 5 minutes into
+`status-log.csv` (not in the repository). Rows used: 2026-11-15 11:58 to
+2026-11-17 11:30, 554 valid rows; earlier rows were left out (breath on the
+sensors until 01:13, temperature sensor next to the board until 11:40). Gap from
+15:03 to 16:35 on 2026-11-16 (PC away, board powered). 38 rows in FAULT (stuck
+channel, cleared by itself).
+
+| Check | Result | Requirement |
+|---|---|---|
+| Temperature swing | Raw 403 to 440, that is 16.3 to 19.3 degC (unheated living room). Wider swings were not possible in this room | REQ-FUN-004 |
+| Slope, first day | MQ-5 +0.49 raw per temperature raw (r 0.58), MQ-2 +0.20 (r 0.52) | REQ-FUN-004 |
+| Slope, second day | MQ-5 +0.39 (r 0.44), MQ-2 +0.23 (r 0.42) | REQ-FUN-004 |
+| Other causes | Every evening the MQ readings rose while the temperature hardly moved: 3-hour means, MQ-5 116 at 15:00 then 127 at 18:00 for +0.2 degC on 2026-11-15, and 122 at 18:00 on 2026-11-16 (MQ-2 37.7 to 43.2, then 45.1). At the same temperature (raw about 419) the MQ-5 read 116 on 2026-11-15 at 15:00 and 112 on 2026-11-17 at 09:00: a drift of about -0.3 raw per hour. Activity in the room (cooking, people, humidity) is the likely cause; it was not measured | REQ-FUN-004 |
+| Decision | **Coefficient kept at 0** (author, 2026-11-17). Over 3 degC the slopes give at most about 5 raw of correction, less than the evening change that is not caused by the temperature, and they cannot be extended to 0 .. 50 degC. A coefficient fitted on these data would add an error (FMEA F48). To measure again with a wider swing (a heated room, then a cold one) | REQ-FUN-004 |
+| Conversion against the room thermometer | 2026-11-15 11:48: raw 417, 17.4 degC against 17.3. 2026-11-17 morning: raw about 422, 17.6 degC against 17.0. 2026-11-17 noon: raw 426, 18.1 degC against 17.9. All within 1 degC, the accuracy of the room thermometer | REQ-FUN-004 |
+| Buffer | **Pass**: `STATUS 1 40 115 40 426 1` with the 1 MΩ pull-down fitted, `STATUS 1 41 118 41 426 1` with it removed from the breadboard: the same 426. The module output is buffered; the pull-down only acts when the sensor is unplugged. Pull-down fitted again after the test | REQ-FUN-004, HW-005 |
+| Range after the flash | **Pass**: after flashing `day-5-fix-temp-range`, `RESET`, `CONFIG`, then `MODE 1` at 120 s (entries 82 to 84); `STATUS 1 40 118 40 426 1`: raw 426 valid in 217 .. 769 | REQ-FUN-004 |
 
 ## Day 5 — temperature pull-down (2026-11-15)
 
@@ -39,7 +59,7 @@ GND on the breadboard (HW-005), temperature SIG on the same row.
 | Check | Result | Requirement |
 |---|---|---|
 | Sensor plugged | **Pass**: `STATUS 1 37 117 37 441 1`: raw 441, about 19.3 degC (sensor near the board, so about 2 degC high) (the module output is buffered, so the pull-down does not change the reading; see the conversion check below), inside 0 to 50 degC; `temp valid` 1 | REQ-FUN-004, HW-005 |
-| Conversion check | 11:48, sensor moved 20 to 30 cm away from the board at 11:40: raw 417 against 17.3 degC on the room thermometer. The divider alone gives 17.4 degC; a calculation with the pull-down in parallel gave 19.3 degC, wrong. So the module output is buffered, and the range limits move to 217 .. 769 (0 to 50 degC) on `day-5-fix-temp-range`. Near the board the sensor read about 2 degC too high (heat of the MQ heaters and the board). One point only, against a room thermometer of unknown accuracy: the buffer is to confirm with the pull-down in and out (open step) | REQ-FUN-004 |
+| Conversion check | 11:48, sensor moved 20 to 30 cm away from the board at 11:40: raw 417 against 17.3 degC on the room thermometer. The divider alone gives 17.4 degC; a calculation with the pull-down in parallel gave 19.3 degC, wrong. So the module output is buffered, and the range limits move to 217 .. 769 (0 to 50 degC) on `day-5-fix-temp-range`. Near the board the sensor read about 2 degC too high (heat of the MQ heaters and the board). Confirmed on 2026-11-17 with the pull-down in and out (section "temperature coefficient and buffer") | REQ-FUN-004 |
 | Sensor unplugged (SIG off) | **Pass**: `STATUS 1 37 117 37 3 0`: the pull-down holds A3 at 3, out of the valid range, `temp valid` 0. Before the pull-down the same test read 53 and valid (FMEA F48) | REQ-FUN-004, HW-005 |
 
 ## Day 5 — power-up and reset loop (2026-11-15)

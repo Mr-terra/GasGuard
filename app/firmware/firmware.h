@@ -48,8 +48,9 @@
  * The module is an NTC thermistor (100 kOhm at 25 degC, B = 4275) above a 100 kOhm
  * resistor to GND, followed by a buffer: about 512 at 25 degC, lower when colder.
  * The buffered output is not loaded by the 1 MOhm pull-down on A3 (HW-005): on
- * the bench, raw 417 was 17.3 degC on a room thermometer, as the divider alone
- * gives. The pull-down only acts when the sensor is unplugged: A3 then reads 0
+ * the bench, raw 426 with the pull-down and without it, and three readings
+ * within 1 degC of a room thermometer, as the divider alone gives. The
+ * pull-down only acts when the sensor is unplugged: A3 then reads 0
  * instead of floating near the last channel read.
  * A reading outside FIRMWARE_TEMP_RAW_MIN .. FIRMWARE_TEMP_RAW_MAX (0 to 50 degC,
  * the range of a room) is invalid: unplugged or open reads 0, a short near 1023.

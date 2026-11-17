@@ -58,7 +58,7 @@ process is the point:
 | Foundations | Build, unit test, static analysis and memory budget gates |
 | Foundations | Hardware interfaces (ADC, timer, GPIO, EEPROM, UART, I2C, watchdog, reset cause), each with a PC fake and unit tests |
 | Sensing | Moving average over the last 8 samples per channel (`services/filter`) |
-| Sensing | Linear calibration to %LEL in Q8 fixed point, zero offset per channel (provisional bench values: MQ-5 113, MQ-2 0); temperature on A3 read and checked every sample (valid between 0 and 50 degC, 1 MΩ pull-down so an unplugged sensor is invalid), compensation coefficient still 0 until measured on the bench (REQ-FUN-004, see limitations) |
+| Sensing | Linear calibration to %LEL in Q8 fixed point, zero offset per channel (provisional bench values: MQ-5 113, MQ-2 0); temperature on A3 read and checked every sample (valid between 0 and 50 degC, 1 MΩ pull-down so an unplugged sensor is invalid), compensation coefficient 0, as measured on the bench (REQ-FUN-004, see limitations) |
 | Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) |
 | Diagnostics | Bandgap raw read against AVcc, checked at start-up and every 60 s; ten conversions discarded first so the reference settles; the first bad raw value of each boot is logged as `BANDGAP` (REQ-SAF-004, FMEA F43) |
 | Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) |
@@ -237,7 +237,7 @@ mitigation, is in [`docs/03-safety-analysis.md`](docs/03-safety-analysis.md).
 | Grove Button v1.2, Grove Touch Sensor v1.1 | Operator input |
 | Grove Buzzer v1.2 | Audible alarm |
 | Grove Rotary Angle Sensor v1.2 | Gas simulator (simulation build only) |
-| Grove Temperature Sensor v1.2 | Temperature input on A3 (compensation coefficient still 0) |
+| Grove Temperature Sensor v1.2 | Temperature input on A3 (compensation coefficient 0) |
 | 100 kΩ resistors (×2), 1 MΩ resistor | Pull-downs on the gas inputs and on the temperature input |
 | 9 V 1 A wall adapter | Supply on the barrel jack |
 
@@ -338,7 +338,8 @@ tools\status-log.ps1 -Port COM3           # send `status` every 5 min, append it
 
 `status-log.ps1` records the state, the concentration and the raw inputs over
 hours, for the measurement of the temperature coefficient (REQ-FUN-004). Run it
-in clean air for one to two days while the room warms and cools.
+in clean air for one to two days while the room warms and cools. The first
+measurement (2026-11-15 to 17) is in the test report.
 
 If PowerShell refuses to run a script (execution policy), start it with
 `powershell -ExecutionPolicy Bypass -File tools\flash-monitor.ps1 -Port COM3`.
@@ -476,9 +477,12 @@ Accepted deviations from the coding standard are listed in
   REQ-SAF-003, confirmed by the author on Day 5; the values may be tuned later).
 - **No display, no stop**: the boot goes on without the LCD and logs a `DISPLAY` event.
   A failed boot arms the watchdog, so the board resets and tries again.
-- **Temperature compensation does not change the reading yet**: the temperature
-  input (A3) is read and checked, but its coefficient is zero until it is
-  measured on the bench (clean air, over a temperature swing, with `status`).
+- **Temperature compensation does not change the reading**: the temperature
+  input (A3) is read and checked, but its coefficient is zero. Two days of
+  measurement in clean air (16 to 19 degC) showed changes with the time of day
+  (about +10 raw on the MQ-5 every evening) and a slow drift, larger than any
+  temperature effect; a coefficient fitted on them would add an error (FMEA
+  F48). A new measurement needs a wider temperature swing.
 - **Calibration is compiled in, not stored in the configuration** as REQ-FUN-003
   asks. The zero offsets are provisional bench values (MQ-5 113, MQ-2 0) and the
   span is one LSB per 0.1 %LEL, not checked with a reference gas (FMEA F05, F45).
