@@ -63,19 +63,21 @@
 /**
  * @brief Zero offset of each gas channel: the raw clean-air value, read as 0 %LEL (REQ-FUN-003).
  *
- * Provisional bench values (Day 5), compiled in until the calibration is stored in
- * the configuration. MQ-5: 113, the low end of its clean-air drift seen by the ADC
- * after about 27 h of power. MQ-2: 0, until its own preheat is over. The
- * potentiometer of the simulation build has no offset.
+ * Bench values, compiled in until the calibration is stored in the configuration:
+ * the lowest clean-air raw value seen by the ADC over 2.5 days of continuous
+ * power (2026-11-15 to 17, 683 readings, both preheats over; both seen the night
+ * of 2026-11-15, in NORMAL, no restart seen). Taking the lowest
+ * value means clean air reads a little above 0 rather than a leak reading low
+ * (FMEA F45). The potentiometer of the simulation build has no offset.
  *
  * @req REQ-FUN-003
  */
 #ifdef GG_SIM_POT
 #define FIRMWARE_ZERO_RAW_MQ5 0u
 #else
-#define FIRMWARE_ZERO_RAW_MQ5 113u
+#define FIRMWARE_ZERO_RAW_MQ5 111u
 #endif
-#define FIRMWARE_ZERO_RAW_MQ2 0u
+#define FIRMWARE_ZERO_RAW_MQ2 35u
 
 /** @brief Number of gas channels. */
 #define FIRMWARE_CHANNELS 2u

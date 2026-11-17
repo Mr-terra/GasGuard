@@ -22,20 +22,32 @@ void setUp(void);
 // cppcheck-suppress misra-c2012-8.6
 void tearDown(void);
 
-/** @brief Raw value of clean air: 2 %LEL with the identity calibration (below AL1). */
+/**
+ * @brief Raw value of clean air on both channels, for the raw-only diagnostics.
+ *
+ * Above the open-circuit limit; below both zero offsets, so it reads 0 %LEL
+ * (2 %LEL on the simulation MQ-5, which has no offset).
+ */
 #define CLEAN_RAW 20u
 /** @brief Clean air plus 2 LSB: the MQ-2 jitter of the frozen-channel test. */
 #define CLEAN_RAW_PLUS_2 22u
-/** @brief Raw value of a gas alarm level: 15 %LEL (between AL1 and AL2). */
+/** @brief Gas level between AL1 and AL2: 15 %LEL, in LSB above a channel's zero offset. */
 #define ALARM_1_RAW 150u
-/** @brief Raw value above AL2 (25 %LEL). */
+/** @brief Gas level above AL2: 30 %LEL, in LSB above a channel's zero offset. */
 #define ALARM_2_RAW 300u
-/** @brief Raw value on the MQ-5 alone that reads 15 %LEL after its zero offset. */
+/** @brief Raw value on the MQ-5 that reads 15 %LEL after its zero offset. */
 #define MQ5_ALARM_1_RAW (ALARM_1_RAW + FIRMWARE_ZERO_RAW_MQ5)
-/** @brief Small MQ-2 reading (1 %LEL), above the open-circuit limit. */
-#define MQ2_LOW_RAW 10u
-/** @brief Hold time of a long press, and one step of the main loop, in milliseconds. */
+/** @brief Raw value on the MQ-5 that reads 30 %LEL after its zero offset. */
+#define MQ5_ALARM_2_RAW (ALARM_2_RAW + FIRMWARE_ZERO_RAW_MQ5)
+/** @brief Raw value on the MQ-2 that reads 15 %LEL after its zero offset. */
+#define MQ2_ALARM_1_RAW (ALARM_1_RAW + FIRMWARE_ZERO_RAW_MQ2)
+/** @brief Raw value on the MQ-2 that reads 30 %LEL after its zero offset. */
+#define MQ2_ALARM_2_RAW (ALARM_2_RAW + FIRMWARE_ZERO_RAW_MQ2)
+/** @brief Small MQ-2 reading (1 %LEL after its zero offset), above the open-circuit limit. */
+#define MQ2_LOW_RAW (FIRMWARE_ZERO_RAW_MQ2 + 10u)
+/** @brief Hold time of a long press, in main loop steps. */
 #define HOLD_LONG_TICKS 35u
+/** @brief One step of the main loop, in milliseconds. */
 #define TICK_MS 100u
 
 static firmware_t fw;
@@ -52,11 +64,18 @@ void setUp(void)
 
 void tearDown(void) {}
 
-/** @brief Set both gas channels to a raw value that the calibration maps to a concentration. */
+/** @brief Set both gas channels to the same raw value (clean air, rails, stuck tests). */
 static void set_gas_raw(uint16_t raw)
 {
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, raw));
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, raw));
+}
+
+/** @brief Set both gas channels to the same gas level, in 0.1 %LEL above each zero offset. */
+static void set_gas_level(uint16_t level)
+{
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, (uint16_t)(level + FIRMWARE_ZERO_RAW_MQ5)));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, (uint16_t)(level + FIRMWARE_ZERO_RAW_MQ2)));
 }
 
 /** @brief Boot with no stored configuration, so the defaults are used. */
@@ -159,8 +178,8 @@ static void test_firmware_alarm_1_after_warmup_and_three_samples(void)
     eventlog_entry_t entry;
 
     boot_defaults();
-    /* Calibration maps the raw value to 0.1 %LEL one for one: 150 raw is 150 units (15 %LEL). */
-    set_gas_raw(ALARM_1_RAW);
+    /* Above its zero, one raw LSB is 0.1 %LEL: both channels at 15 %LEL. */
+    set_gas_level(ALARM_1_RAW);
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, 130000u));
     for (i = 0u; i < 3u; i++) {
         TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, 130000u + (uint32_t)i * 100u));
@@ -196,7 +215,7 @@ static void test_firmware_each_channel_subtracts_its_own_zero(void)
     boot_defaults();
     /* MQ-5 20 raw above its zero reads 2 %LEL; the MQ-2 10 raw above its own zero reads 1 %LEL. */
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, FIRMWARE_ZERO_RAW_MQ5 + 20u));
-    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, FIRMWARE_ZERO_RAW_MQ2 + 10u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, MQ2_LOW_RAW));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, 130000u));
     TEST_ASSERT_EQUAL_INT(20, firmware_concentration(&fw));
     /* Lowest clean-air values seen by the ADC over 2.5 days on the bench (2026-11-15 to 17). */
@@ -227,7 +246,7 @@ static void test_firmware_mq5_alone_above_al2_raises_alarm_2(void)
 
     boot_and_reach_normal();
     /* MQ-2 stays clean: the alarm comes from the MQ-5 path, offset included. */
-    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, ALARM_2_RAW + FIRMWARE_ZERO_RAW_MQ5));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_2_RAW));
     fw_ticks(10u, false, false);
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, firmware_state(&fw));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
@@ -238,7 +257,9 @@ static void test_firmware_mq5_alone_above_al2_raises_alarm_2(void)
 static void test_firmware_concentration_is_the_last_sample_for_the_display(void)
 {
     boot_defaults();
-    set_gas_raw(ALARM_1_RAW);
+    /* Both channels at 15 %LEL after their own zero offset. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_1_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, MQ2_ALARM_1_RAW));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, 130000u));
     TEST_ASSERT_EQUAL_INT(150, firmware_concentration(&fw));
 }
@@ -279,7 +300,7 @@ static void test_firmware_touch_for_three_seconds_enters_maintenance(void)
     fw_ticks(HOLD_LONG_TICKS, false, true);
     TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
     /* REQ-HMI-009: an alarm is shown but not output; the relay keeps its healthy state. */
-    set_gas_raw(ALARM_2_RAW);
+    set_gas_level(ALARM_2_RAW);
     fw_ticks(10u, false, false);
     TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
@@ -300,7 +321,7 @@ static void test_firmware_touch_shorter_than_three_seconds_is_ignored(void)
 static void test_firmware_short_press_silences_the_alarm_1_buzzer(void)
 {
     boot_and_reach_normal();
-    set_gas_raw(ALARM_1_RAW);
+    set_gas_level(ALARM_1_RAW);
     /* The 8-sample moving average needs 8 samples to reach the new level. */
     fw_ticks(10u, false, false);
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
@@ -318,7 +339,7 @@ static void test_firmware_short_press_silences_the_alarm_1_buzzer(void)
 static void test_firmware_a_new_alarm_1_sounds_after_a_silenced_one(void)
 {
     boot_and_reach_normal();
-    set_gas_raw(ALARM_1_RAW);
+    set_gas_level(ALARM_1_RAW);
     fw_ticks(10u, false, false);
     fw_ticks(5u, true, false);     /* Short press: this ALARM_1 is silenced. */
     fw_ticks(3u, false, false);
@@ -328,7 +349,7 @@ static void test_firmware_a_new_alarm_1_sounds_after_a_silenced_one(void)
     fw_ticks(20u, false, false);
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
     /* A new leak: the new ALARM_1 must sound, the old silence does not carry over. */
-    set_gas_raw(ALARM_1_RAW);
+    set_gas_level(ALARM_1_RAW);
     fw_ticks(10u, false, false);
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_output(&fw, 130000u));
@@ -339,7 +360,7 @@ static void test_firmware_a_new_alarm_1_sounds_after_a_silenced_one(void)
 static void test_firmware_long_press_in_alarm_2_resets_the_latch_when_gas_is_gone(void)
 {
     boot_and_reach_normal();
-    set_gas_raw(ALARM_2_RAW);
+    set_gas_level(ALARM_2_RAW);
     fw_ticks(10u, false, false);
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, firmware_state(&fw));
     set_gas_raw(CLEAN_RAW);
@@ -842,7 +863,7 @@ static void test_firmware_alarm_2_buzzer_beeps_four_times_a_second_at_the_output
     bool prev = false;
 
     boot_and_reach_normal();
-    set_gas_raw(ALARM_2_RAW);
+    set_gas_level(ALARM_2_RAW);
     fw_ticks(10u, false, false);
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, firmware_state(&fw));
     /* now_test is a multiple of 250 ms here: the pattern starts with a beep. */
@@ -947,8 +968,8 @@ static void maintenance_with_gas(uint16_t mq5_raw, uint16_t mq2_raw)
 static void test_firmware_maintenance_end_logs_the_peak_of_each_channel(void)
 {
     boot_and_reach_normal();
-    maintenance_with_gas(MQ5_ALARM_1_RAW, ALARM_2_RAW);
-    /* MQ-5: 15 %LEL after its zero offset; MQ-2: 30 %LEL. */
+    maintenance_with_gas(MQ5_ALARM_1_RAW, MQ2_ALARM_2_RAW);
+    /* MQ-5: 15 %LEL, MQ-2: 30 %LEL, each after its zero offset. */
     TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ5, ALARM_1_RAW)));
     TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ2, ALARM_2_RAW)));
 }
@@ -957,9 +978,9 @@ static void test_firmware_maintenance_end_logs_the_peak_of_each_channel(void)
 static void test_firmware_each_maintenance_starts_a_new_peak(void)
 {
     boot_and_reach_normal();
-    maintenance_with_gas(MQ5_ALARM_1_RAW, ALARM_2_RAW);
+    maintenance_with_gas(MQ5_ALARM_1_RAW, MQ2_ALARM_2_RAW);
     /* Second test, the MQ-2 only: the MQ-5 peak of the first test is not carried over. */
-    maintenance_with_gas(CLEAN_RAW, ALARM_1_RAW);
+    maintenance_with_gas(CLEAN_RAW, MQ2_ALARM_1_RAW);
     TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ5, ALARM_1_RAW)));
     TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ2, ALARM_1_RAW)));
     TEST_ASSERT_EQUAL_UINT8(4u, count_entries(EVENTLOG_MAINT_PEAK, ANY_ARG));
@@ -1093,7 +1114,7 @@ static void expect_alarm_2_with_temperature(uint16_t temp_raw, bool temp_fails)
     boot_and_reach_normal();
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_TEMP, temp_raw));
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_TEMP, temp_fails));
-    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, ALARM_2_RAW + FIRMWARE_ZERO_RAW_MQ5));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_2_RAW));
     fw_ticks(10u, false, false);
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, firmware_state(&fw));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));

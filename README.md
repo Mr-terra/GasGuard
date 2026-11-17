@@ -58,7 +58,7 @@ process is the point:
 | Foundations | Build, unit test, static analysis and memory budget gates |
 | Foundations | Hardware interfaces (ADC, timer, GPIO, EEPROM, UART, I2C, watchdog, reset cause), each with a PC fake and unit tests |
 | Sensing | Moving average over the last 8 samples per channel (`services/filter`) |
-| Sensing | Linear calibration to %LEL in Q8 fixed point, zero offset per channel (provisional bench values: MQ-5 113, MQ-2 0); temperature on A3 read and checked every sample (valid between 0 and 50 degC, 1 MΩ pull-down so an unplugged sensor is invalid), compensation coefficient 0, as measured on the bench (REQ-FUN-004, see limitations) |
+| Sensing | Linear calibration to %LEL in Q8 fixed point, zero offset per channel (lowest clean-air values over 2.5 days on the bench: MQ-5 111, MQ-2 35); temperature on A3 read and checked every sample (valid between 0 and 50 degC, 1 MΩ pull-down so an unplugged sensor is invalid), compensation coefficient 0, as measured on the bench (REQ-FUN-004, see limitations) |
 | Diagnostics | Open/short circuit (5 samples), stuck sensor (10 min, outside warm-up), bandgap (±10 %) |
 | Diagnostics | Bandgap raw read against AVcc, checked at start-up and every 60 s; ten conversions discarded first so the reference settles; the first bad raw value of each boot is logged as `BANDGAP` (REQ-SAF-004, FMEA F43) |
 | Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) |
@@ -481,7 +481,7 @@ Accepted deviations from the coding standard are listed in
   temperature effect; a coefficient fitted on them would add an error (FMEA
   F48). A new measurement needs a wider temperature swing.
 - **Calibration is compiled in, not stored in the configuration** as REQ-FUN-003
-  asks. The zero offsets are provisional bench values (MQ-5 113, MQ-2 0) and the
+  asks. The zero offsets are bench values (MQ-5 111, MQ-2 35, lowest clean air over 2.5 days) and the
   span is one LSB per 0.1 %LEL, not checked with a reference gas (FMEA F05, F45).
 - **Relay pull-down at reset** (FMEA F21) is proposed in docs/02, not yet fitted.
 - **The `cfg` command** of the UART interface is not implemented; `log` and
