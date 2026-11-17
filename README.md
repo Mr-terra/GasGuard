@@ -451,9 +451,6 @@ Accepted deviations from the coding standard are listed in
 - **Start-up needs the USB, then the 9 V jack, then RESET** (see "Power-up
   order"): a start on USB alone ends in FAULT, and with the jack first the
   board's USB chip is not recognised by Windows.
-- **The buzzer is not connected on the bench** (since 2026-11-15): its cable feeds
-  the temperature sensor. The firmware still drives D6; alarms are visible on the
-  display only.
 - **No relay module is fitted.** The firmware drives the relay output (D5) as
   specified; on the bench only its pin level can be checked.
 - **Not yet checked on the board:** the stack watermark value, the D5 level at

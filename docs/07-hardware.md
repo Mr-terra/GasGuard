@@ -17,7 +17,7 @@ part itself.
 | 5 | Display | Seeed Grove LCD RGB Backlight v4.0 (16×2) | 1 | Port I2C | In use | LCD at 0x3E, backlight at 0x62 (v5.0 boards use 0x30) |
 | 6 | Push button | Seeed Grove Button v1.2 (Grove Starter Kit for Arduino), output high when pressed | 1 | Port D2 (SIG) | In use | Short press: silence; long press: ALARM_2 reset or functional test |
 | 7 | Touch sensor | Seeed Grove Touch Sensor v1.1 (same kit), 5 V when touched, 0 V otherwise | 1 | Port D3 (SIG) | In use | 3 s touch in NORMAL: MAINTENANCE |
-| 8 | Buzzer | Seeed Grove Buzzer v1.2 (same kit), active buzzer | 1 | Port D6 (SIG) | **Not connected on the bench since 2026-11-15** | Its Grove-to-Dupont cable now feeds the temperature sensor (author's choice); the firmware still drives D6. Switched on and off as a plain output; Timer0 is left free |
+| 8 | Buzzer | Seeed Grove Buzzer v1.2 (same kit), active buzzer | 1 | Port D6 (SIG) | In use | Switched on and off as a plain output; Timer0 is left free |
 | 9 | Gas simulator | Seeed Grove Rotary Angle Sensor v1.2 (same kit) | 1 | Port A2 | Bench only | Read only by the simulation build (`make avr-sim`, FMEA F41) |
 | 10 | Pull-down resistors | 100 kΩ, 1/4 W | 2 | A0–GND and A1–GND, Arduino side | In use | HW-001: an unplugged cable reads 0 instead of noise |
 | Pull-down resistor | 1 MΩ, 1/4 W | 1 | A3–GND, Arduino side | In use | HW-005: an unplugged temperature sensor reads 0 |
