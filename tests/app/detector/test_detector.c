@@ -904,6 +904,58 @@ static void test_detector_from_normal_two_samples_at_al2_then_one_at_al1_give_al
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, state_now());
 }
 
+/* @verifies REQ-HMI-008 */
+static void test_detector_touch_with_gas_at_al1_is_ignored(void)
+{
+    detector_input_t touch = input_with(DETECTOR_AL1_DEFAULT, true, false, DET_FAULT_NONE);
+
+    finish_warmup();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &touch));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
+}
+
+/* @verifies REQ-HMI-008 */
+static void test_detector_touch_with_gas_one_unit_below_al1_enters_maintenance(void)
+{
+    gg_conc_t below = DETECTOR_AL1_DEFAULT;
+    detector_input_t touch = input_with(0, true, false, DET_FAULT_NONE);
+
+    below = (gg_conc_t)(below - 1);
+    touch.conc = below;
+    finish_warmup();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &touch));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, state_now());
+}
+
+/* @verifies REQ-HMI-008 REQ-ALM-001 */
+static void test_detector_touch_on_the_third_gas_sample_gives_the_alarm(void)
+{
+    /* The review case: the 3 s touch ends on the same sample as the third sample
+     * above AL1. The alarm wins and the relay drops; MAINTENANCE is refused. */
+    detector_input_t touch = input_with(DETECTOR_AL1_DEFAULT, true, false, DET_FAULT_NONE);
+    bool energised = true;
+
+    finish_warmup();
+    step_n(DETECTOR_AL1_DEFAULT, DETECTOR_ENTER_SAMPLES - 1u);
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &touch));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, state_now());
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_relay_energised(&det_test_state, &energised));
+    TEST_ASSERT_FALSE(energised);
+}
+
+/* @verifies REQ-HMI-008 */
+static void test_detector_touch_refused_for_gas_is_not_kept_for_later(void)
+{
+    /* A refused request is dropped: when the gas is gone, nothing enters
+     * MAINTENANCE until the operator touches again. */
+    detector_input_t touch = input_with(DETECTOR_AL1_DEFAULT, true, false, DET_FAULT_NONE);
+
+    finish_warmup();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &touch));
+    step_n(0, 5u);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -972,5 +1024,9 @@ int main(void)
     RUN_TEST(test_detector_from_normal_one_unit_below_al2_gives_alarm_1_only);
     RUN_TEST(test_detector_from_normal_two_samples_at_al2_then_one_at_al1_give_alarm_1);
     RUN_TEST(test_detector_from_normal_two_samples_at_al2_then_clean_air_stay_normal);
+    RUN_TEST(test_detector_touch_with_gas_at_al1_is_ignored);
+    RUN_TEST(test_detector_touch_with_gas_one_unit_below_al1_enters_maintenance);
+    RUN_TEST(test_detector_touch_on_the_third_gas_sample_gives_the_alarm);
+    RUN_TEST(test_detector_touch_refused_for_gas_is_not_kept_for_later);
     return UNITY_END();
 }
