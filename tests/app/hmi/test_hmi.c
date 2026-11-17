@@ -410,6 +410,93 @@ static void test_hmi_format_lel_small_values_and_whole_numbers(void)
     TEST_ASSERT_EQUAL_STRING("0.0 %LEL", text);
 }
 
+/** @brief Buzzer level in ALARM_2 at a time on the "on" phase of the 4 Hz pattern. */
+static bool alarm_2_sounds_at(const hmi_silence_t *silence, uint32_t now_ms)
+{
+    bool on = false;
+
+    TEST_ASSERT_EQUAL_UINT32(0u, now_ms % HMI_ALARM_2_PERIOD_MS);   /* "On" phase without a silence. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_buzzer_on(DET_STATE_ALARM_2, silence, now_ms, &on));
+    return on;
+}
+
+/* @verifies REQ-HMI-004 */
+static void test_hmi_second_press_in_alarm_2_does_not_extend_the_silence(void)
+{
+    hmi_silence_t silence;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_2, &silence, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_2, &silence, 50000u));
+    TEST_ASSERT_FALSE(alarm_2_sounds_at(&silence, 59750u));
+    TEST_ASSERT_TRUE(alarm_2_sounds_at(&silence, 60000u));   /* 60 s after the first press. */
+}
+
+/* @verifies REQ-HMI-004 */
+static void test_hmi_press_after_the_60_s_of_alarm_2_has_no_effect(void)
+{
+    hmi_silence_t silence;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_2, &silence, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_2, &silence, 70000u));
+    TEST_ASSERT_TRUE(alarm_2_sounds_at(&silence, 70000u));
+    TEST_ASSERT_TRUE(alarm_2_sounds_at(&silence, 100000u));
+}
+
+/* @verifies REQ-HMI-004 */
+static void test_hmi_pressing_every_ten_seconds_cannot_keep_alarm_2_quiet(void)
+{
+    hmi_silence_t silence;
+    uint32_t t;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    for (t = 0u; t <= 300000u; t += 10000u) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_2, &silence, t));
+    }
+    TEST_ASSERT_TRUE(alarm_2_sounds_at(&silence, 300000u));
+}
+
+/* @verifies REQ-HMI-004 */
+static void test_hmi_last_press_before_the_end_of_the_60_s_adds_nothing(void)
+{
+    hmi_silence_t silence;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_2, &silence, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_2, &silence, HMI_ALARM_2_SILENCE_MAX_MS - 1u));
+    TEST_ASSERT_TRUE(alarm_2_sounds_at(&silence, HMI_ALARM_2_SILENCE_MAX_MS));
+}
+
+/* @verifies REQ-HMI-004 */
+static void test_hmi_new_alarm_2_episode_gets_its_own_60_s(void)
+{
+    hmi_silence_t silence;
+
+    /* The firmware resets the silence at every change of state: after an
+     * ALARM_2 reset, a new ALARM_2 can be silenced for 60 s again. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_2, &silence, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_2, &silence, 100000u));
+    TEST_ASSERT_FALSE(alarm_2_sounds_at(&silence, 150000u));
+    TEST_ASSERT_TRUE(alarm_2_sounds_at(&silence, 160000u));
+}
+
+/* @verifies REQ-HMI-004 */
+static void test_hmi_alarm_1_silence_after_an_alarm_1_press_is_not_limited(void)
+{
+    hmi_silence_t silence;
+    bool on = true;
+
+    /* Pressing again in ALARM_1 keeps it quiet: only ALARM_2 has the 60 s limit. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_1, &silence, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_1, &silence, 90000u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_buzzer_on(DET_STATE_ALARM_1, &silence, 600000u, &on));
+    TEST_ASSERT_FALSE(on);
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -443,5 +530,11 @@ int main(void)
     RUN_TEST(test_hmi_functional_test_runs_until_its_last_millisecond);
     RUN_TEST(test_hmi_functional_test_releases_the_relay_for_exactly_one_step);
     RUN_TEST(test_hmi_format_lel_small_values_and_whole_numbers);
+    RUN_TEST(test_hmi_second_press_in_alarm_2_does_not_extend_the_silence);
+    RUN_TEST(test_hmi_press_after_the_60_s_of_alarm_2_has_no_effect);
+    RUN_TEST(test_hmi_pressing_every_ten_seconds_cannot_keep_alarm_2_quiet);
+    RUN_TEST(test_hmi_last_press_before_the_end_of_the_60_s_adds_nothing);
+    RUN_TEST(test_hmi_new_alarm_2_episode_gets_its_own_60_s);
+    RUN_TEST(test_hmi_alarm_1_silence_after_an_alarm_1_press_is_not_limited);
     return UNITY_END();
 }
