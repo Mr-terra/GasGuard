@@ -49,7 +49,9 @@ static void test_filter_averages_the_window(void)
     uint16_t value = 0u;
     uint8_t i;
 
-    /* Four samples of 100 and four of 300: the mean of the window is 200. */
+    /* Four samples of 100 and four of 300. The median of 3 follows the step one
+     * sample late, so the window holds five medians of 100 and three of 300:
+     * (500 + 900) / 8 = 175. */
     for (i = 0u; i < 4u; i++) {
         TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 100u));
     }
@@ -57,7 +59,7 @@ static void test_filter_averages_the_window(void)
         TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 300u));
     }
     TEST_ASSERT_EQUAL_INT(GG_OK, filter_value(&s_filter, &value));
-    TEST_ASSERT_EQUAL_UINT16(200u, value);
+    TEST_ASSERT_EQUAL_UINT16(175u, value);
 }
 
 /* @verifies REQ-FUN-002 */
@@ -76,18 +78,22 @@ static void test_filter_window_forgets_samples_older_than_eight(void)
 }
 
 /* @verifies REQ-FUN-002 */
-static void test_filter_attenuates_a_single_spike(void)
+static void test_filter_removes_a_single_spike(void)
 {
     uint16_t value = 0u;
     uint8_t i;
 
-    /* Seven samples of 100 and one spike of 900: the average is (700 + 900) / 8 = 200. */
+    /* Seven samples of 100, one spike of 900, then 100 again: the median of
+     * 3 never lets the spike through, so the average stays at 100. */
     for (i = 0u; i < 7u; i++) {
         TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 100u));
     }
     TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 900u));
     TEST_ASSERT_EQUAL_INT(GG_OK, filter_value(&s_filter, &value));
-    TEST_ASSERT_EQUAL_UINT16(200u, value);
+    TEST_ASSERT_EQUAL_UINT16(100u, value);
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 100u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_value(&s_filter, &value));
+    TEST_ASSERT_EQUAL_UINT16(100u, value);
 }
 
 /* @verifies REQ-FUN-002 */
@@ -151,17 +157,21 @@ static void test_filter_zero_samples_average_to_zero(void)
 }
 
 /* @verifies REQ-FUN-002 */
-static void test_filter_step_reaches_its_full_value_on_the_eighth_sample(void)
+static void test_filter_step_reaches_its_full_value_on_the_ninth_sample(void)
 {
     uint16_t value = 0u;
     uint8_t i;
 
-    /* A real, lasting rise from 100 to 900 must not be held back: after seven
-     * samples the old value still weighs one eighth, after eight it is gone. */
+    /* A real, lasting rise from 100 to 900 must not be held back: the median
+     * follows it from the second sample at 900, so after eight samples one
+     * median of 100 is left, after nine it is gone. */
     for (i = 0u; i < FILTER_WINDOW; i++) {
         TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 100u));
     }
-    for (i = 0u; i < (FILTER_WINDOW - 1u); i++) {
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 900u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_value(&s_filter, &value));
+    TEST_ASSERT_EQUAL_UINT16(100u, value);   /* One sample at 900: still taken as a spike. */
+    for (i = 1u; i < FILTER_WINDOW; i++) {
         TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 900u));
     }
     TEST_ASSERT_EQUAL_INT(GG_OK, filter_value(&s_filter, &value));
@@ -176,13 +186,14 @@ static void test_filter_partial_window_averages_the_samples_received(void)
 {
     uint16_t value = 0u;
 
-    /* Before eight samples, the average is over the samples received only:
-     * a first gas reading after the start is not diluted by empty slots. */
+    /* Before eight samples, the average is over the medians received only:
+     * a first gas reading after the start is not diluted by empty slots.
+     * Medians: 100 (one sample), 100 (lower of two), 200 (middle of three). */
     TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 100u));
     TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 200u));
     TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 600u));
     TEST_ASSERT_EQUAL_INT(GG_OK, filter_value(&s_filter, &value));
-    TEST_ASSERT_EQUAL_UINT16(300u, value);
+    TEST_ASSERT_EQUAL_UINT16(133u, value);
 }
 
 /* @verifies REQ-FUN-002 */
@@ -197,6 +208,83 @@ static void test_filter_average_rounds_down(void)
     TEST_ASSERT_EQUAL_UINT16(1u, value);
 }
 
+/* @verifies REQ-FUN-002 */
+static void test_filter_largest_spike_below_the_rails_is_removed(void)
+{
+    uint16_t value = 0u;
+    uint8_t i;
+
+    /* The review case: clean air at 115, one sample at 1017 (the highest value
+     * that is not a short circuit), then 116. Without the median the average
+     * rose by about 11 %LEL for eight samples. */
+    for (i = 0u; i < FILTER_WINDOW; i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 115u));
+    }
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 1017u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 116u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_value(&s_filter, &value));
+    TEST_ASSERT_EQUAL_UINT16(115u, value);
+}
+
+/* @verifies REQ-FUN-002 */
+static void test_filter_removes_a_single_dip_too(void)
+{
+    uint16_t value = 0u;
+    uint8_t i;
+
+    /* A dip to 0 during a leak must not pull the reading down either (H1). */
+    for (i = 0u; i < FILTER_WINDOW; i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 400u));
+    }
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 400u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_value(&s_filter, &value));
+    TEST_ASSERT_EQUAL_UINT16(400u, value);
+}
+
+/* @verifies REQ-FUN-002 */
+static void test_filter_two_samples_in_a_row_are_not_removed(void)
+{
+    uint16_t value = 0u;
+    uint8_t i;
+
+    /* Two samples in a row at 900 are kept: the median removes one sample, not
+     * two. The medians of the two samples are 100 and 900. */
+    for (i = 0u; i < FILTER_WINDOW; i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 100u));
+    }
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 900u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 900u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_value(&s_filter, &value));
+    TEST_ASSERT_EQUAL_UINT16(200u, value);   /* (7 x 100 + 900) / 8 */
+}
+
+/* @verifies REQ-FUN-002 */
+static void test_filter_median_ignores_the_order_of_the_three_samples(void)
+{
+    uint16_t value = 0u;
+
+    /* 300, 100, 200: median 200 whatever the order. Medians: 300, 100, 200. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 300u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 100u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 200u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_value(&s_filter, &value));
+    TEST_ASSERT_EQUAL_UINT16(200u, value);   /* (300 + 100 + 200) / 3 */
+}
+
+/* @verifies REQ-FUN-002 */
+static void test_filter_init_forgets_the_median_history(void)
+{
+    uint16_t value = 0u;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 900u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 900u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_init(&s_filter));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_push(&s_filter, 100u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, filter_value(&s_filter, &value));
+    TEST_ASSERT_EQUAL_UINT16(100u, value);
+}
+
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
@@ -206,15 +294,20 @@ int main(void)
     RUN_TEST(test_filter_single_sample_is_its_own_average);
     RUN_TEST(test_filter_averages_the_window);
     RUN_TEST(test_filter_window_forgets_samples_older_than_eight);
-    RUN_TEST(test_filter_attenuates_a_single_spike);
+    RUN_TEST(test_filter_removes_a_single_spike);
     RUN_TEST(test_filter_push_rejects_out_of_range_sample);
     RUN_TEST(test_filter_push_rejects_null_filter);
     RUN_TEST(test_filter_rejected_sample_leaves_the_average_unchanged);
     RUN_TEST(test_filter_value_rejects_null_arguments);
     RUN_TEST(test_filter_full_scale_window_does_not_overflow);
     RUN_TEST(test_filter_zero_samples_average_to_zero);
-    RUN_TEST(test_filter_step_reaches_its_full_value_on_the_eighth_sample);
+    RUN_TEST(test_filter_step_reaches_its_full_value_on_the_ninth_sample);
     RUN_TEST(test_filter_partial_window_averages_the_samples_received);
     RUN_TEST(test_filter_average_rounds_down);
+    RUN_TEST(test_filter_largest_spike_below_the_rails_is_removed);
+    RUN_TEST(test_filter_removes_a_single_dip_too);
+    RUN_TEST(test_filter_two_samples_in_a_row_are_not_removed);
+    RUN_TEST(test_filter_median_ignores_the_order_of_the_three_samples);
+    RUN_TEST(test_filter_init_forgets_the_median_history);
     return UNITY_END();
 }
