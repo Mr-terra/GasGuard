@@ -25,6 +25,10 @@ def collect_tags(folder: Path, kind: str, pattern: str = "*.[ch]") -> dict:
         # count as "implemented", only the real code does.
         if kind == "req" and file.name.endswith("_fake.c"):
             continue
+        # The bench tool (bench/, `make avr-bench` only) measures requirements on the
+        # board; it is not in the product image, so it never counts as implemented.
+        if kind == "req" and file.relative_to(ROOT).parts[0] == "bench":
+            continue
         text = file.read_text(encoding="utf-8", errors="replace")
         for match in REQ_TAG.finditer(text):
             if match.group(1) != kind:

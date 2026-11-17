@@ -49,7 +49,7 @@ RAM_BUDGET   := 1228
 HEADERS      := $(shell find $(MODULE_DIRS) -name '*.h' 2>/dev/null)
 COVERAGE_DIR := $(BUILD)/coverage
 
-.PHONY: all test check lint coverage avr size trace clean
+.PHONY: all test check lint coverage avr avr-bench avr-sim sim-test size trace clean
 
 all: test
 
@@ -63,6 +63,11 @@ test: $(TEST_BINS) sim-test
 
 vpath %.c $(sort $(dir $(TEST_SRCS)))
 
+# The bench tool is outside the layer folders (never in `make avr`): its test also links bench/bench.c.
+$(BUILD)/test/test_bench: $(TEST_DIR)/bench/test_bench.c bench/bench.c bench/bench.h $(LIB_SRCS) $(UNITY_SRCS) $(LIB_HDRS)
+	@mkdir -p $(dir $@)
+	$(CC) $(HOST_CFLAGS) $(filter %.c,$^) -o $@
+
 $(BUILD)/test/%: %.c $(LIB_SRCS) $(UNITY_SRCS) $(LIB_HDRS)
 	@mkdir -p $(dir $@)
 	$(CC) $(HOST_CFLAGS) $(filter %.c,$^) -o $@
@@ -73,9 +78,9 @@ $(BUILD)/test/%: %.c $(LIB_SRCS) $(UNITY_SRCS) $(LIB_HDRS)
 # @verifies REQ-NFR-001 REQ-NFR-002 REQ-SAF-010
 lint:
 	cppcheck --enable=all --addon=misra --error-exitcode=1 --std=c99 \
-	         --suppress=missingIncludeSystem --inline-suppr -I. $(MODULE_DIRS) $(TEST_DIR)
-	clang-tidy --warnings-as-errors='*' $(LIB_SRCS) -- $(STD_FLAGS) $(INCLUDES)
-	lizard -C 10 -L 60 -w $(MODULE_DIRS)
+	         --suppress=missingIncludeSystem --inline-suppr -I. $(MODULE_DIRS) bench $(TEST_DIR)
+	clang-tidy --warnings-as-errors='*' $(LIB_SRCS) bench/bench.c -- $(STD_FLAGS) $(INCLUDES)
+	lizard -C 10 -L 60 -w $(MODULE_DIRS) bench
 	@if grep -rn '<avr/' app services 2>/dev/null; then \
 	    echo "R20: app/ and services/ must not include AVR headers"; exit 1; fi
 	@if grep -rnE '(malloc|calloc|realloc|free)[[:space:]]*\(' app services hal drivers main.c 2>/dev/null; then 	    echo "SAF-010: no dynamic memory allocation"; exit 1; fi
@@ -88,7 +93,7 @@ lint:
 coverage: test
 	@mkdir -p $(COVERAGE_DIR)
 	gcovr -r . --object-directory $(BUILD)/test \
-	      --filter '(common|hal|app|services|drivers)/' \
+	      --filter '(common|hal|app|services|drivers|bench)/' \
 	      --html-details $(COVERAGE_DIR)/index.html --print-summary
 	# Gate: at least 90 % of the lines of app/ and services/ (REQ-NFR-004).
 	gcovr -r . --object-directory $(BUILD)/test \
@@ -110,6 +115,14 @@ avr-sim:
 	@mkdir -p $(BUILD)/avr-sim
 	$(AVR_CC) $(AVR_FLAGS) -DGG_SIM_POT $(AVR_SRCS) -o $(BUILD)/avr-sim/gasguard_sim.elf
 	avr-objcopy -O ihex -R .eeprom $(BUILD)/avr-sim/gasguard_sim.elf $(BUILD)/avr-sim/gasguard_sim.hex
+
+# Bench build (FMEA F49): timing and stack statistics on the UART, and faults injected on
+# purpose (`#h` watchdog hang, `#o` one overrun, `#f` three overruns). Never flashed on a unit in service.
+# It measures REQ-SAF-005, REQ-SAF-008 and REQ-SAF-009 on the board; it implements none of them.
+avr-bench:
+	@mkdir -p $(BUILD)/avr-bench
+	$(AVR_CC) $(AVR_FLAGS) -DGG_BENCH $(AVR_SRCS) bench/bench.c -o $(BUILD)/avr-bench/gasguard_bench.elf
+	avr-objcopy -O ihex -R .eeprom $(BUILD)/avr-bench/gasguard_bench.elf $(BUILD)/avr-bench/gasguard_bench.hex
 
 # Host run of the firmware tests built for the simulation (REQ-FUN-006).
 # @verifies REQ-FUN-006
@@ -133,7 +146,7 @@ TRACE_FLAGS ?=
 trace:
 	$(PYTHON) tools/trace.py $(TRACE_FLAGS)
 
-check: test lint coverage avr size trace
+check: test lint coverage avr avr-bench size trace
 
 clean:
 	rm -rf $(BUILD)

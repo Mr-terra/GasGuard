@@ -38,6 +38,10 @@
 #include "hal/wdt/wdt.h"
 #include "services/scheduler/scheduler.h"
 
+#ifdef GG_BENCH
+#include "bench/bench.h"   /* Bench build only (make avr-bench, FMEA F49). */
+#endif
+
 /** @brief Scheduler tasks, in the order they run in each cycle. */
 #define TASK_SAMPLE  0u
 #define TASK_HMI     1u
@@ -296,7 +300,14 @@ static gg_status_t task_cli(void)
     }
     for (n = 0u; n < CLI_BYTES_PER_CYCLE; n++) {
         if (hal_uart_read_byte(&byte) == GG_OK) {
-            (void)cli_feed(&cli, byte, hal_uart_write);
+            bool taken = false;
+
+#ifdef GG_BENCH
+            (void)bench_take_byte(byte, &taken);   /* `taken` is a local: cannot fail. */
+#endif
+            if (!taken) {
+                (void)cli_feed(&cli, byte, hal_uart_write);
+            }
         } else {
             break;   /* The rest waits for the next cycle. */
         }
@@ -344,6 +355,11 @@ static gg_status_t boot(void)
     if (status == GG_OK) {
         status = scheduler_init(&sched, TASK_COUNT, k_periods, 0u);
     }
+#ifdef GG_BENCH
+    if (status == GG_OK) {
+        status = bench_boot();
+    }
+#endif
     if (status == GG_OK) {
         status = hal_wdt_enable();
     }
@@ -371,7 +387,21 @@ static gg_status_t run_task_body(uint8_t task, uint32_t now_ms)
             status = firmware_output(&fw, now_ms);
             break;
         case TASK_DISPLAY:
+#ifdef GG_BENCH
+        {
+            uint32_t start_ms = 0u;
+            uint32_t end_ms = 0u;
+
+            /* Bench statistic only: a timer error just gives a wrong maximum, and
+             * bench_display_time() cannot fail. The task status is kept. */
+            (void)hal_timer_get_ms(&start_ms);
             status = task_display(now_ms);
+            (void)hal_timer_get_ms(&end_ms);
+            (void)bench_display_time(end_ms - start_ms);
+        }
+#else
+            status = task_display(now_ms);
+#endif
             break;
         case TASK_HEALTH:
             status = firmware_health(&fw, now_ms);
@@ -423,6 +453,11 @@ static gg_status_t cycle(uint32_t now_ms)
     for (task = 0u; (status == GG_OK) && (task < TASK_COUNT); task++) {
         status = run_task(task, now_ms);
     }
+#ifdef GG_BENCH
+    if (status == GG_OK) {
+        status = bench_stall();   /* `#o` or `#f`: this cycle lasts 150 ms. */
+    }
+#endif
     /* The end of the cycle is read again here: with the start time, the duration
      * would always be 0 and an overrun could never be seen (REQ-SAF-008). */
     if (status == GG_OK) {
@@ -440,6 +475,11 @@ static gg_status_t cycle(uint32_t now_ms)
     if ((status == GG_OK) && kick) {
         status = hal_wdt_kick();
     }
+#ifdef GG_BENCH
+    if (status == GG_OK) {
+        status = bench_after_cycle(now_ms, end_ms);   /* `#h` hangs here, right after the kick. */
+    }
+#endif
     return status;
 }
 

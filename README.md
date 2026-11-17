@@ -313,6 +313,8 @@ Individual targets:
 | `make lint` | cppcheck with the MISRA addon, clang-tidy, lizard, header self-containment, R20 grep |
 | `make coverage` | Line coverage report in `build/coverage/index.html` |
 | `make avr` | Cross-compiles `build/avr/gasguard.hex` for the ATmega328P |
+| `make avr-sim` | Simulation image `build/avr-sim/gasguard_sim.hex`: the MQ-5 channel reads the potentiometer on A2 (bench only, FMEA F41) |
+| `make avr-bench` | Bench image `build/avr-bench/gasguard_bench.hex`: timing and stack statistics on the UART, faults injected on command (bench only, FMEA F49) |
 | `make size` | Checks flash and RAM against the budget of REQ-NFR-005 |
 | `make trace` | Regenerates `docs/traceability.md`; `--allow-gaps` until Day 5 |
 | `make clean` | Removes `build/` |
@@ -347,6 +349,16 @@ The flash needs `avrdude` in the `Path` (see `tools/flash.ps1`).
 
 The simulation image (`make avr-sim`, `gasguard_sim.hex`) has no real gas sensor, so
 `flash.ps1` refuses it unless `-Bench` is given (FMEA F41).
+
+The bench image (`make avr-bench`, `gasguard_bench.hex`) measures what the host
+tests cannot: it prints `BENCH <uptime s> <longest cycle ms> <longest display ms>
+<free stack bytes>` every 10 s, and takes commands of a `#` and a letter: `#s`
+statistics now, `#o` one 150 ms cycle (OVERRUN), `#f` three in a row (FAULT 3),
+`#h` stops the loop right after a watchdog kick (watchdog reset). `flash.ps1`
+refuses it unless `-Bench` is given (FMEA F49). `make avr` never compiles the
+bench code. `tools\bench.ps1 -Port COM3 [-Command '#h'] [-Seconds 15]` prints each
+line with the PC time in ms; the watchdog timeout is the gap between
+`BENCH HANG` and `BENCH BOOT`, minus the boot time that `BENCH BOOT` prints.
 
 ### Power-up order
 

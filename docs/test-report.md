@@ -14,13 +14,13 @@ multimeter or the serial monitor (tools in
 
 | Step | What to check | Requirement |
 |---|---|---|
-| Watchdog timing | Reset after 500 ms without kick; no reset in normal running | REQ-SAF-005 |
-| Stack watermark | Value of `hal_stack_free_bytes` after boot and after a minute | REQ-SAF-009 |
+| Watchdog timing | Bench image, `#h` (`tools\bench.ps1 -Command '#h'`), with no `log` dump running: reset about 500 ms after the last kick. Measured value = gap `BENCH HANG` to `BENCH BOOT`, minus the boot time printed; it reads the watchdog timeout plus less than 20 ms (start-up before the timer, about 3 ms of line length, USB and Windows latency). The watchdog oscillator itself is only accurate to about ±10 %. No reset in normal running | REQ-SAF-005 |
+| Stack watermark | Bench image: last number of the `BENCH` line after boot, after a minute, and after an alarm, a `log` dump and a MAINTENANCE; must stay above 64 bytes. The bench image has 109 more bytes of static RAM (774 against 665), so the product image has at least about 109 bytes more free stack than the value read (the bench calls also use some stack) | REQ-SAF-009 |
 | Buzzer patterns | 1 Hz in ALARM_1 (4 Hz in ALARM_2 and one beep every 5 s in FAULT were heard on Day 5) | REQ-HMI-003 |
 | Bandgap | Raw value of the bandgap against AVcc (expected near 0xED at 4.75 V) | REQ-SAF-004 |
-| Watchdog reset cause | After a watchdog reset, WDRF is seen (the bootloader can clear the reset flags first) | REQ-SAF-006 |
-| Display time | Longest display task on the board (I2C): stays well under 100 ms per cycle | REQ-SAF-008 |
-| Overrun detection | With the end time fix (`day-5-fix-overrun`): no `OVERRUN` in normal running over one hour; a cycle made longer on purpose (bench build only) logs `OVERRUN` and three in a row give `FAULT 3` | REQ-SAF-008 |
+| Watchdog reset cause | Bench image, after `#h`: the `RESET` entry of the log shows the watchdog cause (the bootloader can clear the reset flags first) | REQ-SAF-006 |
+| Display time | Bench image: third number of the `BENCH` line, after state changes (alarm, FAULT blink); must stay well under 100 ms. The second number is the longest whole cycle | REQ-SAF-008 |
+| Overrun detection | With the end time fix (`day-5-fix-overrun`): no `OVERRUN` in normal running over one hour; a cycle made longer on purpose (bench image, `#o`) logs `OVERRUN`, and three in a row (`#f`) give `FAULT 3` | REQ-SAF-008 |
 | Relay pull-down | Only once a relay module is fitted (none on the bench): relay state at reset, with and without the proposed 10 kΩ pull-down | REQ-SAF-001, FMEA F21 |
 | All channels stuck | One night with both sensors in clean air: any FAULT `6` (stuck) ends by itself when a channel moves; no restart needed | REQ-SAF-003, REQ-SAF-007 |
 | Zero offsets re-check | Every month for the first three months, then at each periodic gas test: `tools/status-log.ps1` for one day in clean air; the lowest MQ-5 and MQ-2 raw values must stay at or above the offsets (111 and 35). A value under an offset means a leak reads low by the gap: lower the offset (FMEA F45) | REQ-FUN-003 |
