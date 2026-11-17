@@ -1311,6 +1311,108 @@ static void test_firmware_temperature_valid_range_ends_exactly_at_217_and_769(vo
     TEST_ASSERT_FALSE(snap.temp_valid);
 }
 
+/* @verifies REQ-FUN-001 */
+static void test_firmware_each_sample_reads_both_gas_channels(void)
+{
+    cli_status_t snap;
+
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, 400u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, 300u));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &snap));
+    TEST_ASSERT_EQUAL_UINT16(400u, snap.raw_mq5);
+    TEST_ASSERT_EQUAL_UINT16(300u, snap.raw_mq2);
+    /* The next sample sees new values on both channels at once, none is skipped. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, 410u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, 310u));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_status(&fw, &snap));
+    TEST_ASSERT_EQUAL_UINT16(410u, snap.raw_mq5);
+    TEST_ASSERT_EQUAL_UINT16(310u, snap.raw_mq2);
+}
+
+/* @verifies REQ-SAF-009 */
+static void test_firmware_low_stack_during_warmup_is_a_fault(void)
+{
+    boot_defaults();
+    set_gas_raw(CLEAN_RAW);
+    fw_ticks(10u, false, false);
+    hal_stack_fake_set_free(FIRMWARE_STACK_MIN_FREE - 1u);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-009 */
+static void test_firmware_low_stack_during_maintenance_is_a_fault(void)
+{
+    boot_and_reach_normal();
+    fw_ticks(HOLD_LONG_TICKS, false, true);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
+    hal_stack_fake_set_free(0u);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-009 */
+static void test_firmware_plenty_of_stack_never_faults(void)
+{
+    boot_and_reach_normal();
+    hal_stack_fake_set_free(UINT16_MAX);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, now_test));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+}
+
+/* @verifies REQ-HMI-009 */
+static void test_firmware_gas_is_shown_during_maintenance_but_not_output(void)
+{
+    bool energised = false;
+
+    boot_and_reach_normal();
+    fw_ticks(HOLD_LONG_TICKS, false, true);
+    set_gas_level(ALARM_2_RAW);
+    fw_ticks(10u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT16((gg_conc_t)ALARM_2_RAW, firmware_concentration(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
+    TEST_ASSERT_TRUE(energised);
+    TEST_ASSERT_FALSE(hal_gpio_fake_level(HAL_GPIO_PIN_BUZZER));
+}
+
+/* @verifies REQ-HMI-005 REQ-HMI-006 */
+static void test_firmware_long_press_in_alarm_1_neither_resets_nor_starts_the_test(void)
+{
+    boot_and_reach_normal();
+    set_gas_level(ALARM_1_RAW);
+    fw_ticks(10u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
+    fw_ticks(HOLD_LONG_TICKS, true, false);
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
+    TEST_ASSERT_FALSE(firmware_test_running(&fw));
+}
+
+/* @verifies REQ-HMI-006 */
+static void test_firmware_long_press_in_fault_never_energises_the_relay(void)
+{
+    uint32_t i;
+
+    /* Both channels shorted: FAULT. A long press must not run a test that
+     * would put the relay back on the healthy side. */
+    boot_and_reach_normal();
+    set_gas_raw(1020u);
+    fw_ticks(10u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+    for (i = 0u; i < (HOLD_LONG_TICKS + 80u); i++) {
+        fw_tick(i < HOLD_LONG_TICKS, false);
+        TEST_ASSERT_FALSE(hal_gpio_fake_level(HAL_GPIO_PIN_RELAY));
+    }
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1382,5 +1484,12 @@ int main(void)
     RUN_TEST(test_firmware_maintenance_ends_after_ten_minutes_not_before);
     RUN_TEST(test_firmware_touch_held_during_maintenance_does_not_extend_it);
     RUN_TEST(test_firmware_temperature_valid_range_ends_exactly_at_217_and_769);
+    RUN_TEST(test_firmware_each_sample_reads_both_gas_channels);
+    RUN_TEST(test_firmware_low_stack_during_warmup_is_a_fault);
+    RUN_TEST(test_firmware_low_stack_during_maintenance_is_a_fault);
+    RUN_TEST(test_firmware_plenty_of_stack_never_faults);
+    RUN_TEST(test_firmware_gas_is_shown_during_maintenance_but_not_output);
+    RUN_TEST(test_firmware_long_press_in_alarm_1_neither_resets_nor_starts_the_test);
+    RUN_TEST(test_firmware_long_press_in_fault_never_energises_the_relay);
     return UNITY_END();
 }

@@ -31,7 +31,7 @@ static void test_scheduler_init_rejects_bad_arguments(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, scheduler_init(&sched, SCHED_MAX_TASKS + 1u, periods, 0u));
 }
 
-/* @verifies REQ-SAF-005 */
+/* @verifies REQ-SAF-005 REQ-FUN-001 */
 static void test_scheduler_task_is_due_at_its_period(void)
 {
     bool due = false;
