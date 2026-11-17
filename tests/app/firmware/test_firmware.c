@@ -322,7 +322,7 @@ static void test_firmware_short_press_silences_the_alarm_1_buzzer(void)
 {
     boot_and_reach_normal();
     set_gas_level(ALARM_1_RAW);
-    /* The 8-sample moving average needs 8 samples to reach the new level. */
+    /* The filter (median of 3, then average of 8) needs 9 samples to reach the new level. */
     fw_ticks(10u, false, false);
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_output(&fw, 130000u));
@@ -536,14 +536,19 @@ static void test_firmware_adc_error_during_a_stuck_fault_latches_it(void)
 }
 
 /* @verifies REQ-SAF-007 REQ-SAF-001 */
-static void test_firmware_gas_ending_a_stuck_fault_keeps_the_relay_off(void)
+static void test_firmware_gas_ending_a_stuck_fault_gives_the_alarm_with_the_usual_confirmation(void)
 {
     bool energised = true;
 
+    /* Decision of the author (2026-11-17, option X): the filter of a channel left
+     * out keeps its history, so gas that ends a stuck FAULT is treated like gas
+     * that starts in NORMAL: the FAULT ends, then the alarm follows once the
+     * filtered value has been at AL1 for 3 samples. */
     both_channels_stuck();
-    /* Gas reaches the MQ-5: the FAULT ends straight into ALARM_1, the relay never comes back on. */
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_1_RAW));
     sample_seconds(1u);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));   /* One sample: not a leak yet. */
+    sample_seconds(11u);
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
     TEST_ASSERT_FALSE(energised);
@@ -1481,6 +1486,51 @@ static void test_firmware_alarm_2_back_from_a_stuck_fault_gets_a_new_silence(voi
     TEST_ASSERT_FALSE(energised);
 }
 
+/* @verifies REQ-FUN-002 REQ-SAF-007 */
+static void test_firmware_spike_that_ends_a_stuck_fault_raises_no_alarm(void)
+{
+    /* Both channels flat for 10 min: stuck-only FAULT. Then one wild sample
+     * (1017, just below the short-circuit rail) on the MQ-5, then clean air.
+     * The spike ends the stuck fault, but it must not reach the alarm logic. */
+    uint8_t i;
+
+    boot_and_reach_normal();
+    fw_ticks(6100u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, 1017u));
+    fw_tick(false, false);
+    for (i = 0u; i < 20u; i++) {
+        set_gas_raw(((i % 2u) == 0u) ? CLEAN_RAW : CLEAN_RAW_PLUS_2);
+        fw_tick(false, false);
+        TEST_ASSERT_TRUE(firmware_state(&fw) != DET_STATE_ALARM_1);
+        TEST_ASSERT_TRUE(firmware_state(&fw) != DET_STATE_ALARM_2);
+    }
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+}
+
+/* @verifies REQ-FUN-002 REQ-SAF-003 */
+static void test_firmware_spike_on_a_channel_coming_back_from_stuck_raises_no_alarm(void)
+{
+    /* Only the MQ-5 is flat (the MQ-2 moves): the MQ-5 alone is left out. One
+     * wild sample on it brings it back; it must not raise an alarm. */
+    uint32_t i;
+
+    boot_and_reach_normal();
+    for (i = 0u; i < 6100u; i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2,
+                                                            ((i % 2u) == 0u) ? CLEAN_RAW : CLEAN_RAW_PLUS_2));
+        fw_tick(false, false);
+    }
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, 1017u));
+    fw_tick(false, false);
+    for (i = 0u; i < 20u; i++) {
+        set_gas_raw(((i % 2u) == 0u) ? CLEAN_RAW : CLEAN_RAW_PLUS_2);
+        fw_tick(false, false);
+    }
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1509,7 +1559,7 @@ int main(void)
     RUN_TEST(test_firmware_both_channels_stuck_give_a_fault_that_ends_by_itself);
     RUN_TEST(test_firmware_stuck_channel_with_the_other_open_latches_the_fault);
     RUN_TEST(test_firmware_adc_error_during_a_stuck_fault_latches_it);
-    RUN_TEST(test_firmware_gas_ending_a_stuck_fault_keeps_the_relay_off);
+    RUN_TEST(test_firmware_gas_ending_a_stuck_fault_gives_the_alarm_with_the_usual_confirmation);
     RUN_TEST(test_firmware_stuck_fault_episode_is_logged);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_raises_fault);
     RUN_TEST(test_firmware_bandgap_out_of_tolerance_logs_its_raw_value_once);
@@ -1561,5 +1611,7 @@ int main(void)
     RUN_TEST(test_firmware_long_press_in_fault_never_energises_the_relay);
     RUN_TEST(test_firmware_short_presses_cannot_keep_alarm_2_quiet_past_60_s);
     RUN_TEST(test_firmware_alarm_2_back_from_a_stuck_fault_gets_a_new_silence);
+    RUN_TEST(test_firmware_spike_that_ends_a_stuck_fault_raises_no_alarm);
+    RUN_TEST(test_firmware_spike_on_a_channel_coming_back_from_stuck_raises_no_alarm);
     return UNITY_END();
 }
