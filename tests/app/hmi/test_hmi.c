@@ -497,6 +497,36 @@ static void test_hmi_alarm_1_silence_after_an_alarm_1_press_is_not_limited(void)
     TEST_ASSERT_FALSE(on);
 }
 
+/* @verifies REQ-HMI-004 */
+static void test_hmi_alarm_2_silence_budget_across_the_clock_wrap(void)
+{
+    hmi_silence_t silence;
+    const uint32_t first = UINT32_MAX - 9999u;   /* 10 s before the wrap. */
+
+    /* First press 10 s before the wrap, second press after it: the silence
+     * still ends 60 s after the first press, at 49 999 ms after the wrap... */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_2, &silence, first));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_2, &silence, 20000u));
+    TEST_ASSERT_FALSE(alarm_2_sounds_at(&silence, 49750u));
+    /* ...so at 50 000 ms after the wrap (60 000 ms after the first press) it sounds. */
+    TEST_ASSERT_TRUE(alarm_2_sounds_at(&silence, 50000u));
+}
+
+/* @verifies REQ-HMI-004 */
+static void test_hmi_alarm_1_silence_does_not_use_up_the_alarm_2_budget(void)
+{
+    hmi_silence_t silence;
+
+    /* Silenced in ALARM_1, then a press in ALARM_2 (even without a reset of the
+     * silence in between): ALARM_2 gets its full 60 s from that press. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_silence_init(&silence));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_1, &silence, 0u));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hmi_acknowledge(DET_STATE_ALARM_2, &silence, 100000u));
+    TEST_ASSERT_FALSE(alarm_2_sounds_at(&silence, 159750u));
+    TEST_ASSERT_TRUE(alarm_2_sounds_at(&silence, 160000u));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -536,5 +566,7 @@ int main(void)
     RUN_TEST(test_hmi_last_press_before_the_end_of_the_60_s_adds_nothing);
     RUN_TEST(test_hmi_new_alarm_2_episode_gets_its_own_60_s);
     RUN_TEST(test_hmi_alarm_1_silence_after_an_alarm_1_press_is_not_limited);
+    RUN_TEST(test_hmi_alarm_2_silence_budget_across_the_clock_wrap);
+    RUN_TEST(test_hmi_alarm_1_silence_does_not_use_up_the_alarm_2_budget);
     return UNITY_END();
 }

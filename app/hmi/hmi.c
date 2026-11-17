@@ -7,7 +7,8 @@
  * A press is classified when it ends (short, under 1 s) or when it reaches 3 s
  * while still held (long, reported once). A short press on an alarm silences
  * the buzzer; the silence is tied to the alarm level it was given for, so a
- * higher alarm sounds again, and an ALARM_2 silence ends after 60 s. Each
+ * higher alarm sounds again, and an ALARM_2 gets 60 s of silence in all,
+ * counted from its first press (later presses do not extend it). Each
  * buzzer pattern is a phase of the time modulo its period: the buzzer sounds
  * in the first part of each period. The functional test is a fixed sequence of
  * six one-second steps, after which the caller returns to NORMAL.
@@ -172,12 +173,20 @@ gg_status_t hmi_acknowledge(detector_state_t state, hmi_silence_t *silence, uint
 
     if (silence == NULL) {
         status = GG_ERR_NULL;
-    } else if (is_alarm(state)) {
-        silence->active = true;
-        silence->state = state;
-        silence->since_ms = now_ms;
     } else {
+        /* REQ-HMI-004: 60 s of silence per ALARM_2, counted from the first press.
+         * A new press in the same ALARM_2 keeps that start, so pressing again
+         * cannot keep ALARM_2 quiet. The firmware clears the silence at any change
+         * of state: a new ALARM_2 gets its own 60 s. */
+        bool alarm_2_already_silenced = (state == DET_STATE_ALARM_2) && silence->active
+                                        && (silence->state == DET_STATE_ALARM_2);
+
         /* Only an alarm can be silenced; a fault keeps its beep (REQ-HMI-003). */
+        if (is_alarm(state) && !alarm_2_already_silenced) {
+            silence->active = true;
+            silence->state = state;
+            silence->since_ms = now_ms;
+        }
     }
     return status;
 }

@@ -158,8 +158,8 @@ Any state → FAULT   (all channels faulty, ADC fault, 3 overruns, stack low)
 | ALARM_2 | Red | Fast beep (4 Hz) |
 | FAULT | Blinking amber | One beep every 5 s |
 
-A short press (under 1 s) silences ALARM_1. ALARM_2 cannot be silenced for more
-than 60 s. A long press (3 s or more) requests the ALARM_2 reset. In NORMAL, a
+A short press (under 1 s) silences ALARM_1. ALARM_2 can be silenced for 60 s in
+total per alarm, from the first press: pressing again does not extend it. A long press (3 s or more) requests the ALARM_2 reset. In NORMAL, a
 long press runs the functional test: buzzer, every backlight colour, relay
 toggle.
 
@@ -219,7 +219,7 @@ measurement, it says so and moves to a safe state.
 | Stack overflow corrupts memory | No dynamic memory, no recursion | Stack painted at boot, watermark checked every second (REQ-SAF-009/010) |
 | Corrupted configuration | Redundant copies and checksums | Two EEPROM copies with CRC-16, safe defaults if both fail (REQ-CFG-001/002) |
 | Power loss or crash | Fail-safe output | Normally-energised relay: the alarm side is the default (REQ-SAF-001) |
-| Alarm silenced and forgotten | Latch the severe alarm | ALARM_2 is latched and not silenceable for more than 60 s (REQ-ALM-004, REQ-HMI-004) |
+| Alarm silenced and forgotten | Latch the severe alarm | ALARM_2 is latched and can be silenced for 60 s in total per alarm, however often the button is pressed (REQ-ALM-004, REQ-HMI-004) |
 
 The full analysis, with severity, occurrence, detection, RPN before and after
 mitigation, is in [`docs/03-safety-analysis.md`](docs/03-safety-analysis.md).

@@ -63,7 +63,7 @@ result is in `docs/test-report.md`. Updated 2026-11-17.
 | REQ-HMI-001 LCD lines | `lcd_rgb_write_line_zero_sets_cursor_and_sends_characters`, `hmi_format_lel_puts_the_tenth_after_the_point` | `lcd_rgb_write_line_rejects_bad_arguments` | `lcd_rgb_write_line_pads_the_row_with_spaces` (no stale text) | `lcd_rgb_write_line_reports_a_missing_display`, `firmware_missing_display_is_logged` | `lcd_rgb_write_line_of_exactly_16_characters_fills_the_row`, `..._of_17_characters_is_refused_and_sends_nothing` |
 | REQ-HMI-002 backlight colours | `lcd_rgb_set_colour_writes_red_green_blue_registers` | `lcd_rgb_set_colour_reports_a_missing_backlight_chip` | Board: colour per state (the table is in `main.c`, outside the host build) | Board, as false positive | `lcd_rgb_set_colour_sends_the_extreme_levels_unchanged` |
 | REQ-HMI-003 buzzer patterns | `hmi_alarm_1_pattern_is_1_hz`, `hmi_alarm_2_pattern_is_4_hz` | `hmi_quiet_states_keep_the_buzzer_off` | `hmi_quiet_states_keep_the_buzzer_off` | `hmi_fault_beeps_once_every_five_seconds_and_cannot_be_silenced` | `hmi_alarm_1_beep_lasts_exactly_half_a_second`, `..._125_ms`, `..._200_ms`, `hmi_patterns_keep_their_rhythm_across_the_clock_wrap` |
-| REQ-HMI-004 short press silences | `firmware_short_press_silences_the_alarm_1_buzzer` | `hmi_ack_outside_an_alarm_does_nothing` | `hmi_press_between_one_and_three_seconds_is_neither` | `hmi_silence_granted_in_alarm_1_does_not_carry_into_alarm_2`, `firmware_a_new_alarm_1_sounds_after_a_silenced_one` | `hmi_short_press_ends_at_999_ms`, `hmi_alarm_2_silence_expires_after_60_seconds` (59.999 s, 60 s) |
+| REQ-HMI-004 short press silences | `firmware_short_press_silences_the_alarm_1_buzzer`, `hmi_new_alarm_2_episode_gets_its_own_60_s` | `hmi_press_after_the_60_s_of_alarm_2_has_no_effect`, `hmi_ack_outside_an_alarm_does_nothing` | `hmi_press_between_one_and_three_seconds_is_neither` | `firmware_short_presses_cannot_keep_alarm_2_quiet_past_60_s`, `hmi_pressing_every_ten_seconds_cannot_keep_alarm_2_quiet`, `hmi_alarm_1_silence_does_not_use_up_the_alarm_2_budget` | `hmi_short_press_ends_at_999_ms`, `hmi_alarm_2_silence_expires_after_60_seconds` (59.999 s, 60 s), `hmi_last_press_before_the_end_of_the_60_s_adds_nothing`, `hmi_alarm_2_silence_budget_across_the_clock_wrap`; a new 60 s after a passage through FAULT: `firmware_alarm_2_back_from_a_stuck_fault_gets_a_new_silence` |
 | REQ-HMI-005 long press resets ALARM_2 | `firmware_long_press_in_alarm_2_resets_the_latch_when_gas_is_gone` | `firmware_long_press_in_alarm_1_neither_resets_nor_starts_the_test` | `sc07_long_press_refused_while_gas_present` | `hmi_press_held_for_three_seconds_is_a_long_press_fired_once` | 2999 and 3000 ms (same test) |
 | REQ-HMI-006 functional test | `firmware_long_press_in_normal_runs_the_functional_test` | `firmware_long_press_in_alarm_1_neither_resets_nor_starts_the_test` | `firmware_long_press_in_fault_never_energises_the_relay` | `hmi_functional_test_releases_the_relay_for_exactly_one_step` | `hmi_functional_test_runs_until_its_last_millisecond` |
 | REQ-HMI-007 debounce 30 ms | `button_press_is_accepted_after_exactly_30_ms` | `button_starts_released` | `button_press_shorter_than_30_ms_is_ignored`, `button_bounce_restarts_the_30_ms_window` | `button_short_release_glitch_does_not_end_a_held_press` | 29 and 30 ms, `button_window_is_correct_across_millisecond_wraparound` |
@@ -105,10 +105,12 @@ cases, so the five categories do not apply:
    already dropped in ALARM_1, so only the ALARM_2 latch and the 4 Hz beep
    were 100 ms late. Fixed on the author's decision: in NORMAL the AL2 count is
    checked first.
-2. **REQ-HMI-004, repeated silence of ALARM_2.** Each short press restarts
-   the 60 s silence, so pressing once a minute keeps ALARM_2 quiet. The
-   requirement does not say whether the 60 s apply to one press or to the
-   whole alarm. Author to decide.
+2. **REQ-HMI-004, repeated silence of ALARM_2 (fixed).** Each short press
+   restarted the 60 s silence, so pressing once a minute kept ALARM_2 quiet.
+   Decision of the author: 60 s in total per ALARM_2, counted from the first
+   press, until the alarm is reset or the state changes (a passage through
+   FAULT gives a new 60 s). The requirement text and FMEA F14 and F38 are
+   updated, with the 49.7-day clock wrap recorded as an accepted limit.
 3. **REQ-SAF-010, extra grep in `make lint` (fixed).** In the Makefile, the
    word boundary `\b` before `(malloc|calloc|realloc|free)` had become a
    backspace character, so the grep could never match. cppcheck (MISRA 21.3)

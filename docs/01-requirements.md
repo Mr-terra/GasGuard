@@ -81,7 +81,7 @@ Any mode → `FAULT`. `NORMAL` ⇄ `MAINTENANCE` (operator request, time-limited
 | REQ-HMI-001 | The LCD shall show the mode on line 1 and the concentration (%LEL) on line 2, refreshed at least every 500 ms. |
 | REQ-HMI-002 | The LCD backlight colour shall be green (NORMAL), yellow (ALARM_1, WARMUP, MAINTENANCE), red (ALARM_2), and blinking amber (FAULT). |
 | REQ-HMI-003 | The buzzer shall use distinct patterns: ALARM_1 = slow beep (1 Hz), ALARM_2 = fast beep (4 Hz), FAULT = 1 beep every 5 s. |
-| REQ-HMI-004 | A short press (< 1 s) on the button shall acknowledge (silence) the buzzer for ALARM_1; ALARM_2 shall not be silenceable for more than 60 s. |
+| REQ-HMI-004 | A short press (< 1 s) on the button shall acknowledge (silence) the buzzer for ALARM_1. For ALARM_2, a short press shall silence the buzzer for at most 60 s in total per ALARM_2 episode: once 60 s of silence have been used, further short presses shall have no effect until the alarm is reset or the state changes (a passage through FAULT included). |
 | REQ-HMI-005 | A long press (≥ 3 s) on the button shall request ALARM_2 reset (see REQ-ALM-004). |
 | REQ-HMI-006 | A press on the button in NORMAL for ≥ 3 s shall run a **functional test**: buzzer, all backlight colours, relay toggle, then return to NORMAL. |
 | REQ-HMI-007 | All button inputs shall be debounced (stable for 30 ms). |

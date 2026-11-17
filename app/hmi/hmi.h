@@ -65,7 +65,7 @@ typedef struct {
 typedef struct {
     bool active;                /**< True when a silence was granted. */
     detector_state_t state;     /**< The alarm state the silence was granted for. */
-    uint32_t since_ms;          /**< Time of the acknowledge. */
+    uint32_t since_ms;          /**< Time of the first acknowledge of this silence. */
 } hmi_silence_t;
 
 /** @brief Outputs of one step of the functional test. */
@@ -114,7 +114,10 @@ gg_status_t hmi_silence_init(hmi_silence_t *silence);
  * @brief Acknowledge a short press: silence the buzzer for the current alarm.
  *
  * Only ALARM_1 and ALARM_2 can be silenced. The silence is tied to the state it
- * was granted in, so a higher alarm sounds again.
+ * was granted in, so a higher alarm sounds again. An ALARM_2 silence lasts 60 s
+ * from the first press of that alarm: a new press in the same ALARM_2 does not
+ * extend it (REQ-HMI-004). The caller starts a new silence at every change of
+ * state, a passage through FAULT included.
  *
  * @param state    Current detector state.
  * @param silence  Silence state. Must not be NULL.

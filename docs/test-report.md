@@ -177,7 +177,7 @@ Firmware: `main` at `60ac2b2` (button read as active high), flashed with
 | Channel fault | Pass: MQ-2 wire off, `CHANNEL 1` logged, the detector goes on with the MQ-5 and reaches ALARM_1 after the warm-up (uncalibrated MQ-5 reads about 11.5 %LEL) | REQ-SAF-002 |
 | Bandgap check | **Fail (false fault)** with `60ac2b2`: `FAULT 1` at 0 s on 6 boots and at 61 s on one, with a correct supply and no channel fault. **Pass** with `day-5-fix-bench` (`0648f81`, ten conversions discarded): 6 boots without `FAULT` or `BANDGAP`, and one run past 120 s (so through the 60 s check) | REQ-SAF-004, F43 |
 | LCD in FAULT | Amber blink seen. **Fail** with `60ac2b2`: line 1 read `FAULTP` (end of `WARMUP` kept). **Pass** with `e5435f1` (rows filled with spaces): `ALARM 1` shown with no extra letter | REQ-HMI-001 |
-| FAULT buzzer | Pass: one beep every 5 s; the short press does not silence it (by design, REQ-HMI-004 covers ALARM_1 only) | REQ-HMI-003 |
+| FAULT buzzer | Pass: one beep every 5 s; the short press does not silence it (by design, REQ-HMI-004 covers the alarms, not FAULT) | REQ-HMI-003 |
 | Warm-up end | Pass: `MODE 1` (NORMAL) then `MODE 2` (ALARM_1) at 120 s, with the uncalibrated MQ-5 at about 11.5 %LEL | REQ-ALM-006 |
 | Button short press in ALARM_1 | Pass: the buzzer stops, the display stays on `ALARM 1` | REQ-HMI-004 |
 | Button long press in ALARM_1 | Pass: 3 s press, no change of state or buzzer (by design: the long press acts only in ALARM_2 and NORMAL) | REQ-HMI-005 |
@@ -185,7 +185,7 @@ Firmware: `main` at `60ac2b2` (button read as active high), flashed with
 | Touch 3 s in NORMAL | Pass: MAINTENANCE entered, yellow backlight (looks orange on this module), automatic return to NORMAL after 10 min | REQ-HMI-008, REQ-HMI-010 |
 | Button long press in NORMAL | Pass: the functional test runs, the buzzer beeps. Relay step not seen: no relay wired | REQ-HMI-006 |
 | ALARM_2 with lighter gas (unlit) on the MQ-5 | Pass: up to 51.6 %LEL (first try) and 88 %LEL (second try), ALARM_2 entered, red backlight, buzzer 4 beeps per second | REQ-ALM-002, REQ-HMI-002, REQ-HMI-003 |
-| ALARM_2 short press | Pass: the buzzer stops, then sounds again after 60 s | REQ-HMI-004 |
+| ALARM_2 short press | Pass: the buzzer stops, then sounds again after 60 s. Run with the rule before 2026-11-17 (each press restarted the 60 s); the new rule (60 s per alarm, from the first press) is host-tested and still to run on the board | REQ-HMI-004 |
 | ALARM_2 latch and reset | Pass: the state stays ALARM_2 after the gas is gone; a 3 s press between 8 and 10 %LEL is refused (above AL1 − hysteresis); the same press below 8 %LEL resets the latch | REQ-ALM-004, REQ-HMI-005 |
 | Night run (firmware: `day-5-fix-reset-loop` working tree, flashed at about 22:10; 13 h) | **Fail (false fault)**: both channels declared stuck and back again many times, each `CHANNEL` exactly 600 s after the previous `RECOVERED` of the same channel; values stable within 1 LSB for up to 2 h 10. Both channels out at once gives FAULT, seen again on the morning of Day 5+1 (display 0 %LEL, then FAULT latched). The author keeps the 10 min window; a FAULT caused only by stuck channels now ends by itself (REQ-SAF-007, F46). To check over a night | REQ-SAF-003, REQ-SAF-007 |
 | Display dark after a flash | The display stayed off for the whole first run (about 13 h), then worked after the next start. Probable cause, not confirmed: a reset in the middle of an I2C transfer leaves the LCD holding SDA low | REQ-HMI-001 |

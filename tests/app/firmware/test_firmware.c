@@ -1453,6 +1453,34 @@ static void test_firmware_short_presses_cannot_keep_alarm_2_quiet_past_60_s(void
     TEST_ASSERT_TRUE(buzzer_sounds_now());
 }
 
+/* @verifies REQ-HMI-004 REQ-SAF-007 */
+static void test_firmware_alarm_2_back_from_a_stuck_fault_gets_a_new_silence(void)
+{
+    /* Decision of the author (2026-11-17): a change of state, FAULT included,
+     * starts a new silence. ALARM_2, its 60 s used, then 10 min of flat sensors
+     * (stuck-only FAULT), then a sensor moves: ALARM_2 again, and a press gives
+     * 60 s of silence again. The relay stays off all along. */
+    bool energised = true;
+
+    boot_and_reach_normal();
+    set_gas_level(ALARM_2_RAW);
+    fw_ticks(10u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, firmware_state(&fw));
+    short_press();
+    fw_ticks(700u, false, false);   /* 70 s: the 60 s are used. */
+    TEST_ASSERT_TRUE(buzzer_sounds_now());
+    fw_ticks(6000u, false, false);  /* 10 more minutes of a flat reading. */
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+    set_gas_level(ALARM_2_RAW + 5u);
+    fw_ticks(2u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, firmware_state(&fw));
+    short_press();
+    fw_ticks(95u, false, false);
+    TEST_ASSERT_FALSE(buzzer_sounds_now());
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
+    TEST_ASSERT_FALSE(energised);
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1532,5 +1560,6 @@ int main(void)
     RUN_TEST(test_firmware_long_press_in_alarm_1_neither_resets_nor_starts_the_test);
     RUN_TEST(test_firmware_long_press_in_fault_never_energises_the_relay);
     RUN_TEST(test_firmware_short_presses_cannot_keep_alarm_2_quiet_past_60_s);
+    RUN_TEST(test_firmware_alarm_2_back_from_a_stuck_fault_gets_a_new_silence);
     return UNITY_END();
 }
