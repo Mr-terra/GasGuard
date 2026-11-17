@@ -83,7 +83,7 @@ lint:
 	lizard -C 10 -L 60 -w $(MODULE_DIRS) bench
 	@if grep -rn '<avr/' app services 2>/dev/null; then \
 	    echo "R20: app/ and services/ must not include AVR headers"; exit 1; fi
-	@if grep -rnE '(malloc|calloc|realloc|free)[[:space:]]*\(' app services hal drivers main.c 2>/dev/null; then 	    echo "SAF-010: no dynamic memory allocation"; exit 1; fi
+	@if grep -rnE '\b(malloc|calloc|realloc|free)[[:space:]]*\(' app services hal drivers main.c 2>/dev/null; then 	    echo "SAF-010: no dynamic memory allocation"; exit 1; fi
 	@for h in $(HEADERS); do \
 	    printf '#include "%s"\n' "$$h" | $(CC) $(HOST_CFLAGS) -fsyntax-only -x c - || exit 1; done
 

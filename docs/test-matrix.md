@@ -53,7 +53,7 @@ result is in `docs/test-report.md`. Updated 2026-11-17.
 | REQ-SAF-007 FAULT | `firmware_both_channels_short_raise_fault_and_drop_the_relay` | `sc08_one_sensor_unplugged_is_channel_fault_only` | `detector_stuck_only_fault_ends_by_itself` | `detector_fault_during_warmup_is_not_hidden`, `detector_real_fault_during_a_stuck_fault_latches` | `firmware_stuck_channel_with_the_other_open_latches_the_fault` |
 | REQ-SAF-008 overrun | `cycle_over_100_ms_is_an_overrun`, `three_consecutive_overruns_raise_fault` | `cycle_of_100_ms_is_not_an_overrun` | `a_normal_cycle_resets_the_overrun_count`, `two_overruns_in_a_row_are_not_yet_a_fault` | `overruns_past_three_keep_the_fault_and_never_wrap_the_count` | 100 and 101 ms, `overrun_is_measured_across_the_clock_wrap`; board: `#o` and `#f` |
 | REQ-SAF-009 stack watermark | `firmware_stack_below_64_bytes_latches_fault` | `firmware_plenty_of_stack_never_faults` | `firmware_stack_below_64_bytes_latches_fault` (64 bytes: no fault) | `firmware_low_stack_during_warmup_is_a_fault`, `firmware_low_stack_during_maintenance_is_a_fault` | 64 and 63 bytes; board: value with the bench image |
-| REQ-SAF-010 no dynamic memory, no recursion | `make lint`: cppcheck MISRA 17.2 (recursion), 21.3 (malloc and free). **Open finding**: the extra grep has a damaged pattern (see below) | n/a: static rule | n/a: static rule | n/a: static rule | n/a: static rule |
+| REQ-SAF-010 no dynamic memory, no recursion | `make lint`: cppcheck MISRA 17.2 (recursion), 21.3 (malloc and free), and a grep for `malloc`, `calloc`, `realloc` and `free` calls (fixed 2026-11-17, see below) | n/a: static rule | n/a: static rule | n/a: static rule | n/a: static rule |
 | REQ-SAF-011 reset loop | `firmware_fourth_short_start_enters_fault_and_logs_it` | `firmware_sixty_seconds_after_warmup_clear_the_start_count` | `firmware_start_count_is_cleared_sixty_seconds_after_warmup_not_before` | `firmware_later_short_starts_stay_in_fault_and_log_each_start`, `firmware_corrupted_start_count_is_read_as_zero` | `firmware_start_count_stays_at_its_maximum_in_a_long_loop` |
 
 ## Operator interface
@@ -111,11 +111,12 @@ cases, so the five categories do not apply:
    the 60 s silence, so pressing once a minute keeps ALARM_2 quiet. The
    requirement does not say whether the 60 s apply to one press or to the
    whole alarm. Author to decide.
-3. **REQ-SAF-010, extra grep in `make lint`.** In the Makefile, the word
-   boundary `\b` before `(malloc|calloc|realloc|free)` became a backspace
-   character, so this grep can never match. cppcheck still reports MISRA
-   21.3, so dynamic memory is still caught, but the second check does
-   nothing. Fix to propose.
+3. **REQ-SAF-010, extra grep in `make lint` (fixed).** In the Makefile, the
+   word boundary `\b` before `(malloc|calloc|realloc|free)` had become a
+   backspace character, so the grep could never match. cppcheck (MISRA 21.3)
+   still caught dynamic memory. The pattern is restored and was checked on a
+   planted file: it finds `malloc(` and `free(`, not `freeze(`, and nothing in
+   the real code.
 4. **REQ-HMI-002, colour table.** The table of colours per state is in
    `main.c`, which the host tests do not build. It is checked on the
    board only.
