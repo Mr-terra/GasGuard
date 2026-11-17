@@ -854,6 +854,38 @@ static void test_detector_maintenance_holds_until_the_timer_expires(void)
     TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, state_now());
 }
 
+/* @verifies REQ-ALM-002 */
+static void test_detector_gas_above_al2_from_normal_reaches_alarm_2_in_three_samples(void)
+{
+    /* A sudden large leak: three samples at AL2 must give ALARM_2, as REQ-ALM-002
+     * says, not one sample later through ALARM_1. */
+    finish_warmup();
+    step_n(DETECTOR_AL2_DEFAULT, DETECTOR_ENTER_SAMPLES);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, state_now());
+}
+
+/* @verifies REQ-ALM-002 */
+static void test_detector_from_normal_one_unit_below_al2_gives_alarm_1_only(void)
+{
+    gg_conc_t below = DETECTOR_AL2_DEFAULT;
+
+    below = (gg_conc_t)(below - 1);
+    finish_warmup();
+    step_n(below, DETECTOR_ENTER_SAMPLES);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, state_now());
+}
+
+/* @verifies REQ-ALM-002 */
+static void test_detector_from_normal_two_samples_at_al2_then_one_at_al1_give_alarm_1(void)
+{
+    /* Three samples above AL1, but only two at AL2: AL2 was not reached three
+     * times in a row, so ALARM_1, not ALARM_2. */
+    finish_warmup();
+    step_n(DETECTOR_AL2_DEFAULT, 2u);
+    step(DETECTOR_AL1_DEFAULT);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, state_now());
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -918,5 +950,8 @@ int main(void)
     RUN_TEST(test_detector_touch_is_ignored_in_alarm_2_and_fault);
     RUN_TEST(test_detector_gas_after_maintenance_alarms_three_samples_after_its_end);
     RUN_TEST(test_detector_maintenance_holds_until_the_timer_expires);
+    RUN_TEST(test_detector_gas_above_al2_from_normal_reaches_alarm_2_in_three_samples);
+    RUN_TEST(test_detector_from_normal_one_unit_below_al2_gives_alarm_1_only);
+    RUN_TEST(test_detector_from_normal_two_samples_at_al2_then_one_at_al1_give_alarm_1);
     return UNITY_END();
 }
