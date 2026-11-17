@@ -94,6 +94,32 @@ static void test_button_step_rejects_null_arguments(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, button_init(NULL));
 }
 
+/* @verifies REQ-HMI-007 */
+static void test_button_short_release_glitch_does_not_end_a_held_press(void)
+{
+    bool pressed = false;
+
+    /* A long press (ALARM_2 reset) must not be cut by contact bounce. */
+    (void)button_step(&test_button, true, 0u, &pressed);
+    (void)button_step(&test_button, true, BUTTON_DEBOUNCE_MS, &pressed);
+    TEST_ASSERT_TRUE(pressed);
+    TEST_ASSERT_EQUAL_INT(GG_OK, button_step(&test_button, false, 1000u, &pressed));
+    TEST_ASSERT_EQUAL_INT(GG_OK, button_step(&test_button, false, 1029u, &pressed));
+    TEST_ASSERT_TRUE(pressed);
+    TEST_ASSERT_EQUAL_INT(GG_OK, button_step(&test_button, true, 1030u, &pressed));
+    TEST_ASSERT_EQUAL_INT(GG_OK, button_step(&test_button, true, 3000u, &pressed));
+    TEST_ASSERT_TRUE(pressed);
+}
+
+/* @verifies REQ-HMI-007 */
+static void test_button_starts_released(void)
+{
+    bool pressed = true;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, button_step(&test_button, false, 0u, &pressed));
+    TEST_ASSERT_FALSE(pressed);
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -105,5 +131,7 @@ int main(void)
     RUN_TEST(test_button_release_is_debounced_too);
     RUN_TEST(test_button_window_is_correct_across_millisecond_wraparound);
     RUN_TEST(test_button_step_rejects_null_arguments);
+    RUN_TEST(test_button_short_release_glitch_does_not_end_a_held_press);
+    RUN_TEST(test_button_starts_released);
     return UNITY_END();
 }

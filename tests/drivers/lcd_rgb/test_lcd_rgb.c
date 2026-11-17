@@ -169,6 +169,65 @@ static void test_lcd_rgb_write_line_rejects_bad_arguments(void)
     TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, lcd_rgb_write_line(2u, "X"));
 }
 
+/* @verifies REQ-HMI-001 */
+static void test_lcd_rgb_write_line_of_exactly_16_characters_fills_the_row(void)
+{
+    hal_i2c_fake_reset();
+    (void)hal_i2c_fake_set_present(LCD_TEXT_ADDR, true);
+    TEST_ASSERT_EQUAL_INT(GG_OK, lcd_rgb_write_line(0u, "0123456789ABCDEF"));
+    TEST_ASSERT_EQUAL_UINT8(LCD_LINE_LEN + 1u, hal_i2c_fake_last_len());
+    TEST_ASSERT_EQUAL_UINT8((uint8_t)'F', hal_i2c_fake_log_byte(2u + LCD_LINE_LEN));
+}
+
+/* @verifies REQ-HMI-001 */
+static void test_lcd_rgb_write_line_of_17_characters_is_refused_and_sends_nothing(void)
+{
+    hal_i2c_fake_reset();
+    (void)hal_i2c_fake_set_present(LCD_TEXT_ADDR, true);
+    /* A text cut on the display could change its meaning ("ALARM 2" cut to "ALARM"): refused. */
+    TEST_ASSERT_EQUAL_INT(GG_ERR_RANGE, lcd_rgb_write_line(0u, "0123456789ABCDEFG"));
+    TEST_ASSERT_EQUAL_UINT8(0u, hal_i2c_fake_last_len());
+}
+
+/* @verifies REQ-HMI-001 */
+static void test_lcd_rgb_empty_line_clears_the_row(void)
+{
+    uint8_t i;
+
+    hal_i2c_fake_reset();
+    (void)hal_i2c_fake_set_present(LCD_TEXT_ADDR, true);
+    TEST_ASSERT_EQUAL_INT(GG_OK, lcd_rgb_write_line(1u, ""));
+    for (i = 3u; i < (2u + 1u + LCD_LINE_LEN); i++) {
+        TEST_ASSERT_EQUAL_UINT8((uint8_t)' ', hal_i2c_fake_log_byte(i));
+    }
+}
+
+/* @verifies REQ-HMI-001 */
+static void test_lcd_rgb_write_line_reports_a_missing_display(void)
+{
+    /* A display that stops answering must be seen (error returned), not taken as shown. */
+    hal_i2c_fake_reset();
+    TEST_ASSERT_NOT_EQUAL(GG_OK, lcd_rgb_write_line(0u, "NORMAL"));
+}
+
+/* @verifies REQ-HMI-002 */
+static void test_lcd_rgb_set_colour_reports_a_missing_backlight_chip(void)
+{
+    hal_i2c_fake_reset();
+    TEST_ASSERT_NOT_EQUAL(GG_OK, lcd_rgb_set_colour(0xFFu, 0x80u, 0x00u));
+}
+
+/* @verifies REQ-HMI-002 */
+static void test_lcd_rgb_set_colour_sends_the_extreme_levels_unchanged(void)
+{
+    hal_i2c_fake_reset();
+    (void)hal_i2c_fake_set_present(LCD_RGB_ADDR, true);
+    TEST_ASSERT_EQUAL_INT(GG_OK, lcd_rgb_set_colour(0x00u, 0x00u, 0x00u));
+    TEST_ASSERT_EQUAL_UINT8(LCD_RGB_ADDR, hal_i2c_fake_last_addr());
+    TEST_ASSERT_EQUAL_INT(GG_OK, lcd_rgb_set_colour(0xFFu, 0xFFu, 0xFFu));
+    TEST_ASSERT_EQUAL_UINT8(LCD_RGB_ADDR, hal_i2c_fake_last_addr());
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -186,5 +245,11 @@ int main(void)
     RUN_TEST(test_lcd_rgb_write_line_one_uses_the_second_row_address);
     RUN_TEST(test_lcd_rgb_write_line_pads_the_row_with_spaces);
     RUN_TEST(test_lcd_rgb_write_line_rejects_bad_arguments);
+    RUN_TEST(test_lcd_rgb_write_line_of_exactly_16_characters_fills_the_row);
+    RUN_TEST(test_lcd_rgb_write_line_of_17_characters_is_refused_and_sends_nothing);
+    RUN_TEST(test_lcd_rgb_empty_line_clears_the_row);
+    RUN_TEST(test_lcd_rgb_write_line_reports_a_missing_display);
+    RUN_TEST(test_lcd_rgb_set_colour_reports_a_missing_backlight_chip);
+    RUN_TEST(test_lcd_rgb_set_colour_sends_the_extreme_levels_unchanged);
     return UNITY_END();
 }
