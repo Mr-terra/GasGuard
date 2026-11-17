@@ -15,6 +15,9 @@
 - Each test carries a comment tag `/* @verifies REQ-XXX-NNN */`.
 - `tools/trace.py` builds `docs/traceability.md` (REQ → code → tests) and fails
   CI if a requirement has no implementation or no test.
+- Every requirement is tested in five categories: positive, negative, false
+  positive, false negative and limits. `docs/test-matrix.md` names the tests
+  of each category, or says why a category does not apply.
 
 ## 3. Mandatory scenario tests (L3)
 

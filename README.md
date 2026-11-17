@@ -537,6 +537,7 @@ The full description (scope, decisions, controls, limits) is in
 | [Coding standard](docs/04-coding-standard.md) | MISRA C:2012 subset, project rules R01–R20, tooling, deviations |
 | [Verification plan](docs/05-verification-plan.md) | Four verification levels, scenarios SC-01 to SC-16, bench procedure |
 | [Traceability](docs/traceability.md) | Generated matrix, requirement → code → test |
+| [Test matrix](docs/test-matrix.md) | For each requirement, its positive, negative, false-positive, false-negative and limit tests, and the open findings |
 | [Hardware](docs/07-hardware.md) | Bill of materials with models and connections, supply, tools, bench safety notes |
 | [Test report](docs/test-report.md) | Hardware bench results, one section per session, with the steps still open |
 | [AI assistance](docs/06-ai-usage.md) | How an AI coding assistant was used, why, and the controls on its output |
