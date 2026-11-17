@@ -122,7 +122,7 @@
 /** @brief Firmware state owned by the caller: one instance for the whole program. */
 typedef struct {
     detector_t det;                          /**< Alarm state machine. */
-    filter_t filter[FIRMWARE_CHANNELS];      /**< One moving average per channel. */
+    filter_t filter[FIRMWARE_CHANNELS];      /**< One filter (median of 3, average of 8) per channel. */
     diag_t diag[FIRMWARE_CHANNELS];          /**< One diagnostic per channel. */
     calib_t calib[FIRMWARE_CHANNELS];        /**< One calibration per channel. */
     uint32_t warmup_end_ms;                  /**< Time at which WARMUP ends. */

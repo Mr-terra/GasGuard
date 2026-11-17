@@ -178,7 +178,7 @@ static void test_sc02_gas_ramp_enters_alarm_1_then_alarm_2(void)
     TEST_ASSERT_TRUE(first_alarm_2 > first_alarm_1);
 }
 
-/* SC-03: one sample at 50 %LEL. The filter spreads it over eight samples: no alarm. */
+/* SC-03: one sample at 50 %LEL. The median of 3 removes it: no alarm. */
 /* @verifies REQ-FUN-002 REQ-ALM-001 */
 static void test_sc03_single_spike_does_not_alarm(void)
 {

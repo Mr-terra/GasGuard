@@ -23,7 +23,7 @@ result is in `docs/test-report.md`. Updated 2026-11-17.
 | Requirement | Positive | Negative | False positive | False negative | Limits |
 |---|---|---|---|---|---|
 | REQ-FUN-001 sampling every 100 ms | `firmware_each_sample_reads_both_gas_channels` | `hal_adc_read_rejects_channel_out_of_range` | n/a: sampling has no trigger | `firmware_each_sample_reads_both_gas_channels` (no channel skipped) | `scheduler_task_is_due_at_its_period` (99 ms not due, 100 ms due) |
-| REQ-FUN-002 8-sample average | `filter_averages_the_window` | `filter_rejected_sample_leaves_the_average_unchanged` | `filter_attenuates_a_single_spike` | `filter_step_reaches_its_full_value_on_the_eighth_sample` | `filter_full_scale_window_does_not_overflow`, `filter_average_rounds_down` |
+| REQ-FUN-002 median of 3, then 8-sample average | `filter_averages_the_window`, `filter_median_ignores_the_order_of_the_three_samples` | `filter_rejected_sample_leaves_the_average_unchanged` | `filter_removes_a_single_spike`, `filter_largest_spike_below_the_rails_is_removed`, `firmware_spike_that_ends_a_stuck_fault_raises_no_alarm`, `firmware_spike_right_after_a_rail_reading_raises_no_alarm`, `firmware_spike_right_after_a_read_error_raises_no_alarm` | `filter_step_reaches_its_full_value_on_the_ninth_sample`, `filter_removes_a_single_dip_too`, `firmware_gas_during_range_recovery_is_ignored_then_seen_at_recovery` | `filter_two_samples_in_a_row_are_not_removed`, `filter_full_scale_window_does_not_overflow`, `filter_partial_window_averages_the_samples_received` |
 | REQ-FUN-003 linear calibration | `calib_is_linear_above_zero` | `calib_out_of_range_raw_leaves_the_output_unchanged` | `calib_below_zero_reads_zero_not_negative` | `calib_large_gain_saturates_and_never_wraps_negative` | `calib_one_lsb_each_side_of_the_zero`, `calib_full_scale_raw_is_accepted` |
 | REQ-FUN-004 temperature compensation | `calib_temperature_correction_applied_when_valid` | `calib_temperature_ignored_when_sensor_invalid` | `calib_zero_coefficient_never_moves_the_gas_reading` | `firmware_faulty_temperature_never_holds_back_an_alarm` | `firmware_temperature_valid_range_ends_exactly_at_217_and_769`, `calib_temperature_correction_stops_exactly_at_the_adc_ends` |
 | REQ-FUN-005 maximum of valid channels | `channel_select_takes_the_maximum_of_valid_channels` | `channel_select_rejected_call_leaves_the_outputs_unchanged` | `channel_select_ignores_faulty_channel` | `channel_select_gas_on_the_second_channel_is_seen_when_the_first_is_faulty` | `channel_select_equal_readings_and_one_channel`, `channel_select_largest_value_is_kept_whole` |
@@ -120,16 +120,25 @@ cases, so the five categories do not apply:
 4. **REQ-HMI-002, colour table.** The table of colours per state is in
    `main.c`, which the host tests do not build. It is checked on the
    board only.
-5. **Large single spike (FMEA F16, open).** The 8-sample average is taken on
-   the raw ADC value. A reading at the rails (1018 and above) is left out, but
-   one raw sample at 1017 lifts the average by about 11 %LEL for 8 samples,
-   above the default AL1 (10 %LEL): one glitch gives ALARM_1. Any single spike
-   above raw 911 (MQ-5) or 835 (MQ-2) does it.
-   It is a nuisance alarm (H2), on the safe side. Possible fixes: reject a
-   single sample far from the others (median of 3), or clamp a sample that
-   jumps by more than a set step. Author to decide.
+5. **Large single spike (FMEA F16, fixed).** The 8-sample average was taken
+   on the raw ADC value, so one raw sample at 1017 lifted it by about 11 %LEL
+   for 8 samples, above the default AL1: one glitch gave ALARM_1. Decision of
+   the author: a median of the last 3 raw samples comes first (REQ-FUN-002).
+   A single wild sample is removed; a real leak is followed 100 ms later. The
+   review then found that the filter restarted when a channel left out came
+   back, so a spike that ended a stuck FAULT still passed: decision of the
+   author (option X), the filter of a channel left out keeps its history.
+   A second review found that a reading at the rails also restarted the
+   filter, so a bouncing contact (rail, then 1017) latched ALARM_2: the
+   filter is now never restarted after boot.
 6. **Touch and alarm in the same sample (REQ-HMI-008).** If the 3 s touch ends
    on the same sample as the third sample above AL1, MAINTENANCE wins and the
    relay stays energised. This meets REQ-HMI-008 as written (the state is
    still NORMAL), but the alarm is then only shown. Possible fix: refuse
    MAINTENANCE while gas is above AL1. Author to decide.
+7. **Repeated ADC read errors on one channel (REQ-SAF-002).** A read error
+   skips the diagnostic, so it is never counted as a channel fault and is not
+   logged. With the other channel valid, one channel can fail every read and
+   stay out silently; the FAULT latches only when no channel is valid. Found by
+   the review of 2026-11-17 (it was already there before). Author to decide:
+   count repeated read errors as a channel fault, or accept it in the FMEA.

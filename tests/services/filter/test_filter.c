@@ -1,4 +1,4 @@
-/* Unit tests for services/filter: 8-sample moving average of raw ADC values. */
+/* Unit tests for services/filter: median of 3 raw samples, then 8-sample moving average. */
 #include "unity.h"
 #include "common/gg_types/gg_types.h"
 #include "hal/adc/adc.h"

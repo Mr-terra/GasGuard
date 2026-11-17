@@ -8,9 +8,10 @@
  * defaults are used), then starts the detector with its thresholds and the
  * warm-up timer. Each sampling step reads both gas channels. A channel that
  * cannot be read, or that the diagnostic marks as faulty, is invalid. A reading
- * at the rails is never used. Valid channels go through the moving average and
- * the calibration; the maximum of the valid channels is the detector input
- * (REQ-FUN-005). No valid channel is a fault; when every channel is only stuck
+ * at the rails is never used. Every in-range reading goes through the filter
+ * (median of 3, then moving average of 8), even on a channel the diagnostic
+ * leaves out; only valid channels go on to the calibration and the maximum,
+ * which is the detector input (REQ-FUN-005). No valid channel is a fault; when every channel is only stuck
  * (calm air) that fault ends by itself as soon as a channel moves again. Every change of mode and every new
  * fault is written to the event log. During MAINTENANCE the highest reading of
  * each channel is kept; it is logged when MAINTENANCE ends, as the record of the
@@ -187,8 +188,10 @@ static void sample_temperature(firmware_t *fw)
  * Any failure (ADC error, out-of-range value, diagnostic fault) makes the channel
  * invalid; the caller then leaves it out of the maximum.
  *
- * An invalid channel restarts its moving average, so a channel that comes back
- * is not averaged with readings taken before it was left out.
+ * Only an in-range reading is pushed into the filter, and the filter is never
+ * restarted here: a read error or a reading at the rails is simply left out.
+ * A channel left out by the diagnostic (stuck, or range recovery) keeps
+ * feeding its filter, so it always comes back with a full median history.
  *
  * @param ch      Channel index.
  * @param fw      Firmware state.
@@ -196,7 +199,7 @@ static void sample_temperature(firmware_t *fw)
  * @param conc    Receives the concentration when the channel is valid.
  * @param valid   Receives true when the channel can be used.
  * @return True when the read worked and is inside the rails (a clean read).
- * @req REQ-SAF-002 REQ-SAF-003
+ * @req REQ-SAF-002 REQ-SAF-003 REQ-FUN-002
  */
 static bool sample_channel(uint8_t ch, firmware_t *fw, uint32_t now_ms, gg_conc_t *conc, bool *valid)
 {
@@ -223,13 +226,23 @@ static bool sample_channel(uint8_t ch, firmware_t *fw, uint32_t now_ms, gg_conc_
     if (status == GG_OK) {
         status = diag_is_faulty(&fw->diag[ch], &faulty);
     }
-    if ((status == GG_OK) && !faulty && !out_of_range) {
-        *valid = (sample_convert(fw, ch, raw, conc) == GG_OK);
+    if ((status == GG_OK) && !out_of_range) {
+        /* An in-range reading always feeds the filter, even while the diagnostic
+         * keeps the channel out (stuck, or range recovery): it is a real reading.
+         * So when the channel comes back, the median of 3 already has a history
+         * and a single wild sample at that moment is still removed (FMEA F16). */
+        bool converted = (sample_convert(fw, ch, raw, conc) == GG_OK);
+
+        *valid = converted && !faulty;
+        if (!*valid) {
+            *conc = 0;
+        }
     }
-    if (!*valid) {
-        /* Fails only on a NULL pointer, which cannot happen here. */
-        (void)filter_init(&fw->filter[ch]);
-    }
+    /* A read error or a reading at the rails is not pushed and does not restart
+     * the filter: after a restart the next reading would pass on alone, and a
+     * bouncing contact (rail, then a wild value) could latch ALARM_2 (FMEA F16).
+     * A real range fault keeps the channel out for DIAG_RECOVER_SAMPLES in-range
+     * readings, which refill the filter before it is used again. */
     return (status == GG_OK) && !out_of_range;
 }
 

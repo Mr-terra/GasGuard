@@ -117,8 +117,9 @@ a requirement, and it is measured on the bench (docs/test-report.md).
    Any state ──(all sensors faulty / ADC fault / overrun x3 / stack)──► FAULT
    Any state ──(every sensor only stuck: calm air)──► FAULT (stuck only)
    FAULT (stuck only) ──(a sensor in use again)──► previous state, or ALARM_1 /
-                         ALARM_2 at once when the gas is above AL1 / AL2
-                         (REQ-SAF-007)
+                         ALARM_2 at once when the filtered gas is already above
+                         AL1 / AL2 (REQ-SAF-007). The filter of a channel left out
+                         keeps its history, so one wild sample cannot do it.
 ```
 
 The state machine is a single `switch` on an `enum`, with one function per

@@ -186,9 +186,12 @@ static void diag_raise(detector_t *det, detector_fault_code_t code)
 }
 
 /* State after a stuck-only FAULT. A channel that moves may do so because gas came:
- * gas at or above a threshold goes straight to its alarm, so the relay stays off between
- * the FAULT and the alarm. Otherwise the previous state comes back, an ALARM_2 latch
- * included (REQ-ALM-004), and a MAINTENANCE whose 10 minutes are over ends (REQ-HMI-010). */
+ * a filtered value already at or above a threshold goes straight to its alarm (for
+ * example a channel stuck at a high level). The start of a leak usually gives a
+ * filtered value still below AL1: the FAULT ends into the previous state and the
+ * alarm follows with the usual 3-sample confirmation (the filter keeps its history,
+ * FMEA F16). Otherwise the previous state comes back, an ALARM_2 latch included
+ * (REQ-ALM-004), and a MAINTENANCE whose 10 minutes are over ends (REQ-HMI-010). */
 static detector_state_t state_after_stuck(const detector_t *det, const detector_input_t *in)
 {
     detector_state_t next = det->state_before_fault;
