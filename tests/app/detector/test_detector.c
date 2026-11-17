@@ -191,7 +191,7 @@ static void test_detector_alarm_2_reset_accepted_when_gas_gone(void)
 }
 
 /* @verifies REQ-SAF-001 */
-static void test_detector_relay_energised_only_in_healthy_normal_state(void)
+static void test_detector_relay_released_on_alarm(void)
 {
     bool energised = false;
 
@@ -637,7 +637,7 @@ int main(void)
     RUN_TEST(test_detector_alarm_2_is_latched_when_gas_drops);
     RUN_TEST(test_detector_alarm_2_reset_refused_while_gas_present);
     RUN_TEST(test_detector_alarm_2_reset_accepted_when_gas_gone);
-    RUN_TEST(test_detector_relay_energised_only_in_healthy_normal_state);
+    RUN_TEST(test_detector_relay_released_on_alarm);
     RUN_TEST(test_detector_fault_latches_and_drops_relay);
     RUN_TEST(test_detector_fault_during_warmup_is_not_hidden);
     RUN_TEST(test_detector_step_and_getters_reject_null);

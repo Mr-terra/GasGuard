@@ -147,13 +147,14 @@ gg_status_t detector_state(const detector_t *det, detector_state_t *state);
 /**
  * @brief Report whether the alarm relay is energised.
  *
- * Energised only in the healthy, no-alarm states (WARMUP and NORMAL). ALARM_1,
+ * Energised only in the healthy, no-alarm states (WARMUP and NORMAL) and in
+ * MAINTENANCE, which holds the last healthy state (REQ-HMI-009). ALARM_1,
  * ALARM_2 and FAULT de-energise it (fail-safe reading of REQ-SAF-001).
  *
  * @param det         Detector. Must not be NULL.
  * @param energised   Receives true if the relay coil must be driven. Must not be NULL.
  * @return GG_OK or GG_ERR_NULL.
- * @req REQ-SAF-001
+ * @req REQ-SAF-001 REQ-HMI-009
  */
 gg_status_t detector_relay_energised(const detector_t *det, bool *energised);
 

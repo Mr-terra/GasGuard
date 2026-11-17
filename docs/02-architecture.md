@@ -156,5 +156,5 @@ in that loop has returned (REQ-SAF-005).
 | ADR-4 | Normally-energised relay | Power loss or firmware crash = alarm side (fail-safe) |
 | ADR-5 | Max of valid channels | Conservative: never under-report |
 | ADR-6 | Fixed-point arithmetic (0.1 %LEL units, `int16_t`) | No float on AVR: smaller, faster, deterministic |
-| ADR-7 | Relay energised only in WARMUP and NORMAL; de-energised in ALARM_1 too | Early warning beats a missed warning. A false alarm costs a nuisance; a missed one can cost a life (H1 > H2). REQ-SAF-001 does not name ALARM_1, so this is the fail-safe reading. |
+| ADR-7 | Relay energised only in WARMUP, NORMAL and MAINTENANCE (MAINTENANCE holds the last healthy state, REQ-HMI-009); de-energised in ALARM_1 too | Early warning beats a missed warning. A false alarm costs a nuisance; a missed one can cost a life (H1 > H2). REQ-SAF-001 does not name ALARM_1, so this is the fail-safe reading. |
 | ADR-8 | FAULT is latched until a restart, except a FAULT whose only cause is stuck sensors | A real fault (open, short, ADC, timing, stack) needs an operator. A channel comes back on its own (REQ-SAF-002, REQ-SAF-003). A FAULT caused only by stuck sensors is calm air most of the time: it ends by itself when a sensor moves (REQ-SAF-007, Day 5), and the monthly gas test covers a sensor that is really dead. |

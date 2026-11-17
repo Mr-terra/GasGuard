@@ -14,11 +14,12 @@
  * One exception: a FAULT whose only cause is stuck channels (calm air) ends by
  * itself as soon as a channel is in use again, back to the previous state or
  * straight to the alarm when the gas is above a threshold (REQ-SAF-007).
- * The relay is energised only in the healthy states, so every path to an alarm
+ * The relay is energised only in the healthy states (WARMUP, NORMAL) and in
+ * MAINTENANCE, which holds the last healthy state, so every path to an alarm
  * or a fault releases it.
  *
  * @req REQ-ALM-001 REQ-ALM-002 REQ-ALM-003 REQ-ALM-004 REQ-ALM-005 REQ-ALM-006
- * @req REQ-SAF-001 REQ-SAF-007
+ * @req REQ-SAF-001 REQ-SAF-007 REQ-HMI-009
  */
 #include <stddef.h>
 #include <stdbool.h>
