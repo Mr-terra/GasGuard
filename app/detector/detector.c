@@ -69,11 +69,15 @@ static void update_counters(detector_t *det, gg_conc_t conc)
     }
 }
 
-/* REQ-HMI-008: a touch of 3 s in NORMAL starts MAINTENANCE; an alarm level starts ALARM_1. */
+/* REQ-HMI-008: a touch of 3 s in NORMAL starts MAINTENANCE. An alarm level starts
+ * its alarm: AL2 is checked first, so a sudden large leak reaches ALARM_2 after
+ * three samples (REQ-ALM-002), not one sample later through ALARM_1. */
 static void step_normal(detector_t *det, const detector_input_t *in)
 {
     if (in->maint_requested) {
         det->state = DET_STATE_MAINTENANCE;
+    } else if (det->above_al2 >= DETECTOR_ENTER_SAMPLES) {
+        det->state = DET_STATE_ALARM_2;
     } else if (det->above_al1 >= DETECTOR_ENTER_SAMPLES) {
         det->state = DET_STATE_ALARM_1;
     } else {

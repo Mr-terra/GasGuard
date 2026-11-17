@@ -34,7 +34,7 @@ result is in `docs/test-report.md`. Updated 2026-11-17.
 | Requirement | Positive | Negative | False positive | False negative | Limits |
 |---|---|---|---|---|---|
 | REQ-ALM-001 ALARM_1 after 3 samples | `detector_alarm_1_after_three_samples_at_threshold` | `detector_gas_one_unit_below_al1_never_alarms` | `detector_single_spike_does_not_alarm`, `detector_two_samples_then_a_dip_restart_the_count` | `detector_two_samples_then_a_dip_restart_the_count` (alarm on the third), `firmware_faulty_temperature_never_holds_back_an_alarm` | `detector_alarm_1_after_three_samples_at_threshold` (2 samples, 3 samples), `detector_largest_concentration_alarms` |
-| REQ-ALM-002 ALARM_2 after 3 samples | `detector_alarm_2_after_three_samples_at_threshold` | `detector_gas_one_unit_below_al2_stays_in_alarm_1` | `detector_two_samples_at_al2_do_not_give_alarm_2` | **Open finding**: from NORMAL, gas at AL2 gives ALARM_2 on the 4th sample, not the 3rd (see below) | `detector_gas_one_unit_below_al2_stays_in_alarm_1` |
+| REQ-ALM-002 ALARM_2 after 3 samples | `detector_gas_above_al2_from_normal_reaches_alarm_2_in_three_samples`, `detector_alarm_2_after_three_samples_at_threshold` | `detector_from_normal_two_samples_at_al2_then_clean_air_stay_normal` | `detector_two_samples_at_al2_do_not_give_alarm_2`, `detector_from_normal_two_samples_at_al2_then_one_at_al1_give_alarm_1` | `detector_gas_above_al2_from_normal_reaches_alarm_2_in_three_samples` (relay off and latched on the direct path) | `detector_from_normal_one_unit_below_al2_gives_alarm_1_only`, 2 and 3 samples |
 | REQ-ALM-003 ALARM_1 clears after 10 samples | `detector_alarm_1_clears_after_ten_samples_below_hysteresis` | `detector_alarm_1_does_not_clear_while_gas_is_still_above_al1` | `detector_hysteresis_band_does_not_chatter` | `detector_clear_count_restarts_when_gas_returns` | `detector_clear_level_itself_does_not_count_as_below` (80 holds, 79 counts), 9 and 10 samples |
 | REQ-ALM-004 ALARM_2 latched | `detector_alarm_2_reset_accepted_when_gas_gone` | `detector_reset_request_outside_alarm_2_changes_nothing` | `detector_alarm_2_reset_refused_while_gas_present` | `detector_gas_back_after_an_alarm_2_reset_alarms_again`, `detector_alarm_2_is_latched_when_gas_drops` | `detector_alarm_2_reset_at_the_clear_level_is_refused_one_below_accepted` |
 | REQ-ALM-005 threshold validation | `detector_accepts_the_widest_valid_thresholds` | `config_validate_negative_thresholds_are_rejected` | `config_validate_accepts_the_widest_valid_settings` (no valid setting refused) | `detector_rejected_thresholds_keep_the_ones_in_use` | `config_validate_limits_al2_to_600`, `config_validate_al2_one_step_above_al1_is_accepted`, `config_validate_hysteresis_one_below_al1_is_accepted` |
@@ -100,13 +100,11 @@ cases, so the five categories do not apply:
 
 ## Open findings from the review of 2026-11-17
 
-1. **REQ-ALM-002, one sample late.** From NORMAL, gas at or above AL2 enters
-   ALARM_1 on the third sample and ALARM_2 on the fourth. The requirement
-   says three samples. The relay already drops in ALARM_1 (ADR-7), so the
-   gas is cut off in time; only the ALARM_2 latch and the 4 Hz beep start
-   100 ms late. The test that shows it
-   (`detector_gas_above_al2_from_normal_reaches_alarm_2_in_three_samples`)
-   is kept out of the suite until the author decides.
+1. **REQ-ALM-002, one sample late (fixed).** From NORMAL, gas at or above AL2
+   entered ALARM_1 on the third sample and ALARM_2 on the fourth. The relay
+   already dropped in ALARM_1, so only the ALARM_2 latch and the 4 Hz beep
+   were 100 ms late. Fixed on the author's decision: in NORMAL the AL2 count is
+   checked first.
 2. **REQ-HMI-004, repeated silence of ALARM_2.** Each short press restarts
    the 60 s silence, so pressing once a minute keeps ALARM_2 quiet. The
    requirement does not say whether the 60 s apply to one press or to the
@@ -120,3 +118,16 @@ cases, so the five categories do not apply:
 4. **REQ-HMI-002, colour table.** The table of colours per state is in
    `main.c`, which the host tests do not build. It is checked on the
    board only.
+5. **Large single spike (FMEA F16, open).** The 8-sample average is taken on
+   the raw ADC value. A reading at the rails (1018 and above) is left out, but
+   one raw sample at 1017 lifts the average by about 11 %LEL for 8 samples,
+   above the default AL1 (10 %LEL): one glitch gives ALARM_1. Any single spike
+   above raw 911 (MQ-5) or 835 (MQ-2) does it.
+   It is a nuisance alarm (H2), on the safe side. Possible fixes: reject a
+   single sample far from the others (median of 3), or clamp a sample that
+   jumps by more than a set step. Author to decide.
+6. **Touch and alarm in the same sample (REQ-HMI-008).** If the 3 s touch ends
+   on the same sample as the third sample above AL1, MAINTENANCE wins and the
+   relay stays energised. This meets REQ-HMI-008 as written (the state is
+   still NORMAL), but the alarm is then only shown. Possible fix: refuse
+   MAINTENANCE while gas is above AL1. Author to decide.

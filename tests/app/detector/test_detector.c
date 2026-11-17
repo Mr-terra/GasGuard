@@ -642,12 +642,12 @@ static void test_detector_two_samples_then_a_dip_restart_the_count(void)
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, state_now());
 }
 
-/* @verifies REQ-ALM-001 */
+/* @verifies REQ-ALM-001 REQ-ALM-002 */
 static void test_detector_largest_concentration_alarms(void)
 {
     finish_warmup();
     step_n(INT16_MAX, DETECTOR_ENTER_SAMPLES);
-    TEST_ASSERT_TRUE((state_now() == DET_STATE_ALARM_1) || (state_now() == DET_STATE_ALARM_2));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, state_now());   /* Above AL2 too: ALARM_2 at once. */
 }
 
 /* @verifies REQ-ALM-002 */
@@ -859,9 +859,27 @@ static void test_detector_gas_above_al2_from_normal_reaches_alarm_2_in_three_sam
 {
     /* A sudden large leak: three samples at AL2 must give ALARM_2, as REQ-ALM-002
      * says, not one sample later through ALARM_1. */
+    bool energised = true;
+
     finish_warmup();
-    step_n(DETECTOR_AL2_DEFAULT, DETECTOR_ENTER_SAMPLES);
+    step_n(DETECTOR_AL2_DEFAULT, DETECTOR_ENTER_SAMPLES - 1u);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());   /* Not one sample early either. */
+    step(DETECTOR_AL2_DEFAULT);
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, state_now());
+    /* On this direct path too, the relay drops and the alarm is latched. */
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_relay_energised(&det_test_state, &energised));
+    TEST_ASSERT_FALSE(energised);
+    step_n(0, 20u);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, state_now());
+}
+
+/* @verifies REQ-ALM-001 REQ-ALM-002 */
+static void test_detector_from_normal_two_samples_at_al2_then_clean_air_stay_normal(void)
+{
+    finish_warmup();
+    step_n(DETECTOR_AL2_DEFAULT, 2u);
+    step(0);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
 }
 
 /* @verifies REQ-ALM-002 */
@@ -875,7 +893,7 @@ static void test_detector_from_normal_one_unit_below_al2_gives_alarm_1_only(void
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, state_now());
 }
 
-/* @verifies REQ-ALM-002 */
+/* @verifies REQ-ALM-001 REQ-ALM-002 */
 static void test_detector_from_normal_two_samples_at_al2_then_one_at_al1_give_alarm_1(void)
 {
     /* Three samples above AL1, but only two at AL2: AL2 was not reached three
@@ -953,5 +971,6 @@ int main(void)
     RUN_TEST(test_detector_gas_above_al2_from_normal_reaches_alarm_2_in_three_samples);
     RUN_TEST(test_detector_from_normal_one_unit_below_al2_gives_alarm_1_only);
     RUN_TEST(test_detector_from_normal_two_samples_at_al2_then_one_at_al1_give_alarm_1);
+    RUN_TEST(test_detector_from_normal_two_samples_at_al2_then_clean_air_stay_normal);
     return UNITY_END();
 }

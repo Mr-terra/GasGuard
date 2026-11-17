@@ -112,6 +112,8 @@ a requirement, and it is measured on the bench (docs/test-report.md).
                                                     ALARM_2 ──────┘
                                                   (latched, reset
                                                    by long press)
+   NORMAL ──≥AL2 x3──► ALARM_2 directly: in NORMAL the AL2 count is checked
+                       before the AL1 count (REQ-ALM-002)
    Any state ──(all sensors faulty / ADC fault / overrun x3 / stack)──► FAULT
    Any state ──(every sensor only stuck: calm air)──► FAULT (stuck only)
    FAULT (stuck only) ──(a sensor in use again)──► previous state, or ALARM_1 /
