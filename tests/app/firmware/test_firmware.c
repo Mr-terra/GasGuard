@@ -49,6 +49,8 @@ void tearDown(void);
 #define HOLD_LONG_TICKS 35u
 /** @brief One step of the main loop, in milliseconds. */
 #define TICK_MS 100u
+/** @brief Step of a held touch on which the 3 s long press is taken (0 = first held step). */
+#define TOUCH_ACCEPT_STEP 31u
 
 static firmware_t fw;
 static uint32_t now_test;
@@ -1628,24 +1630,35 @@ static void test_firmware_touch_refused_for_gas_and_still_held_never_enters_main
 /* @verifies REQ-LOG-001 */
 static void test_firmware_touch_right_after_maintenance_keeps_its_peaks(void)
 {
-    /* The touch that starts MAINTENANCE is taken on step 31 and MAINTENANCE
-     * starts on step 32 (see the 3.2 s test), so it ends on step 31 + 6000.
-     * A second touch held from step 6000 gives its 3 s on that same step 6031,
-     * right after the end, while the peaks of the gas test are still waiting
-     * to be logged. They must be logged as measured, not as 0. */
+    /* A touch held from step 0 is taken on step TOUCH_ACCEPT_STEP (see the 3.2 s
+     * test) and MAINTENANCE ends MAINT_TICKS steps later. A second touch held
+     * from step MAINT_TICKS is taken on that same last step, right after the
+     * end, while the peaks of the gas test still wait to be logged. They must
+     * be logged as measured, not as 0. */
+    uint32_t gas_ticks = 20u;
+    uint32_t half_ticks = FIRMWARE_MAINT_MAX_MS;
+
+    half_ticks = half_ticks / TICK_MS;
+    half_ticks = half_ticks / 2u;
     boot_and_reach_normal();
     fw_ticks(HOLD_LONG_TICKS, false, true);
     TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_1_RAW));
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, MQ2_ALARM_2_RAW));
-    fw_ticks(20u, false, false);
+    fw_ticks(gas_ticks, false, false);
     set_gas_raw(CLEAN_RAW_PLUS_2);
-    fw_ticks(2945u, false, false);
+    fw_ticks(half_ticks - HOLD_LONG_TICKS - gas_ticks, false, false);
     set_gas_raw(CLEAN_RAW);
-    fw_ticks(3000u, false, false);
-    fw_ticks(40u, false, true);
-    fw_ticks(3u, false, false);
-    /* The second touch did start a new MAINTENANCE: it came after the end. */
+    fw_ticks(half_ticks, false, false);
+    /* Step MAINT_TICKS on: the second touch. Its acceptance step is the last
+     * step of MAINTENANCE, so the bug window is pinned exactly. */
+    fw_ticks(TOUCH_ACCEPT_STEP, false, true);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
+    fw_tick(false, true);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    TEST_ASSERT_TRUE(fw.maint_pending);
+    TEST_ASSERT_EQUAL_UINT8(0u, count_entries(EVENTLOG_MAINT_PEAK, ANY_ARG));
+    fw_ticks(FIRMWARE_CHANNELS + 1u, false, false);
     TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
     TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ5, ALARM_1_RAW)));
     TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ2, ALARM_2_RAW)));

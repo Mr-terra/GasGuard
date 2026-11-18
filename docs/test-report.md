@@ -15,7 +15,7 @@ multimeter or the serial monitor (tools in
 | Step | What to check | Requirement |
 |---|---|---|
 | Watchdog timing | Bench image, `#h` (`tools\bench.ps1 -Command '#h'`), with no `log` dump running: reset about 500 ms after the last kick. Measured value = gap `BENCH HANG` to `BENCH BOOT`, minus the boot time printed; it reads the watchdog timeout plus less than 20 ms (start-up before the timer, about 3 ms of line length, USB and Windows latency). The watchdog oscillator itself is only accurate to about ±10 %. No reset in normal running | REQ-SAF-005 |
-| Stack watermark | Bench image: last number of the `BENCH` line after boot, after a minute, and after an alarm, a `log` dump and a MAINTENANCE; must stay above 64 bytes. The bench image has 109 more bytes of static RAM (774 against 665), so the product image has at least about 109 bytes more free stack than the value read (the bench calls also use some stack) | REQ-SAF-009 |
+| Stack watermark | Bench image: last number of the `BENCH` line after boot, after a minute, and after an alarm, a `log` dump and a MAINTENANCE; must stay above 64 bytes. The bench image has 109 more bytes of static RAM (794 against 685), so the product image has at least about 109 bytes more free stack than the value read (the bench calls also use some stack) | REQ-SAF-009 |
 | Buzzer patterns | 1 Hz in ALARM_1 (4 Hz in ALARM_2 and one beep every 5 s in FAULT were heard on Day 5) | REQ-HMI-003 |
 | Bandgap | Raw value of the bandgap against AVcc (expected near 0xED at 4.75 V) | REQ-SAF-004 |
 | Watchdog reset cause | Bench image, after `#h`: the `RESET` entry of the log shows the watchdog cause (the bootloader can clear the reset flags first) | REQ-SAF-006 |

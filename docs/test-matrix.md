@@ -16,7 +16,7 @@ dropped. `docs/traceability.md` lists every test of a requirement.
 
 "n/a" means the category does not apply to that requirement, and the cell
 says why. "Board" means the case can only be checked on the hardware; the
-result is in `docs/test-report.md`. Updated 2026-11-17.
+result is in `docs/test-report.md`. Updated 2026-11-18.
 
 ## Measurement
 
@@ -79,7 +79,7 @@ result is in `docs/test-report.md`. Updated 2026-11-17.
 | REQ-CFG-002 first valid copy, defaults | `config_load_uses_copy_b_and_repairs_copy_a` | `config_failed_repair_keeps_the_valid_copy_in_use` | `config_copy_a_wins_when_both_copies_are_valid_but_differ` | `config_both_copies_damaged_give_the_defaults_not_a_half_copy` | `config_flipped_bit_in_each_value_byte_is_caught` |
 | REQ-CFG-003 validation before use and storage | `config_validate_accepts_the_defaults` | `config_store_refuses_an_invalid_configuration` | `config_extreme_valid_values_survive_a_store_and_load` | `config_copy_with_a_valid_crc_and_warmup_out_of_range_is_not_used` | `config_extreme_valid_values_survive_a_store_and_load` |
 | REQ-CFG-004 warm-up 120 s (30–600) | `config_defaults_match_the_requirements` | `config_validate_warmup_is_between_30_and_600_s` (29, 601) | n/a: a setting, no trigger | `firmware_start_count_clear_follows_the_stored_warmup` | 29, 30, 600, 601 s (same test) |
-| REQ-LOG-001 events in a ring of 111 | `firmware_maintenance_end_logs_the_peak_of_each_channel` | `eventlog_refused_entry_writes_nothing` | `firmware_no_peak_is_logged_outside_maintenance` | `eventlog_failed_eeprom_write_is_reported_not_hidden` | `eventlog_head_wraps_to_zero_on_the_111th_append`, `eventlog_first_and_last_codes_are_accepted` |
+| REQ-LOG-001 events in a ring of 111 | `firmware_maintenance_end_logs_the_peak_of_each_channel` | `eventlog_refused_entry_writes_nothing` | `firmware_no_peak_is_logged_outside_maintenance` | `eventlog_failed_eeprom_write_is_reported_not_hidden`, `firmware_touch_right_after_maintenance_keeps_its_peaks` | `eventlog_head_wraps_to_zero_on_the_111th_append`, `eventlog_first_and_last_codes_are_accepted` |
 | REQ-LOG-002 entry fields and CRC | `eventlog_append_stores_timestamp_code_and_argument` | `eventlog_unwritten_slot_is_reported_invalid` | `eventlog_zero_uptime_and_argument_are_a_valid_entry` | `eventlog_corrupted_crc_bytes_are_detected` | `eventlog_largest_uptime_and_argument_round_trip`, `eventlog_head_at_its_last_valid_value_is_kept` |
 | REQ-LOG-003 written on events only | `eventlog_writes_only_when_an_event_is_appended` | `eventlog_refused_entry_writes_nothing` | `firmware_no_peak_is_logged_outside_maintenance` | n/a: covered by REQ-LOG-001 | `eventlog_append_at_the_ring_end_still_writes_twice` |
 | REQ-LOG-004 `log` over UART | `cli_log_prints_each_written_slot_with_its_code_name` | `cli_unknown_or_too_long_command_is_refused` | `cli_command_that_starts_like_log_is_refused` | `cli_full_log_dumps_all_111_entries_then_the_end_line`, `cli_dump_resumes_when_the_transmit_buffer_is_full` | `cli_line_of_the_maximum_length_is_refused_and_does_not_overflow`, `cli_log_with_a_carriage_return_is_accepted` |
@@ -143,8 +143,8 @@ cases, so the five categories do not apply:
    stay out silently; the FAULT latches only when no channel is valid. Found by
    the review of 2026-11-17 (it was already there before). Author to decide:
    count repeated read errors as a channel fault, or accept it in the FMEA.
-8. **Peak record wiped by a touch (REQ-LOG-001).** `act_touch` clears the
-   MAINTENANCE peaks when the request is made, not when MAINTENANCE starts. A
-   touch (accepted or refused) in the 2 samples after a MAINTENANCE ends can
-   log the peaks of the finished gas test as 0. Narrow window; found by the
-   review of 2026-11-17. Possible fix: clear the peaks on entry to MAINTENANCE.
+8. **Peak record wiped by a touch (REQ-LOG-001, fixed).** `act_touch`
+   cleared the MAINTENANCE peaks when the request was made, so a touch in the
+   2 samples after a MAINTENANCE ended logged the peaks of the finished gas
+   test as 0 (found by the review of 2026-11-17). The peaks now restart when
+   MAINTENANCE starts, and the log reads a copy fixed at the end.

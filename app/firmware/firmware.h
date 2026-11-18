@@ -137,7 +137,8 @@ typedef struct {
     bool reset_pending;                      /**< A long press asked for the ALARM_2 reset, for the next sample. */
     bool maint_pending;                      /**< A touch of 3 s asked for MAINTENANCE, for the next sample. */
     uint32_t maint_start_ms;                 /**< Start of MAINTENANCE: its 10-minute limit counts from here. */
-    gg_conc_t maint_peak[FIRMWARE_CHANNELS]; /**< Highest valid reading of each channel since the last MAINTENANCE request (REQ-LOG-001). */
+    gg_conc_t maint_peak[FIRMWARE_CHANNELS]; /**< Highest valid reading of each channel since MAINTENANCE was entered from NORMAL (REQ-LOG-001). */
+    gg_conc_t maint_peak_logged[FIRMWARE_CHANNELS]; /**< Peaks fixed when MAINTENANCE ends or goes into FAULT, logged one per sample (REQ-LOG-001). */
     uint8_t maint_peak_next;                 /**< Next channel whose peak is to be logged, one per sample; FIRMWARE_CHANNELS when none. */
     bool test_running;                       /**< The functional test is running (REQ-HMI-006). */
     uint32_t test_start_ms;                  /**< The six test steps are timed from here. */

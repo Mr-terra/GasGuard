@@ -335,7 +335,7 @@ static gg_status_t boot_init_channels(firmware_t *fw)
 }
 
 /**
- * @brief Start a new peak record for the next MAINTENANCE (REQ-LOG-001).
+ * @brief Start a new peak record when MAINTENANCE starts (REQ-LOG-001).
  * @param fw  Firmware state.
  */
 static void maint_peak_clear(firmware_t *fw)
@@ -345,6 +345,24 @@ static void maint_peak_clear(firmware_t *fw)
     for (ch = 0u; ch < FIRMWARE_CHANNELS; ch++) {
         fw->maint_peak[ch] = 0;
     }
+}
+
+/**
+ * @brief Fix the peaks of the MAINTENANCE that just ended and queue them for the log (REQ-LOG-001).
+ *
+ * The log reads this copy, so a new MAINTENANCE that clears the running peaks
+ * before the queue is done cannot change what is logged.
+ *
+ * @param fw  Firmware state.
+ */
+static void maint_peak_queue(firmware_t *fw)
+{
+    uint8_t ch;
+
+    for (ch = 0u; ch < FIRMWARE_CHANNELS; ch++) {
+        fw->maint_peak_logged[ch] = fw->maint_peak[ch];
+    }
+    fw->maint_peak_next = 0u;
 }
 
 /**
@@ -372,7 +390,8 @@ static gg_status_t boot_init_inputs(firmware_t *fw)
     fw->maint_pending = false;
     fw->maint_start_ms = 0u;
     maint_peak_clear(fw);
-    fw->maint_peak_next = FIRMWARE_CHANNELS;
+    maint_peak_queue(fw);                     /* The logged copy starts at 0 too, */
+    fw->maint_peak_next = FIRMWARE_CHANNELS;  /* with nothing to log. */
     fw->test_running = false;
     fw->test_start_ms = 0u;
     fw->pending_fault = DET_FAULT_NONE;
@@ -476,16 +495,22 @@ static gg_status_t sample_report_channels(firmware_t *fw, uint32_t now_ms)
 /**
  * @brief Keep the highest reading of each channel during MAINTENANCE (REQ-LOG-001).
  *
- * The sample that ends MAINTENANCE still counts. When it ends, the peaks are
- * queued for the log. A stuck-only FAULT inside MAINTENANCE queues the peaks so
- * far, and the final exit queues them again with the later readings.
+ * The peaks restart from 0 when MAINTENANCE starts from NORMAL, not when the
+ * touch asks for it: a touch in the samples right after an end would wipe the
+ * peaks still waiting to be logged. The sample that ends MAINTENANCE still
+ * counts. When it ends, the peaks are fixed and queued for the log. A stuck-only
+ * FAULT inside MAINTENANCE queues the peaks so far, and the final exit queues
+ * them again with the later readings.
  *
  * @param fw      Firmware state.
  * @param gas     Selection of this sample.
- * @param before  State before this sample; nothing is done unless it is MAINTENANCE.
+ * @param before  State before this sample: MAINTENANCE tracks and queues, NORMAL into
+ *                MAINTENANCE clears, any other state does nothing.
  */
 static void maint_peak_track(firmware_t *fw, const firmware_gas_t *gas, detector_state_t before)
 {
+    bool in_maintenance = (firmware_state(fw) == DET_STATE_MAINTENANCE);
+
     if (before == DET_STATE_MAINTENANCE) {
         uint8_t ch;
 
@@ -494,9 +519,13 @@ static void maint_peak_track(firmware_t *fw, const firmware_gas_t *gas, detector
                 fw->maint_peak[ch] = gas->conc[ch];
             }
         }
-        if (firmware_state(fw) != DET_STATE_MAINTENANCE) {
-            fw->maint_peak_next = 0u;
+        if (!in_maintenance) {
+            maint_peak_queue(fw);
         }
+    } else if ((before == DET_STATE_NORMAL) && in_maintenance) {
+        maint_peak_clear(fw);
+    } else {
+        /* Outside MAINTENANCE, or back to it after a stuck-only FAULT: the peaks go on. */
     }
 }
 
@@ -516,7 +545,7 @@ static void maint_peak_log_next(firmware_t *fw, uint32_t now_ms)
     if (fw->maint_peak_next < FIRMWARE_CHANNELS) {
         uint8_t ch = fw->maint_peak_next;
         /* The peak starts at 0 and only grows, so it is never negative. */
-        uint16_t peak = (uint16_t)fw->maint_peak[ch];
+        uint16_t peak = (uint16_t)fw->maint_peak_logged[ch];
         eventlog_entry_t event;
 
         if (peak > EVENTLOG_PEAK_VALUE_MASK) {
@@ -637,7 +666,6 @@ static void act_touch(hmi_press_event_t event, firmware_t *fw, uint32_t now_ms)
     if ((event == HMI_PRESS_LONG) && (firmware_state(fw) == DET_STATE_NORMAL)) {
         fw->maint_pending = true;
         fw->maint_start_ms = now_ms;
-        maint_peak_clear(fw);
     }
 }
 
