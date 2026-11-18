@@ -71,7 +71,7 @@ typedef struct {
     gg_conc_t conc;         /**< Maximum concentration of the valid channels (REQ-FUN-005). */
     bool fault;             /**< True if all channels are out for a real fault, or the ADC is faulty: latched (REQ-SAF-007). */
     bool reset_requested;   /**< True if the operator long-pressed to reset ALARM_2 (REQ-HMI-005). */
-    bool maint_requested;   /**< True on a touch of 3 s, from the HMI (REQ-HMI-008). Only NORMAL acts on it. */
+    bool maint_requested;   /**< True on a touch of 3 s, from the HMI (REQ-HMI-008). Only NORMAL acts on it, and only with conc < AL1. */
     bool maint_expired;     /**< True when the 10 minutes of MAINTENANCE are over (REQ-HMI-010). */
     detector_fault_code_t system_fault; /**< DET_FAULT_NONE, or a system fault: timing or stack (REQ-SAF-008, REQ-SAF-009). */
     bool fault_stuck;       /**< True if every channel is out only because it is stuck: a FAULT that ends by itself (REQ-SAF-007). */

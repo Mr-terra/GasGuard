@@ -67,7 +67,7 @@ result is in `docs/test-report.md`. Updated 2026-11-17.
 | REQ-HMI-005 long press resets ALARM_2 | `firmware_long_press_in_alarm_2_resets_the_latch_when_gas_is_gone` | `firmware_long_press_in_alarm_1_neither_resets_nor_starts_the_test` | `sc07_long_press_refused_while_gas_present` | `hmi_press_held_for_three_seconds_is_a_long_press_fired_once` | 2999 and 3000 ms (same test) |
 | REQ-HMI-006 functional test | `firmware_long_press_in_normal_runs_the_functional_test` | `firmware_long_press_in_alarm_1_neither_resets_nor_starts_the_test` | `firmware_long_press_in_fault_never_energises_the_relay` | `hmi_functional_test_releases_the_relay_for_exactly_one_step` | `hmi_functional_test_runs_until_its_last_millisecond` |
 | REQ-HMI-007 debounce 30 ms | `button_press_is_accepted_after_exactly_30_ms` | `button_starts_released` | `button_press_shorter_than_30_ms_is_ignored`, `button_bounce_restarts_the_30_ms_window` | `button_short_release_glitch_does_not_end_a_held_press` | 29 and 30 ms, `button_window_is_correct_across_millisecond_wraparound` |
-| REQ-HMI-008 touch enters MAINTENANCE | `firmware_touch_for_three_seconds_enters_maintenance` | `detector_touch_is_ignored_in_alarm_2_and_fault` | `firmware_touch_shorter_than_three_seconds_is_ignored` | `firmware_touch_during_an_alarm_does_not_hide_it` | `firmware_touch_of_3_s_is_ignored_and_3_2_s_enters_maintenance` (to one 100 ms loop step) |
+| REQ-HMI-008 touch enters MAINTENANCE, refused at or above AL1 | `firmware_touch_for_three_seconds_enters_maintenance` | `detector_touch_is_ignored_in_alarm_2_and_fault`, `detector_touch_with_gas_at_al1_is_ignored`, `detector_touch_refused_for_gas_is_not_kept_for_later`, `firmware_touch_refused_for_gas_and_still_held_never_enters_maintenance` | `firmware_touch_shorter_than_three_seconds_is_ignored` | `firmware_touch_during_an_alarm_does_not_hide_it`, `detector_touch_on_the_third_gas_sample_gives_the_alarm` | `firmware_touch_of_3_s_is_ignored_and_3_2_s_enters_maintenance` (to one 100 ms loop step), `detector_touch_with_gas_one_unit_below_al1_enters_maintenance` (AL1 refused, AL1 - 0.1 %LEL accepted), `detector_touch_on_a_dip_below_al1_while_gas_builds_enters_maintenance` (accepted residual risk, F36) |
 | REQ-HMI-009 MAINTENANCE output | `firmware_gas_is_shown_during_maintenance_but_not_output` | `detector_maintenance_keeps_relay_and_ignores_alarms` | `detector_maintenance_keeps_relay_and_ignores_alarms` | `detector_gas_after_maintenance_alarms_three_samples_after_its_end` | n/a: no numeric limit (the 10 minutes are REQ-HMI-010) |
 | REQ-HMI-010 MAINTENANCE ends after 10 min | `firmware_maintenance_ends_after_ten_minutes_not_before` | `detector_maintenance_holds_until_the_timer_expires` | `detector_maintenance_holds_until_the_timer_expires` | `firmware_touch_held_during_maintenance_does_not_extend_it` | 598 s and 602 s (same test) |
 
@@ -131,14 +131,20 @@ cases, so the five categories do not apply:
    A second review found that a reading at the rails also restarted the
    filter, so a bouncing contact (rail, then 1017) latched ALARM_2: the
    filter is now never restarted after boot.
-6. **Touch and alarm in the same sample (REQ-HMI-008).** If the 3 s touch ends
-   on the same sample as the third sample above AL1, MAINTENANCE wins and the
-   relay stays energised. This meets REQ-HMI-008 as written (the state is
-   still NORMAL), but the alarm is then only shown. Possible fix: refuse
-   MAINTENANCE while gas is above AL1. Author to decide.
+6. **Touch and alarm in the same sample (REQ-HMI-008, fixed).** If the 3 s
+   touch ended on the same sample as the third sample above AL1, MAINTENANCE
+   won and the relay stayed energised. Decision of the author: REQ-HMI-008
+   now refuses MAINTENANCE while the gas is at or above AL1, and the refused
+   request is dropped. Residual: a touch on a sample just below AL1 while gas
+   builds is still accepted (F36).
 7. **Repeated ADC read errors on one channel (REQ-SAF-002).** A read error
    skips the diagnostic, so it is never counted as a channel fault and is not
    logged. With the other channel valid, one channel can fail every read and
    stay out silently; the FAULT latches only when no channel is valid. Found by
    the review of 2026-11-17 (it was already there before). Author to decide:
    count repeated read errors as a channel fault, or accept it in the FMEA.
+8. **Peak record wiped by a touch (REQ-LOG-001).** `act_touch` clears the
+   MAINTENANCE peaks when the request is made, not when MAINTENANCE starts. A
+   touch (accepted or refused) in the 2 samples after a MAINTENANCE ends can
+   log the peaks of the finished gas test as 0. Narrow window; found by the
+   review of 2026-11-17. Possible fix: clear the peaks on entry to MAINTENANCE.

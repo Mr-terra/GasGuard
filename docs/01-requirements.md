@@ -90,7 +90,7 @@ Any mode → `FAULT`. `NORMAL` ⇄ `MAINTENANCE` (operator request, time-limited
 
 | ID | Requirement |
 |---|---|
-| REQ-HMI-008 | A touch on the touch sensor for ≥ 3 s in NORMAL shall enter MAINTENANCE. |
+| REQ-HMI-008 | A touch on the touch sensor for ≥ 3 s in NORMAL shall enter MAINTENANCE, unless the concentration is at or above AL1: the request shall then be ignored. |
 | REQ-HMI-009 | In MAINTENANCE, the relay shall hold its last healthy state, alarms shall be shown but not output, and "MAINT" shall be displayed permanently. |
 | REQ-HMI-010 | MAINTENANCE shall end automatically after 10 minutes (no forgotten inhibition). |
 

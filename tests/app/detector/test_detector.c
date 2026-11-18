@@ -956,6 +956,23 @@ static void test_detector_touch_refused_for_gas_is_not_kept_for_later(void)
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
 }
 
+/* @verifies REQ-HMI-008 */
+static void test_detector_touch_on_a_dip_below_al1_while_gas_builds_enters_maintenance(void)
+{
+    /* Accepted residual risk (FMEA F36): two samples at AL1, then the touch
+     * lands on a sample at AL1 - 0.1 %LEL. REQ-HMI-008 only refuses at or above
+     * AL1, so MAINTENANCE starts. This test pins the behaviour as approved. */
+    gg_conc_t below = DETECTOR_AL1_DEFAULT;
+    detector_input_t touch = input_with(0, true, false, DET_FAULT_NONE);
+
+    below = (gg_conc_t)(below - 1);
+    touch.conc = below;
+    finish_warmup();
+    step_n(DETECTOR_AL1_DEFAULT, DETECTOR_ENTER_SAMPLES - 1u);
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &touch));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, state_now());
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1028,5 +1045,6 @@ int main(void)
     RUN_TEST(test_detector_touch_with_gas_one_unit_below_al1_enters_maintenance);
     RUN_TEST(test_detector_touch_on_the_third_gas_sample_gives_the_alarm);
     RUN_TEST(test_detector_touch_refused_for_gas_is_not_kept_for_later);
+    RUN_TEST(test_detector_touch_on_a_dip_below_al1_while_gas_builds_enters_maintenance);
     return UNITY_END();
 }

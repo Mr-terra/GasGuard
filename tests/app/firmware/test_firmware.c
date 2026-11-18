@@ -1600,6 +1600,31 @@ static void test_firmware_spike_right_after_a_read_error_raises_no_alarm(void)
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
 }
 
+/* @verifies REQ-HMI-008 */
+static void test_firmware_touch_refused_for_gas_and_still_held_never_enters_maintenance(void)
+{
+    /* The touch is held from clean air. Gas exactly at AL1 arrives so that the
+     * filtered value reaches AL1 on the sample that takes the request (32nd step,
+     * see the 3.2 s test) and on the next one only: no alarm, request refused.
+     * The gas then goes and the touch is still held: one touch asks once, so
+     * MAINTENANCE never starts. */
+    bool energised = false;
+
+    boot_and_reach_normal();
+    fw_ticks(24u, false, true);
+    set_gas_level((uint16_t)DETECTOR_AL1_DEFAULT);
+    fw_ticks(9u, false, true);
+    TEST_ASSERT_TRUE(firmware_concentration(&fw) >= DETECTOR_AL1_DEFAULT);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    set_gas_raw(CLEAN_RAW);
+    fw_ticks(20u, false, true);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_relay_energised(&fw, &energised));
+    TEST_ASSERT_TRUE(energised);
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1685,5 +1710,6 @@ int main(void)
     RUN_TEST(test_firmware_spike_right_after_a_rail_reading_raises_no_alarm);
     RUN_TEST(test_firmware_gas_during_range_recovery_is_ignored_then_seen_at_recovery);
     RUN_TEST(test_firmware_spike_right_after_a_read_error_raises_no_alarm);
+    RUN_TEST(test_firmware_touch_refused_for_gas_and_still_held_never_enters_maintenance);
     return UNITY_END();
 }
