@@ -1625,6 +1625,32 @@ static void test_firmware_touch_refused_for_gas_and_still_held_never_enters_main
     TEST_ASSERT_TRUE(energised);
 }
 
+/* @verifies REQ-LOG-001 */
+static void test_firmware_touch_right_after_maintenance_keeps_its_peaks(void)
+{
+    /* The touch that starts MAINTENANCE is taken on step 31 and MAINTENANCE
+     * starts on step 32 (see the 3.2 s test), so it ends on step 31 + 6000.
+     * A second touch held from step 6000 gives its 3 s on that same step 6031,
+     * right after the end, while the peaks of the gas test are still waiting
+     * to be logged. They must be logged as measured, not as 0. */
+    boot_and_reach_normal();
+    fw_ticks(HOLD_LONG_TICKS, false, true);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_1_RAW));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, MQ2_ALARM_2_RAW));
+    fw_ticks(20u, false, false);
+    set_gas_raw(CLEAN_RAW_PLUS_2);
+    fw_ticks(2945u, false, false);
+    set_gas_raw(CLEAN_RAW);
+    fw_ticks(3000u, false, false);
+    fw_ticks(40u, false, true);
+    fw_ticks(3u, false, false);
+    /* The second touch did start a new MAINTENANCE: it came after the end. */
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ5, ALARM_1_RAW)));
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ2, ALARM_2_RAW)));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1711,5 +1737,6 @@ int main(void)
     RUN_TEST(test_firmware_gas_during_range_recovery_is_ignored_then_seen_at_recovery);
     RUN_TEST(test_firmware_spike_right_after_a_read_error_raises_no_alarm);
     RUN_TEST(test_firmware_touch_refused_for_gas_and_still_held_never_enters_maintenance);
+    RUN_TEST(test_firmware_touch_right_after_maintenance_keeps_its_peaks);
     return UNITY_END();
 }
