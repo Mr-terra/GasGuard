@@ -72,7 +72,7 @@ process is the point:
 | Interface | Buzzer and button drivers (`drivers/buzzer`, `drivers/button` with 30 ms debounce) |
 | Interface | Buzzer patterns (1 Hz, 4 Hz, 1 beep / 5 s), short-press silence, long-press reset and functional test, debounce (REQ-HMI-003..007) |
 | Interface | LCD: state text (MAINT, TEST), backlight colour per state, amber blink in FAULT, concentration on line 2, rows filled with spaces (REQ-HMI-001, REQ-HMI-002) |
-| Interface | Maintenance mode from NORMAL by a 3 s touch (refused while the gas is at or above AL1), relay held, alarms not output, automatic exit after 10 minutes (REQ-HMI-008..010, FMEA F36) |
+| Interface | Maintenance mode from NORMAL by a 3 s touch (refused while the gas is at or above 8.0 %LEL, the ALARM_1 clear level), relay held, alarms not output, automatic exit after 10 minutes (REQ-HMI-008..010, FMEA F36) |
 | Interface | Gas test record: at the end of MAINTENANCE, the highest reading of each sensor is logged as `PEAK <channel> <peak in 0.1 %LEL>` (REQ-LOG-001) |
 | Interface | UART command line: `log` dumps the event log, one line per poll for the 64-byte transmit buffer (REQ-LOG-004); `status` prints the state, the concentration and the raw inputs in one line (REQ-LOG-005); `cfg` planned |
 | Simulation | Potentiometer replaces the MQ-5 channel for bench tests (`GG_SIM_POT` build) |
@@ -192,7 +192,7 @@ MAINTENANCE, so the test gas does not trip the relay or sound the buzzer:
 1. Check that the detector is in NORMAL, then touch the touch sensor for 3 s:
    the display shows `MAINT` (yellow). The relay holds, alarms are not output
    (REQ-HMI-009), and MAINTENANCE ends by itself after 10 minutes. If `MAINT`
-   does not appear and line 2 reads 10.0 %LEL or more, the touch was refused
+   does not appear and line 2 reads 8.0 %LEL or more, the touch was refused
    (REQ-HMI-008): ventilate, wait for the reading to drop, then touch again.
 2. Release a short puff of gas from an **unlit** lighter (about 1 s, no flame)
    a few centimetres from the MQ-5, in a ventilated room.

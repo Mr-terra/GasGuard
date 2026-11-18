@@ -661,7 +661,7 @@ static gg_status_t act_button(hmi_press_event_t event, firmware_t *fw, uint32_t 
 /**
  * @brief A touch of 3 s in NORMAL asks for MAINTENANCE (REQ-HMI-008).
  *
- * The detector still refuses it when the gas is at or above AL1; the request
+ * The detector still refuses it when the gas is at or above AL1 - hysteresis; the request
  * is then dropped at the next sample.
  * @param fw      Firmware state.
  * @param event   Event of the touch sensor.

@@ -988,6 +988,39 @@ static void test_detector_touch_on_a_dip_below_al1_while_gas_builds_is_ignored(v
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
 }
 
+/* @verifies REQ-HMI-008 */
+static void test_detector_touch_on_a_dip_below_the_clear_level_while_gas_builds_enters_maintenance(void)
+{
+    /* Accepted residual risk (FMEA F36): two samples at AL1, then the touch
+     * lands on a sample one unit below the clear level (7.9 %LEL): accepted. */
+    gg_conc_t below = DETECTOR_AL1_DEFAULT;
+    detector_input_t touch = input_with(0, true, false, DET_FAULT_NONE);
+
+    below = (gg_conc_t)(below - DETECTOR_HYSTERESIS_DEFAULT);
+    below = (gg_conc_t)(below - 1);
+    touch.conc = below;
+    finish_warmup();
+    step_n(DETECTOR_AL1_DEFAULT, DETECTOR_ENTER_SAMPLES - 1u);
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &touch));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, state_now());
+}
+
+/* @verifies REQ-HMI-008 REQ-ALM-005 */
+static void test_detector_touch_refusal_follows_the_configured_clear_level(void)
+{
+    /* AL1 15.0 %LEL, hysteresis 5.0 %LEL: the clear level is 10.0 %LEL. */
+    const detector_thresholds_t custom = {150, 250, 50};
+    detector_input_t touch = input_with(100, true, false, DET_FAULT_NONE);
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_init(&det_test_state, &custom));
+    finish_warmup();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &touch));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
+    touch.conc = 99;
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &touch));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, state_now());
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1062,5 +1095,7 @@ int main(void)
     RUN_TEST(test_detector_touch_on_the_third_gas_sample_gives_the_alarm);
     RUN_TEST(test_detector_touch_refused_for_gas_is_not_kept_for_later);
     RUN_TEST(test_detector_touch_on_a_dip_below_al1_while_gas_builds_is_ignored);
+    RUN_TEST(test_detector_touch_on_a_dip_below_the_clear_level_while_gas_builds_enters_maintenance);
+    RUN_TEST(test_detector_touch_refusal_follows_the_configured_clear_level);
     return UNITY_END();
 }

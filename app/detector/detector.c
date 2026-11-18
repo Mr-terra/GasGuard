@@ -70,13 +70,14 @@ static void update_counters(detector_t *det, gg_conc_t conc)
 }
 
 /* REQ-HMI-008: a touch of 3 s in NORMAL starts MAINTENANCE, unless the gas is at or
- * above AL1: the request is then dropped, so a touch cannot hold back an alarm that
- * is confirmed or due on that sample (FMEA F36). An alarm level starts its alarm: AL2 is checked
- * first, so a sudden large leak reaches ALARM_2 after three samples (REQ-ALM-002),
- * not one sample later through ALARM_1. */
+ * above the ALARM_1 clear level (AL1 - hysteresis): the request is then dropped. A
+ * dip of less than the hysteresis below AL1 is still refused; a dip below the clear
+ * level is the accepted residual risk (FMEA F36). An alarm level starts its alarm:
+ * AL2 is checked first, so a sudden large leak reaches ALARM_2 after three samples
+ * (REQ-ALM-002), not one sample later through ALARM_1. */
 static void step_normal(detector_t *det, const detector_input_t *in)
 {
-    bool gas_present = (int32_t)in->conc >= (int32_t)det->thresholds.al1;
+    bool gas_present = (int32_t)in->conc >= clear_level(det);
 
     if (in->maint_requested && !gas_present) {
         det->state = DET_STATE_MAINTENANCE;

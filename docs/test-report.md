@@ -182,7 +182,7 @@ Firmware: `main` at `60ac2b2` (button read as active high), flashed with
 | Button short press in ALARM_1 | Pass: the buzzer stops, the display stays on `ALARM 1` | REQ-HMI-004 |
 | Button long press in ALARM_1 | Pass: 3 s press, no change of state or buzzer (by design: the long press acts only in ALARM_2 and NORMAL) | REQ-HMI-005 |
 | Calibrated start (`298db0b`) | Pass: after the warm-up the detector reaches NORMAL with the MQ-5 offset at 113 | REQ-FUN-003 |
-| Touch 3 s in NORMAL | Pass: MAINTENANCE entered, yellow backlight (looks orange on this module), automatic return to NORMAL after 10 min | REQ-HMI-008, REQ-HMI-010 |
+| Touch 3 s in NORMAL | Pass: MAINTENANCE entered, yellow backlight (looks orange on this module), automatic return to NORMAL after 10 min. Run before 2026-11-17: the refusal of the touch from 8.0 %LEL up (REQ-HMI-008) is host-tested and still to run on the board (potentiometer at about 9 %LEL) | REQ-HMI-008, REQ-HMI-010 |
 | Button long press in NORMAL | Pass: the functional test runs, the buzzer beeps. Relay step not seen: no relay wired | REQ-HMI-006 |
 | ALARM_2 with lighter gas (unlit) on the MQ-5 | Pass: up to 51.6 %LEL (first try) and 88 %LEL (second try), ALARM_2 entered, red backlight, buzzer 4 beeps per second | REQ-ALM-002, REQ-HMI-002, REQ-HMI-003 |
 | ALARM_2 short press | Pass: the buzzer stops, then sounds again after 60 s. Run with the rule before 2026-11-17 (each press restarted the 60 s); the new rule (60 s per alarm, from the first press) is host-tested and still to run on the board | REQ-HMI-004 |

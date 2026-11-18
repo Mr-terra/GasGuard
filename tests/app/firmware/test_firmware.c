@@ -1733,6 +1733,21 @@ static void test_firmware_read_errors_on_both_channels_latch_the_fault_at_once(v
     TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
 }
 
+/* @verifies REQ-HMI-008 */
+static void test_firmware_touch_with_gas_between_the_clear_level_and_al1_is_refused(void)
+{
+    /* Steady gas at 9.0 %LEL: below AL1, so no alarm, but above the clear level
+     * (8.0 %LEL): a 3.5 s touch does not start MAINTENANCE. */
+    boot_and_reach_normal();
+    set_gas_level(90u);
+    fw_ticks(20u, false, false);
+    TEST_ASSERT_EQUAL_INT(90, firmware_concentration(&fw));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    fw_ticks(HOLD_LONG_TICKS, false, true);
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1824,5 +1839,6 @@ int main(void)
     RUN_TEST(test_firmware_read_error_fault_recovers_after_sixty_seconds_of_good_reads);
     RUN_TEST(test_firmware_four_read_errors_are_no_channel_fault);
     RUN_TEST(test_firmware_read_errors_on_both_channels_latch_the_fault_at_once);
+    RUN_TEST(test_firmware_touch_with_gas_between_the_clear_level_and_al1_is_refused);
     return UNITY_END();
 }
