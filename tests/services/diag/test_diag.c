@@ -361,6 +361,78 @@ static void test_diag_bandgap_at_the_adc_ends_is_a_fault(void)
     TEST_ASSERT_FALSE(ok);
 }
 
+/* Report n failed ADC reads in a row. */
+static void feed_read_failures(uint16_t n)
+{
+    uint16_t i;
+
+    for (i = 0u; i < n; i++) {
+        TEST_ASSERT_EQUAL_INT(GG_OK, diag_read_failed(&s_diag));
+    }
+}
+
+/* @verifies REQ-SAF-002 */
+static void test_diag_read_failures_faulty_after_five_samples(void)
+{
+    feed_read_failures(DIAG_RANGE_SAMPLES - 1u);
+    TEST_ASSERT_FALSE(is_faulty());
+    feed_read_failures(1u);
+    TEST_ASSERT_TRUE(is_faulty());
+}
+
+/* @verifies REQ-SAF-002 */
+static void test_diag_four_read_failures_then_a_valid_sample_are_no_fault(void)
+{
+    feed_read_failures(DIAG_RANGE_SAMPLES - 1u);
+    feed_range(500u, 1u);
+    feed_read_failures(DIAG_RANGE_SAMPLES - 1u);
+    TEST_ASSERT_FALSE(is_faulty());
+}
+
+/* @verifies REQ-SAF-002 */
+static void test_diag_read_failures_and_rail_readings_count_together(void)
+{
+    /* A contact that gives a failed read, then a rail reading, then a failed
+     * read... is bad at every sample: it must not escape detection. */
+    feed_read_failures(1u);
+    feed_range(0u, 1u);
+    feed_read_failures(1u);
+    feed_range(HAL_ADC_RAW_MAX, 1u);
+    TEST_ASSERT_FALSE(is_faulty());
+    feed_read_failures(1u);
+    TEST_ASSERT_TRUE(is_faulty());
+}
+
+/* @verifies REQ-SAF-002 */
+static void test_diag_read_failure_fault_recovers_after_sixty_seconds_of_valid_samples(void)
+{
+    bool only = true;
+
+    feed_read_failures(DIAG_RANGE_SAMPLES);
+    TEST_ASSERT_EQUAL_INT(GG_OK, diag_stuck_only(&s_diag, &only));
+    TEST_ASSERT_FALSE(only);   /* A real fault, never calm air. */
+    feed_range(500u, DIAG_RECOVER_SAMPLES - 1u);
+    TEST_ASSERT_TRUE(is_faulty());
+    feed_range(500u, 1u);
+    TEST_ASSERT_FALSE(is_faulty());
+}
+
+/* @verifies REQ-SAF-002 */
+static void test_diag_read_failure_during_recovery_restarts_it(void)
+{
+    feed_range(0u, DIAG_RANGE_SAMPLES);
+    feed_range(500u, DIAG_RECOVER_SAMPLES - 1u);
+    feed_read_failures(1u);
+    feed_range(500u, DIAG_RECOVER_SAMPLES - 1u);
+    TEST_ASSERT_TRUE(is_faulty());
+}
+
+/* @verifies REQ-SAF-002 */
+static void test_diag_read_failed_rejects_null(void)
+{
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, diag_read_failed(NULL));
+}
+
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
 {
@@ -393,5 +465,11 @@ int main(void)
     RUN_TEST(test_diag_stuck_check_rejects_bad_arguments);
     RUN_TEST(test_diag_bandgap_tolerance_ends_at_22_lsb);
     RUN_TEST(test_diag_bandgap_at_the_adc_ends_is_a_fault);
+    RUN_TEST(test_diag_read_failures_faulty_after_five_samples);
+    RUN_TEST(test_diag_four_read_failures_then_a_valid_sample_are_no_fault);
+    RUN_TEST(test_diag_read_failures_and_rail_readings_count_together);
+    RUN_TEST(test_diag_read_failure_fault_recovers_after_sixty_seconds_of_valid_samples);
+    RUN_TEST(test_diag_read_failure_during_recovery_restarts_it);
+    RUN_TEST(test_diag_read_failed_rejects_null);
     return UNITY_END();
 }

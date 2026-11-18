@@ -1664,6 +1664,51 @@ static void test_firmware_touch_right_after_maintenance_keeps_its_peaks(void)
     TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_MAINT_PEAK, peak_arg(FIRMWARE_CHANNEL_MQ2, ALARM_2_RAW)));
 }
 
+/* @verifies REQ-SAF-002 REQ-LOG-001 */
+static void test_firmware_repeated_read_errors_on_one_channel_are_a_logged_channel_fault(void)
+{
+    /* The MQ-5 read fails every sample while the MQ-2 reads clean air. After
+     * five failures in a row the MQ-5 is a faulty channel and it is logged; the
+     * MQ-2 alone keeps the detector in NORMAL (REQ-FUN-005). */
+    bool faulty = false;
+
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_MQ5, true));
+    fw_ticks(DIAG_RANGE_SAMPLES - 1u, false, false);
+    TEST_ASSERT_EQUAL_UINT8(0u, count_entries(EVENTLOG_CHANNEL_FAULT, ANY_ARG));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_CHANNEL_FAULT, FIRMWARE_CHANNEL_MQ5));
+    TEST_ASSERT_EQUAL_INT(GG_OK, diag_is_faulty(&fw.diag[FIRMWARE_CHANNEL_MQ5], &faulty));
+    TEST_ASSERT_TRUE(faulty);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+}
+
+/* @verifies REQ-SAF-002 */
+static void test_firmware_read_error_fault_recovers_after_sixty_seconds_of_good_reads(void)
+{
+    bool faulty = true;
+
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_MQ5, true));
+    fw_ticks(DIAG_RANGE_SAMPLES, false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_MQ5, false));
+    fw_ticks(DIAG_RECOVER_SAMPLES, false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, diag_is_faulty(&fw.diag[FIRMWARE_CHANNEL_MQ5], &faulty));
+    TEST_ASSERT_FALSE(faulty);
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_CHANNEL_RECOVERED, FIRMWARE_CHANNEL_MQ5));
+}
+
+/* @verifies REQ-SAF-002 */
+static void test_firmware_four_read_errors_are_no_channel_fault(void)
+{
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_MQ5, true));
+    fw_ticks(DIAG_RANGE_SAMPLES - 1u, false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_MQ5, false));
+    fw_ticks(DIAG_RANGE_SAMPLES, false, false);
+    TEST_ASSERT_EQUAL_UINT8(0u, count_entries(EVENTLOG_CHANNEL_FAULT, ANY_ARG));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1751,5 +1796,8 @@ int main(void)
     RUN_TEST(test_firmware_spike_right_after_a_read_error_raises_no_alarm);
     RUN_TEST(test_firmware_touch_refused_for_gas_and_still_held_never_enters_maintenance);
     RUN_TEST(test_firmware_touch_right_after_maintenance_keeps_its_peaks);
+    RUN_TEST(test_firmware_repeated_read_errors_on_one_channel_are_a_logged_channel_fault);
+    RUN_TEST(test_firmware_read_error_fault_recovers_after_sixty_seconds_of_good_reads);
+    RUN_TEST(test_firmware_four_read_errors_are_no_channel_fault);
     return UNITY_END();
 }

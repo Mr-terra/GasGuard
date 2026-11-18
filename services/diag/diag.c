@@ -84,6 +84,12 @@ gg_status_t diag_check_range(diag_t *diag, uint16_t raw)
     return status;
 }
 
+gg_status_t diag_read_failed(diag_t *diag)
+{
+    /* Not implemented yet: red step of TDD. */
+    return (diag == NULL) ? GG_ERR_NULL : GG_OK;
+}
+
 static void stuck_window_restart(diag_t *diag, const diag_stuck_sample_t *sample)
 {
     diag->window_started = true;

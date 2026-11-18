@@ -86,6 +86,18 @@ gg_status_t diag_init(diag_t *diag);
  */
 gg_status_t diag_check_range(diag_t *diag, uint16_t raw);
 
+/**
+ * @brief Count one failed ADC read as a bad sample, like an open or short circuit.
+ *
+ * Failed reads and readings at the rails count together towards
+ * DIAG_RANGE_SAMPLES, and the fault clears the same way (REQ-SAF-002).
+ *
+ * @param diag  Channel state. Must not be NULL.
+ * @return GG_OK or GG_ERR_NULL.
+ * @req REQ-SAF-002
+ */
+gg_status_t diag_read_failed(diag_t *diag);
+
 /** @brief One sample for the stuck-at check. Grouped so that its fields cannot be swapped. */
 typedef struct {
     uint16_t raw;        /**< Raw ADC value, 0 .. HAL_ADC_RAW_MAX. */
