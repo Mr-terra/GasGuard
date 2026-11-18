@@ -915,16 +915,32 @@ static void test_detector_touch_with_gas_at_al1_is_ignored(void)
 }
 
 /* @verifies REQ-HMI-008 */
-static void test_detector_touch_with_gas_one_unit_below_al1_enters_maintenance(void)
+static void test_detector_touch_one_unit_below_the_clear_level_enters_maintenance(void)
 {
+    /* Clear level = AL1 - hysteresis = 8.0 %LEL: 7.9 %LEL is accepted. */
     gg_conc_t below = DETECTOR_AL1_DEFAULT;
     detector_input_t touch = input_with(0, true, false, DET_FAULT_NONE);
 
+    below = (gg_conc_t)(below - DETECTOR_HYSTERESIS_DEFAULT);
     below = (gg_conc_t)(below - 1);
     touch.conc = below;
     finish_warmup();
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &touch));
     TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, state_now());
+}
+
+/* @verifies REQ-HMI-008 */
+static void test_detector_touch_at_the_clear_level_is_ignored(void)
+{
+    /* 8.0 %LEL, the level at which an ALARM_1 would not yet end: refused. */
+    gg_conc_t level = DETECTOR_AL1_DEFAULT;
+    detector_input_t touch = input_with(0, true, false, DET_FAULT_NONE);
+
+    level = (gg_conc_t)(level - DETECTOR_HYSTERESIS_DEFAULT);
+    touch.conc = level;
+    finish_warmup();
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &touch));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
 }
 
 /* @verifies REQ-HMI-008 REQ-ALM-001 */
@@ -957,11 +973,10 @@ static void test_detector_touch_refused_for_gas_is_not_kept_for_later(void)
 }
 
 /* @verifies REQ-HMI-008 */
-static void test_detector_touch_on_a_dip_below_al1_while_gas_builds_enters_maintenance(void)
+static void test_detector_touch_on_a_dip_below_al1_while_gas_builds_is_ignored(void)
 {
-    /* Accepted residual risk (FMEA F36): two samples at AL1, then the touch
-     * lands on a sample at AL1 - 0.1 %LEL. REQ-HMI-008 only refuses at or above
-     * AL1, so MAINTENANCE starts. This test pins the behaviour as approved. */
+    /* The review case (FMEA F36): two samples at AL1, then the touch lands on a
+     * sample at AL1 - 0.1 %LEL. That is still above the clear level: refused. */
     gg_conc_t below = DETECTOR_AL1_DEFAULT;
     detector_input_t touch = input_with(0, true, false, DET_FAULT_NONE);
 
@@ -970,7 +985,7 @@ static void test_detector_touch_on_a_dip_below_al1_while_gas_builds_enters_maint
     finish_warmup();
     step_n(DETECTOR_AL1_DEFAULT, DETECTOR_ENTER_SAMPLES - 1u);
     TEST_ASSERT_EQUAL_INT(GG_OK, detector_step(&det_test_state, &touch));
-    TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, state_now());
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, state_now());
 }
 
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
@@ -1042,9 +1057,10 @@ int main(void)
     RUN_TEST(test_detector_from_normal_two_samples_at_al2_then_one_at_al1_give_alarm_1);
     RUN_TEST(test_detector_from_normal_two_samples_at_al2_then_clean_air_stay_normal);
     RUN_TEST(test_detector_touch_with_gas_at_al1_is_ignored);
-    RUN_TEST(test_detector_touch_with_gas_one_unit_below_al1_enters_maintenance);
+    RUN_TEST(test_detector_touch_one_unit_below_the_clear_level_enters_maintenance);
+    RUN_TEST(test_detector_touch_at_the_clear_level_is_ignored);
     RUN_TEST(test_detector_touch_on_the_third_gas_sample_gives_the_alarm);
     RUN_TEST(test_detector_touch_refused_for_gas_is_not_kept_for_later);
-    RUN_TEST(test_detector_touch_on_a_dip_below_al1_while_gas_builds_enters_maintenance);
+    RUN_TEST(test_detector_touch_on_a_dip_below_al1_while_gas_builds_is_ignored);
     return UNITY_END();
 }
