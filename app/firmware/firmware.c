@@ -222,6 +222,11 @@ static bool sample_channel(uint8_t ch, firmware_t *fw, uint32_t now_ms, gg_conc_
         sample.now_ms = now_ms;
         sample.in_warmup = (now_ms < fw->warmup_end_ms);
         status = sample_diagnose(&fw->diag[ch], &sample);
+    } else {
+        /* A failed read counts towards a channel fault like a rail reading, so a
+         * channel that never reads is set faulty and logged (REQ-SAF-002). The
+         * read stays a failure: the channel is out and it is never calm air. */
+        (void)diag_read_failed(&fw->diag[ch]);   /* Fails only on a NULL pointer. */
     }
     if (status == GG_OK) {
         status = diag_is_faulty(&fw->diag[ch], &faulty);
@@ -533,7 +538,8 @@ static void maint_peak_track(firmware_t *fw, const firmware_gas_t *gas, detector
  * @brief Log the next queued peak: one entry per sample, at most (REQ-LOG-001).
  *
  * One entry per sample keeps the EEPROM time of a sample to one write besides the
- * MODE and FAULT entries, within the 100 ms cycle (REQ-SAF-008, FMEA F47). The
+ * MODE, FAULT and CHANNEL entries, within the 100 ms cycle in normal use
+ * (REQ-SAF-008, FMEA F47). The
  * write error is ignored on purpose: a PEAK entry is a record, and its failure
  * must never stop the sample that drives the relay (FMEA F47, as F44).
  *

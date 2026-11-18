@@ -484,7 +484,7 @@ Accepted deviations from the coding standard are listed in
   gas test in MAINTENANCE, recorded as `PEAK` entries, is the only check.
 - **A faulty gas channel is excluded from the detection.** It is written to the event log
   (`CHANNEL`). It comes back into service (`RECOVERED`) after 60 s of valid readings
-  (open or short circuit), or as soon as a frozen value moves again (REQ-SAF-002,
+  (open or short circuit, or failed ADC reads), or as soon as a frozen value moves again (REQ-SAF-002,
   REQ-SAF-003, confirmed by the author on Day 5; the values may be tuned later).
 - **No display, no stop**: the boot goes on without the LCD and logs a `DISPLAY` event.
   A failed boot arms the watchdog, so the board resets and tries again.

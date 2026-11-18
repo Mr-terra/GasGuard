@@ -57,7 +57,7 @@
  * when the value moves again (REQ-SAF-002, REQ-SAF-003).
  */
 typedef struct {
-    uint8_t range_count;        /**< Consecutive out-of-range samples. */
+    uint8_t range_count;        /**< Consecutive bad samples: out of range or failed read. */
     uint16_t range_ok_count;     /**< Consecutive valid samples while the range fault is set (recovery). */
     bool range_fault;           /**< Open/short fault: set after DIAG_RANGE_SAMPLES, cleared after DIAG_RECOVER_SAMPLES valid samples. */
     uint16_t window_min;        /**< Lowest raw value since the window started. */

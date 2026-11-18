@@ -45,7 +45,7 @@ result is in `docs/test-report.md`. Updated 2026-11-18.
 | Requirement | Positive | Negative | False positive | False negative | Limits |
 |---|---|---|---|---|---|
 | REQ-SAF-001 relay normally energised | `detector_relay_is_energised_during_warmup`, `detector_relay_is_energised_again_after_alarm_1_clears` | `detector_relay_released_on_alarm` | `detector_relay_is_energised_again_after_alarm_1_clears` | `sc09_both_sensors_unplugged_is_fault_with_relay_off`, `firmware_gas_ending_a_stuck_fault_keeps_the_relay_off` | Board: D5 at reset (test report, 2026-11-17) |
-| REQ-SAF-002 open or short circuit | `diag_open_circuit_faulty_after_five_samples` | `diag_rejected_range_input_changes_nothing` | `diag_valid_sample_resets_the_count`, `diag_valid_samples_in_a_healthy_channel_never_fault` | `diag_open_and_short_samples_count_together`, `diag_range_recovery_restarts_when_the_fault_comes_back` | `diag_open_circuit_limit_is_raw_five`, `diag_short_circuit_limit_is_raw_1018`, 599 and 600 recovery samples |
+| REQ-SAF-002 open or short circuit, or failed reads | `diag_open_circuit_faulty_after_five_samples`, `diag_read_failures_faulty_after_five_samples`, `firmware_repeated_read_errors_on_one_channel_are_a_logged_channel_fault`, `firmware_read_error_fault_recovers_after_sixty_seconds_of_good_reads`, `firmware_read_errors_on_both_channels_latch_the_fault_at_once` | `diag_rejected_range_input_changes_nothing`, `diag_read_failed_rejects_null` | `diag_valid_sample_resets_the_count`, `diag_valid_samples_in_a_healthy_channel_never_fault`, `diag_four_read_failures_then_a_valid_sample_are_no_fault`, `firmware_four_read_errors_are_no_channel_fault` | `diag_open_and_short_samples_count_together`, `diag_range_recovery_restarts_when_the_fault_comes_back`, `diag_read_failures_and_rail_readings_count_together`, `diag_read_failure_during_recovery_restarts_it` | `diag_open_circuit_limit_is_raw_five`, `diag_short_circuit_limit_is_raw_1018`, 599 and 600 recovery samples, 4 and 5 failed reads |
 | REQ-SAF-003 stuck sensor | `diag_stuck_value_faulty_after_ten_minutes` | `diag_stuck_check_rejects_bad_arguments` | `diag_moving_value_is_not_stuck`, `diag_stuck_check_is_inhibited_during_warmup` | `diag_one_lsb_of_noise_does_not_hide_a_stuck_sensor`, `diag_stuck_sensor_through_the_warmup_is_caught_ten_minutes_after_it` | `diag_stuck_sensor_recovers_on_two_lsb_not_on_one`, `diag_stuck_window_survives_the_clock_wrap` |
 | REQ-SAF-004 bandgap every 60 s | `firmware_bandgap_out_of_tolerance_raises_fault` | `firmware_bandgap_within_tolerance_logs_nothing` | `firmware_bandgap_at_the_tolerance_edges_raises_no_fault` | `firmware_failed_bandgap_read_is_logged_as_zero_and_raises_fault`, `diag_bandgap_at_the_adc_ends_is_a_fault` | `diag_bandgap_tolerance_ends_at_22_lsb`, `firmware_bandgap_is_measured_after_60_s_not_before` |
 | REQ-SAF-005 watchdog 500 ms | `watchdog_is_kicked_only_when_every_task_has_run` | `watchdog_is_not_kicked_when_no_task_has_run` | `scheduler_late_task_runs_once_not_in_a_burst` | `tasks_done_in_the_last_cycle_do_not_allow_a_kick_in_this_one` | `scheduler_accepts_one_to_eight_tasks`, `scheduler_task_stays_on_time_across_the_clock_wrap`; board: timeout with the bench image (`#h`) |
@@ -137,12 +137,11 @@ cases, so the five categories do not apply:
    now refuses MAINTENANCE while the gas is at or above AL1, and the refused
    request is dropped. Residual: a touch on a sample just below AL1 while gas
    builds is still accepted (F36).
-7. **Repeated ADC read errors on one channel (REQ-SAF-002).** A read error
-   skips the diagnostic, so it is never counted as a channel fault and is not
-   logged. With the other channel valid, one channel can fail every read and
-   stay out silently; the FAULT latches only when no channel is valid. Found by
-   the review of 2026-11-17 (it was already there before). Author to decide:
-   count repeated read errors as a channel fault, or accept it in the FMEA.
+7. **Repeated ADC read errors on one channel (REQ-SAF-002, fixed).** A read
+   error skipped the diagnostic, so with the other channel valid one channel
+   could fail every read and stay out silently. Decision of the author:
+   REQ-SAF-002 now counts a failed read as a bad sample, together with the
+   rail readings (FMEA F50).
 8. **Peak record wiped by a touch (REQ-LOG-001, fixed).** `act_touch`
    cleared the MAINTENANCE peaks when the request was made, so a touch in the
    2 samples after a MAINTENANCE ended logged the peaks of the finished gas

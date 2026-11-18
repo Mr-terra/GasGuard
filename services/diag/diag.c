@@ -7,8 +7,9 @@
  * Three independent checks, each with its own state in diag_t.
  *
  * 1. Range: a raw value at or below 5 (open circuit: the pull-down holds the
- *    input at 0) or at or above 1018 (short circuit) is a bad sample. Five bad
- *    samples in a row set a fault. A good sample resets the count.
+ *    input at 0) or at or above 1018 (short circuit) is a bad sample, and so
+ *    is a failed ADC read (diag_read_failed). Five bad samples in a row, of
+ *    any of these kinds, set a fault. A good sample resets the count.
  * 2. Stuck: the channel keeps a minimum and a maximum since its window started.
  *    A move of more than 1 LSB restarts the window. Ten minutes without a move,
  *    outside warm-up, set a fault: a frozen ADC, or calm air (FMEA F46).
@@ -48,6 +49,25 @@ gg_status_t diag_init(diag_t *diag)
     return status;
 }
 
+/**
+ * @brief Count one bad sample (open, short or failed read).
+ *
+ * Sets the fault at DIAG_RANGE_SAMPLES and stops any recovery in progress.
+ *
+ * @param diag  Channel state, checked by the caller.
+ * @req REQ-SAF-002
+ */
+static void range_bad_sample(diag_t *diag)
+{
+    if (diag->range_count < DIAG_RANGE_SAMPLES) {
+        diag->range_count++;
+    }
+    if (diag->range_count >= DIAG_RANGE_SAMPLES) {
+        diag->range_fault = true;
+    }
+    diag->range_ok_count = 0u;
+}
+
 gg_status_t diag_check_range(diag_t *diag, uint16_t raw)
 {
     gg_status_t status = GG_OK;
@@ -60,13 +80,7 @@ gg_status_t diag_check_range(diag_t *diag, uint16_t raw)
     } else {
         out_of_range = (raw <= DIAG_OPEN_MAX) || (raw >= DIAG_SHORT_MIN);
         if (out_of_range) {
-            if (diag->range_count < DIAG_RANGE_SAMPLES) {
-                diag->range_count++;
-            }
-            if (diag->range_count >= DIAG_RANGE_SAMPLES) {
-                diag->range_fault = true;
-            }
-            diag->range_ok_count = 0u;
+            range_bad_sample(diag);
         } else {
             diag->range_count = 0u;
             if (diag->range_fault) {
@@ -86,8 +100,14 @@ gg_status_t diag_check_range(diag_t *diag, uint16_t raw)
 
 gg_status_t diag_read_failed(diag_t *diag)
 {
-    /* Not implemented yet: red step of TDD. */
-    return (diag == NULL) ? GG_ERR_NULL : GG_OK;
+    gg_status_t status = GG_OK;
+
+    if (diag == NULL) {
+        status = GG_ERR_NULL;
+    } else {
+        range_bad_sample(diag);
+    }
+    return status;
 }
 
 static void stuck_window_restart(diag_t *diag, const diag_stuck_sample_t *sample)

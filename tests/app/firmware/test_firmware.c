@@ -1709,6 +1709,30 @@ static void test_firmware_four_read_errors_are_no_channel_fault(void)
     TEST_ASSERT_EQUAL_UINT8(0u, count_entries(EVENTLOG_CHANNEL_FAULT, ANY_ARG));
 }
 
+/* @verifies REQ-SAF-007 REQ-SAF-002 */
+static void test_firmware_read_errors_on_both_channels_latch_the_fault_at_once(void)
+{
+    /* A whole-ADC failure: both gas reads fail. The input FAULT latches at the
+     * first sample; each channel is logged after 5 failed reads; good reads
+     * later do not end the FAULT (only a restart does). */
+    detector_fault_code_t code = DET_FAULT_NONE;
+
+    boot_and_reach_normal();
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_MQ5, true));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_MQ2, true));
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_fault_code(&fw.det, &code));
+    TEST_ASSERT_EQUAL_INT(DET_FAULT_INPUT, code);
+    fw_ticks(DIAG_RANGE_SAMPLES - 1u, false, false);
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_CHANNEL_FAULT, FIRMWARE_CHANNEL_MQ5));
+    TEST_ASSERT_EQUAL_UINT8(1u, count_entries(EVENTLOG_CHANNEL_FAULT, FIRMWARE_CHANNEL_MQ2));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_MQ5, false));
+    TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_fail_channel(FIRMWARE_ADC_MQ2, false));
+    fw_ticks(DIAG_RECOVER_SAMPLES + 10u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1799,5 +1823,6 @@ int main(void)
     RUN_TEST(test_firmware_repeated_read_errors_on_one_channel_are_a_logged_channel_fault);
     RUN_TEST(test_firmware_read_error_fault_recovers_after_sixty_seconds_of_good_reads);
     RUN_TEST(test_firmware_four_read_errors_are_no_channel_fault);
+    RUN_TEST(test_firmware_read_errors_on_both_channels_latch_the_fault_at_once);
     return UNITY_END();
 }
