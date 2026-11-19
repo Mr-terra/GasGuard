@@ -18,7 +18,7 @@
  * MAINTENANCE, which holds the last healthy state, so every path to an alarm
  * or a fault releases it.
  *
- * @req REQ-ALM-001 REQ-ALM-002 REQ-ALM-003 REQ-ALM-004 REQ-ALM-005 REQ-ALM-006
+ * @req REQ-ALM-001 REQ-ALM-002 REQ-ALM-003 REQ-ALM-004 REQ-ALM-005 REQ-ALM-006 REQ-ALM-007
  * @req REQ-SAF-001 REQ-SAF-007 REQ-HMI-008 REQ-HMI-009
  */
 #include <stddef.h>
@@ -168,6 +168,18 @@ gg_status_t detector_end_warmup(detector_t *det)
         det->state_before_fault = DET_STATE_NORMAL;
     } else {
         /* Already past warm-up, or in FAULT: nothing to do. */
+    }
+    return status;
+}
+
+gg_status_t detector_warmup_more(const detector_t *det, gg_conc_t conc, bool *more)
+{
+    gg_status_t status = GG_OK;
+
+    if ((det == NULL) || (more == NULL)) {
+        status = GG_ERR_NULL;
+    } else {
+        *more = ((int32_t)conc >= (int32_t)det->thresholds.al1) && ((int32_t)conc < (int32_t)det->thresholds.al2);
     }
     return status;
 }

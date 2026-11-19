@@ -57,6 +57,7 @@ Any mode → `FAULT`. `NORMAL` ⇄ `MAINTENANCE` (operator request, time-limited
 | REQ-ALM-004 | ALARM_2 shall be **latched**: it shall only clear on an operator reset, and only if the concentration is below AL1 − hysteresis. |
 | REQ-ALM-005 | Threshold configuration shall be rejected unless 0 < AL1 < AL2 ≤ 60 %LEL and 0 ≤ hysteresis < AL1. |
 | REQ-ALM-006 | Alarm detection shall be inhibited during WARMUP; the inhibition shall be visible on the display. |
+| REQ-ALM-007 | If the concentration is ≥ AL1 and < AL2 at the end of the warm-up period, the warm-up shall be extended once by 60 s, with alarms still inhibited and the extension shown on the display. The warm-up shall end as soon as the concentration falls below AL1 or reaches AL2 during the extension, and at the latest when the 60 s are over; alarm detection then applies normally (REQ-ALM-001, REQ-ALM-002). At or above AL2 at the end of the warm-up, the warm-up shall not be extended. |
 
 ## 6. Safety and diagnostic requirements
 

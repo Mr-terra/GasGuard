@@ -1021,6 +1021,51 @@ static void test_detector_touch_refusal_follows_the_configured_clear_level(void)
     TEST_ASSERT_EQUAL_INT(DET_STATE_MAINTENANCE, state_now());
 }
 
+/** @brief Answer of detector_warmup_more() for one concentration, with the test thresholds. */
+static bool warmup_more_at(gg_conc_t conc)
+{
+    bool more = false;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_warmup_more(&det_test_state, conc, &more));
+    return more;
+}
+
+/* @verifies REQ-ALM-007 */
+static void test_detector_warmup_more_only_between_al1_and_al2(void)
+{
+    /* Limits: AL1 - 0.1 no, AL1 yes, AL2 - 0.1 yes, AL2 no (a strong leak is never delayed). */
+    TEST_ASSERT_FALSE(warmup_more_at(0));
+    TEST_ASSERT_FALSE(warmup_more_at(DETECTOR_AL1_DEFAULT - 1));
+    TEST_ASSERT_TRUE(warmup_more_at(DETECTOR_AL1_DEFAULT));
+    TEST_ASSERT_TRUE(warmup_more_at(104));
+    TEST_ASSERT_TRUE(warmup_more_at(DETECTOR_AL2_DEFAULT - 1));
+    TEST_ASSERT_FALSE(warmup_more_at(DETECTOR_AL2_DEFAULT));
+    TEST_ASSERT_FALSE(warmup_more_at(INT16_MAX));
+    TEST_ASSERT_FALSE(warmup_more_at(-50));
+}
+
+/* @verifies REQ-ALM-007 */
+static void test_detector_warmup_more_follows_the_configured_thresholds(void)
+{
+    static const detector_thresholds_t custom = {150, 300, 20};
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, detector_init(&det_test_state, &custom));
+    TEST_ASSERT_FALSE(warmup_more_at(120));
+    TEST_ASSERT_TRUE(warmup_more_at(150));
+    TEST_ASSERT_TRUE(warmup_more_at(260));
+    TEST_ASSERT_FALSE(warmup_more_at(300));
+}
+
+/* @verifies REQ-ALM-007 REQ-NFR-002 */
+static void test_detector_warmup_more_rejects_null(void)
+{
+    bool more = true;
+
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_warmup_more(NULL, 104, &more));
+    TEST_ASSERT_TRUE(more);
+    TEST_ASSERT_EQUAL_INT(GG_ERR_NULL, detector_warmup_more(&det_test_state, 104, NULL));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1097,5 +1142,8 @@ int main(void)
     RUN_TEST(test_detector_touch_on_a_dip_below_al1_while_gas_builds_is_ignored);
     RUN_TEST(test_detector_touch_on_a_dip_below_the_clear_level_while_gas_builds_enters_maintenance);
     RUN_TEST(test_detector_touch_refusal_follows_the_configured_clear_level);
+    RUN_TEST(test_detector_warmup_more_only_between_al1_and_al2);
+    RUN_TEST(test_detector_warmup_more_follows_the_configured_thresholds);
+    RUN_TEST(test_detector_warmup_more_rejects_null);
     return UNITY_END();
 }

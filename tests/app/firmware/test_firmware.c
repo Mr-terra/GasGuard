@@ -450,14 +450,33 @@ static void test_firmware_null_arguments_are_rejected(void)
     (void)energised;
 }
 
+/**
+ * @brief Warm-up of the frozen-channel test, in seconds: 120 s, then the 60 s extension,
+ * since the frozen MQ-5 reads 15 %LEL, between AL1 and AL2, at its end (REQ-ALM-007).
+ */
+#define FROZEN_WARMUP_S 180u
+/** @brief Seconds from the start to the end of the stuck window of the frozen-channel test. */
+#define FROZEN_STUCK_END_S 780u
 /** @brief Samples of the frozen-channel test, one a second: warm-up, the stuck window, one minute more. */
-#define FROZEN_TEST_SAMPLES (CONFIG_WARMUP_DEFAULT_S + (DIAG_STUCK_MS / FIRMWARE_MS_PER_S) + 60u)
+#define FROZEN_TEST_SAMPLES 840u
 
-/* @verifies REQ-SAF-003 */
+/* @verifies REQ-SAF-003 REQ-ALM-007 */
 static void test_firmware_frozen_channel_is_excluded_after_ten_minutes(void)
 {
     uint32_t i;
+    uint32_t stuck_s = DIAG_STUCK_MS;
+    uint32_t extra_s = FIRMWARE_WARMUP_EXTRA_MS;
+    uint32_t warmup_s = CONFIG_WARMUP_DEFAULT_S;
+    uint32_t samples = FROZEN_STUCK_END_S;
 
+    /* The literal macros above follow from the defaults: computed here in steps (MISRA 10.6, 10.7). */
+    stuck_s /= FIRMWARE_MS_PER_S;
+    extra_s /= FIRMWARE_MS_PER_S;
+    warmup_s += extra_s;
+    samples += 60u;
+    TEST_ASSERT_EQUAL_UINT32(FROZEN_WARMUP_S, warmup_s);
+    TEST_ASSERT_EQUAL_UINT32(FROZEN_STUCK_END_S, warmup_s + stuck_s);
+    TEST_ASSERT_EQUAL_UINT32(FROZEN_TEST_SAMPLES, samples);
     boot_defaults();
     /* MQ-5 frozen at a plausible gas level; MQ-2 moves by 2 LSB, so it is not stuck. */
     TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ5, MQ5_ALARM_1_RAW));
@@ -470,7 +489,7 @@ static void test_firmware_frozen_channel_is_excluded_after_ten_minutes(void)
         }
         TEST_ASSERT_EQUAL_INT(GG_OK, hal_adc_fake_set_value(FIRMWARE_ADC_MQ2, mq2_raw));
         TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, i * FIRMWARE_MS_PER_S));
-        if (i == (CONFIG_WARMUP_DEFAULT_S + (DIAG_STUCK_MS / FIRMWARE_MS_PER_S) - 10u)) {
+        if (i == (FROZEN_STUCK_END_S - 10u)) {
             /* Just before the stuck window ends: the frozen MQ-5 reading still holds ALARM_1. */
             TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
         }
@@ -1819,12 +1838,13 @@ static void test_firmware_warmup_extension_ends_as_soon_as_the_gas_falls_below_a
 }
 
 /* @verifies REQ-ALM-007 */
-static void test_firmware_warmup_is_extended_only_once(void)
+static void test_firmware_warmup_is_not_extended_again_after_an_early_end(void)
 {
     /* Gas falls below AL1 during the extension, then rises again: the warm-up has
      * ended and is not extended a second time, so ALARM_1 follows. */
     warmup_on_gas(COLD_SENSOR_LEVEL);
     fw_tick(false, false);
+    TEST_ASSERT_TRUE(firmware_warmup_extended(&fw));
     set_gas_raw(CLEAN_RAW);
     fw_ticks(FILTER_SETTLE_TICKS, false, false);
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
@@ -1937,6 +1957,80 @@ static void test_firmware_start_count_clear_waits_for_the_extended_warmup(void)
     TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
 }
 
+/* @verifies REQ-ALM-007 REQ-SAF-002 */
+static void test_firmware_no_valid_channel_at_warmup_end_is_a_fault_not_an_extension(void)
+{
+    /* Both sensors go open circuit on the last sample of the warm-up, after a cold
+     * reading between AL1 and AL2: no extension, the FAULT is not delayed. */
+    warmup_on_gas(COLD_SENSOR_LEVEL);
+    set_gas_raw(0u);
+    fw_tick(false, false);
+    TEST_ASSERT_FALSE(firmware_warmup_extended(&fw));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, fw.det.state_before_fault);
+}
+
+/* @verifies REQ-ALM-007 REQ-SAF-002 */
+static void test_firmware_channel_fault_during_the_extension_ends_it_and_faults(void)
+{
+    /* Both sensors go open circuit during the extension: it ends at once, the
+     * detector enters FAULT, and the warm-up is over (a FAULT that clears goes
+     * back to NORMAL, never to a second warm-up). */
+    warmup_on_gas(COLD_SENSOR_LEVEL);
+    fw_tick(false, false);
+    TEST_ASSERT_TRUE(firmware_warmup_extended(&fw));
+    set_gas_raw(0u);
+    fw_ticks(DIAG_RANGE_SAMPLES, false, false);
+    TEST_ASSERT_FALSE(firmware_warmup_extended(&fw));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, fw.det.state_before_fault);
+}
+
+/**
+ * @brief Run a start whose extension ends early on clean air.
+ * @return Time of the sample that ended the warm-up.
+ */
+static uint32_t start_with_early_end(void)
+{
+    uint32_t end_ms = 0u;
+    uint32_t i;
+
+    warmup_on_gas(COLD_SENSOR_LEVEL);
+    fw_tick(false, false);
+    TEST_ASSERT_TRUE(firmware_warmup_extended(&fw));
+    set_gas_raw(CLEAN_RAW);
+    for (i = 0u; (i < FILTER_SETTLE_TICKS) && (end_ms == 0u); i++) {
+        fw_tick(false, false);
+        if (firmware_state(&fw) == DET_STATE_NORMAL) {
+            end_ms = now_test - TICK_MS;
+        }
+    }
+    TEST_ASSERT_TRUE(end_ms > 0u);
+    return end_ms;
+}
+
+/* @verifies REQ-ALM-007 REQ-SAF-011 */
+static void test_firmware_start_count_clear_follows_an_early_end_of_the_extension(void)
+{
+    /* The extension ends a few samples after 120 s: the counter is cleared 60 s
+     * after that real end, well before the 240 s of a full extension. */
+    uint32_t end_ms;
+
+    short_starts(FIRMWARE_SHORT_STARTS_MAX - 1u);
+    end_ms = start_with_early_end();
+    TEST_ASSERT_TRUE(end_ms < (START_CLEAR_MS + FIRMWARE_WARMUP_EXTRA_MS));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, end_ms + FIRMWARE_STABLE_RUN_MS - 1u));
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+
+    hal_eeprom_fake_reset();
+    short_starts(FIRMWARE_SHORT_STARTS_MAX - 1u);
+    end_ms = start_with_early_end();
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, end_ms + FIRMWARE_STABLE_RUN_MS));
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -2031,12 +2125,15 @@ int main(void)
     RUN_TEST(test_firmware_touch_with_gas_between_the_clear_level_and_al1_is_refused);
     RUN_TEST(test_firmware_gas_above_al1_at_warmup_end_extends_it_by_one_minute);
     RUN_TEST(test_firmware_warmup_extension_ends_as_soon_as_the_gas_falls_below_al1);
-    RUN_TEST(test_firmware_warmup_is_extended_only_once);
+    RUN_TEST(test_firmware_warmup_is_not_extended_again_after_an_early_end);
     RUN_TEST(test_firmware_clean_air_at_warmup_end_is_no_extension);
     RUN_TEST(test_firmware_warmup_extension_starts_at_al1_not_below);
     RUN_TEST(test_firmware_gas_at_al2_at_warmup_end_alarms_without_extension);
     RUN_TEST(test_firmware_gas_rising_to_al2_during_the_extension_ends_it);
     RUN_TEST(test_firmware_warmup_extension_follows_the_stored_thresholds);
     RUN_TEST(test_firmware_start_count_clear_waits_for_the_extended_warmup);
+    RUN_TEST(test_firmware_no_valid_channel_at_warmup_end_is_a_fault_not_an_extension);
+    RUN_TEST(test_firmware_channel_fault_during_the_extension_ends_it_and_faults);
+    RUN_TEST(test_firmware_start_count_clear_follows_an_early_end_of_the_extension);
     return UNITY_END();
 }

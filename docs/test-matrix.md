@@ -16,7 +16,7 @@ dropped. `docs/traceability.md` lists every test of a requirement.
 
 "n/a" means the category does not apply to that requirement, and the cell
 says why. "Board" means the case can only be checked on the hardware; the
-result is in `docs/test-report.md`. Updated 2026-11-18.
+result is in `docs/test-report.md`. Updated 2026-11-19.
 
 ## Measurement
 
@@ -39,6 +39,7 @@ result is in `docs/test-report.md`. Updated 2026-11-18.
 | REQ-ALM-004 ALARM_2 latched | `detector_alarm_2_reset_accepted_when_gas_gone` | `detector_reset_request_outside_alarm_2_changes_nothing` | `detector_alarm_2_reset_refused_while_gas_present` | `detector_gas_back_after_an_alarm_2_reset_alarms_again`, `detector_alarm_2_is_latched_when_gas_drops` | `detector_alarm_2_reset_at_the_clear_level_is_refused_one_below_accepted` |
 | REQ-ALM-005 threshold validation | `detector_accepts_the_widest_valid_thresholds` | `config_validate_negative_thresholds_are_rejected` | `config_validate_accepts_the_widest_valid_settings` (no valid setting refused) | `detector_rejected_thresholds_keep_the_ones_in_use` | `config_validate_limits_al2_to_600`, `config_validate_al2_one_step_above_al1_is_accepted`, `config_validate_hysteresis_one_below_al1_is_accepted` |
 | REQ-ALM-006 inhibited in WARMUP | `detector_starts_in_warmup_with_alarms_inhibited` | `detector_end_warmup_rejects_null_and_acts_once` | `sc13_gas_during_warmup_raises_no_alarm` | `detector_gas_present_at_the_end_of_warmup_alarms_three_samples_later` | `detector_gas_present_at_the_end_of_warmup_alarms_three_samples_later` (2 samples, 3 samples) |
+| REQ-ALM-007 warm-up extended once | `firmware_gas_above_al1_at_warmup_end_extends_it_by_one_minute` | `firmware_clean_air_at_warmup_end_is_no_extension`, `firmware_warmup_is_not_extended_again_after_an_early_end`, `detector_warmup_more_rejects_null` | `firmware_warmup_extension_ends_as_soon_as_the_gas_falls_below_al1`, `firmware_warmup_extension_follows_the_stored_thresholds` | `firmware_gas_at_al2_at_warmup_end_alarms_without_extension`, `firmware_gas_rising_to_al2_during_the_extension_ends_it`, `firmware_start_count_clear_waits_for_the_extended_warmup`, `firmware_start_count_clear_follows_an_early_end_of_the_extension`, `firmware_no_valid_channel_at_warmup_end_is_a_fault_not_an_extension`, `firmware_channel_fault_during_the_extension_ends_it_and_faults` | `firmware_warmup_extension_starts_at_al1_not_below` (9.9 / 10.0 %LEL), `detector_warmup_more_only_between_al1_and_al2` (AL1 − 0.1, AL1, AL2 − 0.1, AL2) |
 
 ## Safety
 

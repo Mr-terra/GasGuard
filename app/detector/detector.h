@@ -120,6 +120,22 @@ gg_status_t detector_init(detector_t *det, const detector_thresholds_t *threshol
 gg_status_t detector_end_warmup(detector_t *det);
 
 /**
+ * @brief Whether a concentration at the end of the warm-up calls for the 60 s extension.
+ *
+ * True when AL1 <= conc < AL2: most likely a sensor that is still cold. At AL2
+ * or above, the warm-up is not extended, so a strong leak is never delayed.
+ *
+ * @param det   Detector. Must not be NULL.
+ * @param conc  Concentration of the sample, in 0.1 %LEL.
+ * @param more  Receives the answer. Must not be NULL.
+ * @return GG_OK or GG_ERR_NULL.
+ * @req REQ-ALM-007
+ */
+// DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage
+// cppcheck-suppress misra-c2012-8.7
+gg_status_t detector_warmup_more(const detector_t *det, gg_conc_t conc, bool *more);
+
+/**
  * @brief Advance the state machine by one sample.
  *
  * A fault input latches FAULT from any state. A stuck-only input (fault_stuck)

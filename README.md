@@ -64,7 +64,7 @@ process is the point:
 | Diagnostics | Task overrun (three in a row raise FAULT, REQ-SAF-008) and stack watermark (FAULT below 64 free bytes, REQ-SAF-009) |
 | Diagnostics | Stuck-only FAULT: when every sensor is out only because it is stuck (calm air), FAULT code 6 ends by itself as soon as a sensor moves; any real fault latches (REQ-SAF-007, FMEA F46) |
 | Diagnostics | Reset loop: three starts in a row without 60 s of running past the warm-up, from the fourth on each start enters FAULT and logs it with its reset and configuration source (REQ-SAF-011, FMEA F33). Manual resets less than 3 min apart (with the default 120 s warm-up) count too |
-| Alarms | Two-level alarm with hysteresis, latched ALARM_2, warm-up inhibition, max of valid channels |
+| Alarms | Two-level alarm with hysteresis, latched ALARM_2, warm-up inhibition (extended once by 60 s when a cold sensor still reads between AL1 and AL2), max of valid channels |
 | Alarms | Relay normally energised: energised in WARMUP, NORMAL and MAINTENANCE (holds the healthy state during a gas test, REQ-HMI-009), de-energised in ALARM_1, ALARM_2, FAULT and from start-up (`hal_gpio_init`; while the chip is held in reset the pin floats and a relay module needs the HW-004 pull-down, FMEA F21) |
 | Storage | A/B configuration with CRC-16 and safe defaults, repair of the other copy (REQ-CFG-001..004) |
 | Storage | Event log in a 111-entry EEPROM ring buffer (the largest that fits), CRC-16 per entry, written on events only (REQ-LOG-001..003) |
@@ -132,7 +132,11 @@ Any state → FAULT   (all channels faulty, ADC fault, 3 overruns, stack low)
 ```
 
 - **WARMUP** lasts 120 s by default (configurable 30–600 s). Alarms are inhibited
-  and the display says so.
+  and the display says so. If the gas is still between AL1 and AL2 at its end (a
+  sensor left unpowered for days reads high for a while), the warm-up is extended
+  once by 60 s and the display shows `WARMUP +1 MIN`. It ends as soon as the gas
+  falls below AL1; at AL2 or above there is no extension and the alarm follows
+  (REQ-ALM-007).
 - **FAULT** de-energises the relay and sounds the fault pattern. It stays until a
   restart, except a FAULT caused only by stuck channels (calm air): that one ends
   by itself as soon as a channel moves again (REQ-SAF-007).
@@ -216,7 +220,7 @@ measurement, it says so and moves to a safe state.
 |---|---|---|
 | Missed alarm when the sensor is unplugged | Open input must not look like clean air | 100 kΩ pull-down on the Arduino side of each gas input; open or short detected in software (REQ-SAF-002) |
 | Missed alarm from a dead or stuck sensor | A frozen reading must be detected | Stuck-value check over 10 minutes outside WARMUP (REQ-SAF-003) |
-| Wrong readings from a cold sensor | Do not trust what has not warmed up | Warm-up period with alarms inhibited and shown (REQ-ALM-006) |
+| Wrong readings from a cold sensor | Do not trust what has not warmed up | Warm-up period with alarms inhibited and shown (REQ-ALM-006), extended once by 60 s for a sensor still above AL1 and below AL2 (REQ-ALM-007) |
 | Undetected firmware hang | Hardware watchdog | 500 ms watchdog, kicked only after every task has run (REQ-SAF-005) |
 | Stack overflow corrupts memory | No dynamic memory, no recursion | Stack painted at boot, watermark checked every second (REQ-SAF-009/010) |
 | Corrupted configuration | Redundant copies and checksums | Two EEPROM copies with CRC-16, safe defaults if both fail (REQ-CFG-001/002) |
@@ -407,8 +411,8 @@ failure and task overruns.
 | Compiler | REQ-NFR-003 | Zero warnings with `-Wall -Wextra -Werror` and the extra flags of the standard |
 | Static analysis | Coding standard §6 | Zero findings outside the register of deviations |
 | Unit test coverage | REQ-NFR-004 | At least 90 % of lines in `app/` and `services/`; `make coverage` fails below |
-| Flash | REQ-NFR-005 | At most 80 % of 32 KB, measured on the firmware image (`make size`: about 14.5 KB, 57 % of the budget) |
-| RAM | REQ-NFR-005 | At most 60 % of 2 KB, static data only (`make size`: 685 B of 1228 B); the stack is watched at run time (REQ-SAF-009) |
+| Flash | REQ-NFR-005 | At most 80 % of 32 KB, measured on the firmware image (`make size`: about 14.9 KB, 58 % of the budget) |
+| RAM | REQ-NFR-005 | At most 60 % of 2 KB, static data only (`make size`: 701 B of 1228 B); the stack is watched at run time (REQ-SAF-009) |
 | Traceability | `trace.py` | Every requirement has code and a test (enforced on Day 5) |
 
 Accepted deviations from the coding standard are listed in

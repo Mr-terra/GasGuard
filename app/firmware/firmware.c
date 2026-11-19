@@ -17,6 +17,10 @@
  * each channel is kept; it is logged when MAINTENANCE ends, as the record of the
  * periodic gas test.
  *
+ * At the end of the warm-up, gas between AL1 and AL2 is most likely a sensor
+ * still cold after days unpowered: the warm-up is extended once by 60 s, and it
+ * ends earlier as soon as the gas falls below AL1 or reaches AL2 (REQ-ALM-007).
+ *
  * A start counter in EEPROM counts the starts that did not run 60 s past the warm-up.
  * From the fourth one on, each start enters FAULT at once and logs it, after its
  * reset and configuration entries (REQ-SAF-011).
@@ -28,7 +32,7 @@
  * state and the silence; the functional test can only release the relay, never
  * energise it, so a real alarm is never hidden by a test.
  *
- * @req REQ-SAF-006 REQ-SAF-007 REQ-SAF-008 REQ-SAF-009 REQ-ALM-001 REQ-SAF-001
+ * @req REQ-SAF-006 REQ-SAF-007 REQ-SAF-008 REQ-SAF-009 REQ-ALM-001 REQ-ALM-007 REQ-SAF-001
  * @req REQ-HMI-004 REQ-HMI-005 REQ-HMI-006 REQ-HMI-007 REQ-HMI-008 REQ-HMI-009 REQ-HMI-010
  */
 #include <stdbool.h>
@@ -295,6 +299,7 @@ static gg_status_t boot_start_detector(firmware_t *fw, const config_t *cfg, uint
     status = detector_init(&fw->det, &thresholds);
     if (status == GG_OK) {
         fw->warmup_end_ms = now_ms + ((uint32_t)cfg->warmup_s * FIRMWARE_MS_PER_S);
+        fw->warmup_extended = false;
     }
     return status;
 }
@@ -566,6 +571,72 @@ static void maint_peak_log_next(firmware_t *fw, uint32_t now_ms)
 }
 
 /**
+ * @brief Decide whether the warm-up ends at this sample, and extend it once when needed (REQ-ALM-007).
+ *
+ * At the end of the warm-up, gas between AL1 and AL2 extends it by 60 s. The
+ * extension ends as soon as the gas leaves that band: below AL1 the sensor has
+ * settled, at AL2 or above a strong leak must not wait. An early end moves
+ * warmup_end_ms to now, so the start counter (REQ-SAF-011) and the stuck check
+ * (REQ-SAF-003) count from the real end.
+ *
+ * @param fw      Firmware state, in WARMUP.
+ * @param now_ms  Current time.
+ * @param more    The gas of this sample is between AL1 and AL2.
+ * @return true when the warm-up ends now.
+ * @req REQ-ALM-006 REQ-ALM-007
+ */
+static bool warmup_due(firmware_t *fw, uint32_t now_ms, bool more)
+{
+    /* Differences from the start, so the comparison stays right when the timer wraps. */
+    bool time_up = (now_ms - fw->start_ms) >= (fw->warmup_end_ms - fw->start_ms);
+    bool end = false;
+
+    if (fw->warmup_extended) {
+        end = time_up || !more;
+        if (!time_up && !more) {
+            fw->warmup_end_ms = now_ms;
+        }
+    } else if (time_up && more) {
+        fw->warmup_extended = true;
+        fw->warmup_end_ms = now_ms + FIRMWARE_WARMUP_EXTRA_MS;
+    } else {
+        end = time_up;
+    }
+    return end;
+}
+
+/**
+ * @brief End the warm-up when it is due, or extend it once while the gas is between AL1 and AL2.
+ *
+ * A sample with no valid channel is never a reason to extend: the warm-up ends
+ * on time and the detector enters FAULT.
+ *
+ * @param fw      Firmware state, in WARMUP.
+ * @param now_ms  Current time.
+ * @param gas     Selection of this sample.
+ * @return The first error, or GG_OK.
+ * @req REQ-ALM-006 REQ-ALM-007
+ */
+static gg_status_t warmup_update(firmware_t *fw, uint32_t now_ms, const firmware_gas_t *gas)
+{
+    bool more = false;
+    bool end = false;
+    gg_status_t status = GG_OK;
+
+    if (gas->any_valid) {
+        status = detector_warmup_more(&fw->det, gas->max_conc, &more);
+    }
+    if (status == GG_OK) {
+        end = warmup_due(fw, now_ms, more);
+    }
+    if (end) {
+        fw->warmup_extended = false;
+        status = detector_end_warmup(&fw->det);
+    }
+    return status;
+}
+
+/**
  * @brief Run the detector on one sample, log a change of mode and end the silence it may carry.
  * @param fw      Firmware state.
  * @param now_ms  Current time.
@@ -579,10 +650,11 @@ static gg_status_t sample_detector_step(firmware_t *fw, uint32_t now_ms, const f
     detector_state_t after;
     detector_input_t input;
 
-    if ((before == DET_STATE_WARMUP) && (now_ms >= fw->warmup_end_ms)) {
-        status = detector_end_warmup(&fw->det);
+    if (before == DET_STATE_WARMUP) {
+        status = warmup_update(fw, now_ms, gas);
     }
     if (status == GG_OK) {
+        /* Filled only now: a failed step above leaves the pending requests and faults for the next sample. */
         sample_fill_input(fw, now_ms, gas, &input);
         status = detector_step(&fw->det, &input);
     }
@@ -1068,8 +1140,12 @@ gg_conc_t firmware_concentration(const firmware_t *fw)
  */
 bool firmware_warmup_extended(const firmware_t *fw)
 {
-    (void)fw;
-    return false;
+    bool extended = false;
+
+    if (fw != NULL) {
+        extended = fw->warmup_extended && (firmware_state(fw) == DET_STATE_WARMUP);
+    }
+    return extended;
 }
 
 /**

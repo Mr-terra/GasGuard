@@ -15,7 +15,7 @@ multimeter or the serial monitor (tools in
 | Step | What to check | Requirement |
 |---|---|---|
 | Watchdog timing | Bench image, `#h` (`tools\bench.ps1 -Command '#h'`), with no `log` dump running: reset about 500 ms after the last kick. Measured value = gap `BENCH HANG` to `BENCH BOOT`, minus the boot time printed; it reads the watchdog timeout plus less than 20 ms (start-up before the timer, about 3 ms of line length, USB and Windows latency). The watchdog oscillator itself is only accurate to about ±10 %. No reset in normal running | REQ-SAF-005 |
-| Stack watermark | Bench image: last number of the `BENCH` line after boot, after a minute, and after an alarm, a `log` dump and a MAINTENANCE; must stay above 64 bytes. The bench image has 109 more bytes of static RAM (794 against 685), so the product image has at least about 109 bytes more free stack than the value read (the bench calls also use some stack) | REQ-SAF-009 |
+| Stack watermark | Bench image: last number of the `BENCH` line after boot, after a minute, and after an alarm, a `log` dump and a MAINTENANCE; must stay above 64 bytes. The bench image has 109 more bytes of static RAM (810 against 701), so the product image has at least about 109 bytes more free stack than the value read (the bench calls also use some stack) | REQ-SAF-009 |
 | Buzzer patterns | 1 Hz in ALARM_1 (4 Hz in ALARM_2 and one beep every 5 s in FAULT were heard on Day 5) | REQ-HMI-003 |
 | Bandgap | Raw value of the bandgap against AVcc (expected near 0xED at 4.75 V) | REQ-SAF-004 |
 | Watchdog reset cause | Bench image, after `#h`: the `RESET` entry of the log shows the watchdog cause (the bootloader can clear the reset flags first) | REQ-SAF-006 |
@@ -178,7 +178,7 @@ Firmware: `main` at `60ac2b2` (button read as active high), flashed with
 | Bandgap check | **Fail (false fault)** with `60ac2b2`: `FAULT 1` at 0 s on 6 boots and at 61 s on one, with a correct supply and no channel fault. **Pass** with `day-5-fix-bench` (`0648f81`, ten conversions discarded): 6 boots without `FAULT` or `BANDGAP`, and one run past 120 s (so through the 60 s check) | REQ-SAF-004, F43 |
 | LCD in FAULT | Amber blink seen. **Fail** with `60ac2b2`: line 1 read `FAULTP` (end of `WARMUP` kept). **Pass** with `e5435f1` (rows filled with spaces): `ALARM 1` shown with no extra letter | REQ-HMI-001 |
 | FAULT buzzer | Pass: one beep every 5 s; the short press does not silence it (by design, REQ-HMI-004 covers the alarms, not FAULT) | REQ-HMI-003 |
-| Warm-up end | Pass: `MODE 1` (NORMAL) then `MODE 2` (ALARM_1) at 120 s, with the uncalibrated MQ-5 at about 11.5 %LEL | REQ-ALM-006 |
+| Warm-up end | Pass: `MODE 1` (NORMAL) then `MODE 2` (ALARM_1) at 120 s, with the uncalibrated MQ-5 at about 11.5 %LEL. Run before 2026-11-19: with REQ-ALM-007 the same reading now gives `WARMUP +1 MIN` for up to 60 s, to check on the board (sensor unpowered for days, or potentiometer at about 15 %LEL, then below 10 %LEL) | REQ-ALM-006, REQ-ALM-007 |
 | Button short press in ALARM_1 | Pass: the buzzer stops, the display stays on `ALARM 1` | REQ-HMI-004 |
 | Button long press in ALARM_1 | Pass: 3 s press, no change of state or buzzer (by design: the long press acts only in ALARM_2 and NORMAL) | REQ-HMI-005 |
 | Calibrated start (`298db0b`) | Pass: after the warm-up the detector reaches NORMAL with the MQ-5 offset at 113 | REQ-FUN-003 |

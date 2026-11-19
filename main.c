@@ -16,7 +16,7 @@
  * task was serviced and the scheduler is healthy (REQ-SAF-005, REQ-SAF-008).
  *
  * @req REQ-SAF-001 REQ-SAF-005 REQ-SAF-006 REQ-SAF-008 REQ-SAF-009
- * @req REQ-HMI-001 REQ-HMI-002 REQ-HMI-003 REQ-LOG-004 REQ-LOG-005
+ * @req REQ-HMI-001 REQ-HMI-002 REQ-HMI-003 REQ-LOG-004 REQ-LOG-005 REQ-ALM-007
  */
 #include <stdbool.h>
 #include <stddef.h>
@@ -174,6 +174,7 @@ static void state_colour(detector_state_t state, uint8_t *red, uint8_t *green, u
 typedef struct {
     bool valid;                       /**< False until the first full refresh. */
     bool test;                        /**< The functional test was shown. */
+    bool extended;                    /**< The warm-up extension was shown (REQ-ALM-007). */
     detector_state_t state;           /**< State shown on the first row. */
     uint8_t red;                      /**< Backlight red level shown. */
     uint8_t green;                    /**< Backlight green level shown. */
@@ -205,7 +206,28 @@ static bool same_text(const char *a, const char *b)
 }
 
 /**
- * @brief Refresh the display with the current state (REQ-HMI-001, REQ-HMI-002).
+ * @brief Text of the first row: the test, the warm-up extension, or the state.
+ * @param state     Detector state.
+ * @param test      The functional test is running.
+ * @param extended  The warm-up is in its 60 s extension (REQ-ALM-007).
+ * @return A zero-terminated text of at most 16 characters.
+ */
+static const char *row_text(detector_state_t state, bool test, bool extended)
+{
+    const char *text = state_text(state);
+
+    if (test) {
+        text = "TEST";
+    } else if (extended) {
+        text = "WARMUP +1 MIN";
+    } else {
+        /* The state itself. */
+    }
+    return text;
+}
+
+/**
+ * @brief Refresh the display with the current state (REQ-HMI-001, REQ-HMI-002, REQ-ALM-007).
  *
  * Only what changed is written: the LCD is on a slow I2C bus, and every write
  * costs time inside the cycle. A failed write is retried on the next refresh.
@@ -221,6 +243,7 @@ static gg_status_t task_display(uint32_t now_ms)
         return GG_OK;   /* No display: the detector runs without it (REQ-HMI-001 is logged at boot). */
     }
     bool test = firmware_test_running(&fw);
+    bool extended = firmware_warmup_extended(&fw);
     uint8_t red = 0u;
     uint8_t green = 0u;
     uint8_t blue = 0u;
@@ -232,9 +255,10 @@ static gg_status_t task_display(uint32_t now_ms)
         red = LEVEL_OFF;
         green = LEVEL_OFF;
     }
-    if (!shown.valid || (shown.test != test) || (shown.state != state)) {
-        if (lcd_rgb_write_line(DISPLAY_ROW_STATE, test ? "TEST" : state_text(state)) == GG_OK) {
+    if (!shown.valid || (shown.test != test) || (shown.extended != extended) || (shown.state != state)) {
+        if (lcd_rgb_write_line(DISPLAY_ROW_STATE, row_text(state, test, extended)) == GG_OK) {
             shown.test = test;
+            shown.extended = extended;
             shown.state = state;
         }
     }

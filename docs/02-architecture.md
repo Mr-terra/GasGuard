@@ -112,6 +112,9 @@ a requirement, and it is measured on the bench (docs/test-report.md).
                                                     ALARM_2 ──────┘
                                                   (latched, reset
                                                    by long press)
+   WARMUP ──timer, gas ≥ AL1 and < AL2──► WARMUP extended once by 60 s, shown as
+          `WARMUP +1 MIN`; it ends early when the gas falls below AL1 or reaches
+          AL2 (REQ-ALM-007)
    NORMAL ──≥AL2 x3──► ALARM_2 directly: in NORMAL the AL2 count is checked
                        before the AL1 count (REQ-ALM-002)
    NORMAL ──touch 3 s while gas ≥ AL1 − hysteresis──► request dropped, NORMAL kept (REQ-HMI-008)
