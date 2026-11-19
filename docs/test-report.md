@@ -26,6 +26,23 @@ multimeter or the serial monitor (tools in
 | Zero offsets re-check | Every month for the first three months, then at each periodic gas test: `tools/status-log.ps1` for one day in clean air; the lowest MQ-5 and MQ-2 raw values must stay at or above the offsets (111 and 35). A value under an offset means a leak reads low by the gap: lower the offset (FMEA F45) | REQ-FUN-003 |
 | Calibration in the configuration | REQ-FUN-003 is **only partly met**: the zero offsets are compiled in (`FIRMWARE_ZERO_RAW_*`), not stored in the configuration, and the span is not checked with a reference gas. The trace shows code and tests for REQ-FUN-003, not this gap. Decision of the author (Day 5): v1.0 ships with the current compiled-in values; the values are changed later | REQ-FUN-003 |
 
+## Day 5 — warm-up extension (2026-11-19)
+
+Firmware: branch `day-5-warmup-extension`, commit `d457c98`, simulation image
+(`gasguard_sim.hex`, flashed with `-Bench`): the potentiometer on A2 replaces
+the MQ-5. Each case starts with a reset; the line 2 of the display gives the
+%LEL used to set the potentiometer. Result given by the author.
+
+| Case | What was done | Result | Requirement |
+|---|---|---|---|
+| A, gas falls below AL1 | About 15 %LEL during the warm-up, then below 10 %LEL during the extension | Pass: `WARMUP` (yellow), `WARMUP +1 MIN` at about 120 s, NORMAL (green) as soon as the reading fell below 10 %LEL | REQ-ALM-007, REQ-ALM-006 |
+| B, gas stays between AL1 and AL2 | About 15 %LEL from the start, kept | Pass: `WARMUP +1 MIN` up to about 180 s, then ALARM 1 with its slow beep | REQ-ALM-007, REQ-ALM-001 |
+| C, gas at AL2 or above at the end | Above 25 %LEL from the start | Pass: no `WARMUP +1 MIN`, ALARM 2 right after 120 s | REQ-ALM-007, REQ-ALM-002 |
+| D, gas rises to AL2 during the extension | About 15 %LEL, then above 25 %LEL while `WARMUP +1 MIN` was shown | Pass: ALARM 2 at once, without waiting for the end of the minute | REQ-ALM-007, REQ-ALM-002 |
+
+Still open from this session: the refusal of the 3 s touch at about 9 %LEL
+(REQ-HMI-008) and the 60 s limit of the ALARM_2 silence (REQ-HMI-004).
+
 ## Day 5 — relay output D5 at reset (2026-11-17)
 
 Firmware: `main` at `6debe95` (release v1.1). No relay module fitted (as in
@@ -178,7 +195,7 @@ Firmware: `main` at `60ac2b2` (button read as active high), flashed with
 | Bandgap check | **Fail (false fault)** with `60ac2b2`: `FAULT 1` at 0 s on 6 boots and at 61 s on one, with a correct supply and no channel fault. **Pass** with `day-5-fix-bench` (`0648f81`, ten conversions discarded): 6 boots without `FAULT` or `BANDGAP`, and one run past 120 s (so through the 60 s check) | REQ-SAF-004, F43 |
 | LCD in FAULT | Amber blink seen. **Fail** with `60ac2b2`: line 1 read `FAULTP` (end of `WARMUP` kept). **Pass** with `e5435f1` (rows filled with spaces): `ALARM 1` shown with no extra letter | REQ-HMI-001 |
 | FAULT buzzer | Pass: one beep every 5 s; the short press does not silence it (by design, REQ-HMI-004 covers the alarms, not FAULT) | REQ-HMI-003 |
-| Warm-up end | Pass: `MODE 1` (NORMAL) then `MODE 2` (ALARM_1) at 120 s, with the uncalibrated MQ-5 at about 11.5 %LEL. Run before 2026-11-19: with REQ-ALM-007 the same reading now gives `WARMUP +1 MIN` for up to 60 s, to check on the board (sensor unpowered for days, or potentiometer at about 15 %LEL, then below 10 %LEL) | REQ-ALM-006, REQ-ALM-007 |
+| Warm-up end | Pass: `MODE 1` (NORMAL) then `MODE 2` (ALARM_1) at 120 s, with the uncalibrated MQ-5 at about 11.5 %LEL. Run before 2026-11-19: with REQ-ALM-007 the same reading now gives `WARMUP +1 MIN` for up to 60 s; checked on 2026-11-19, see "Day 5 — warm-up extension" | REQ-ALM-006, REQ-ALM-007 |
 | Button short press in ALARM_1 | Pass: the buzzer stops, the display stays on `ALARM 1` | REQ-HMI-004 |
 | Button long press in ALARM_1 | Pass: 3 s press, no change of state or buzzer (by design: the long press acts only in ALARM_2 and NORMAL) | REQ-HMI-005 |
 | Calibrated start (`298db0b`) | Pass: after the warm-up the detector reaches NORMAL with the MQ-5 offset at 113 | REQ-FUN-003 |
