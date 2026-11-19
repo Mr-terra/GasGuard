@@ -1063,6 +1063,16 @@ gg_conc_t firmware_concentration(const firmware_t *fw)
 }
 
 /**
+ * @brief Whether the warm-up is in its 60 s extension.
+ * @req REQ-ALM-007
+ */
+bool firmware_warmup_extended(const firmware_t *fw)
+{
+    (void)fw;
+    return false;
+}
+
+/**
  * @brief Whether the functional test is running.
  * @req REQ-HMI-006
  */

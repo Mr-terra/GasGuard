@@ -173,18 +173,21 @@ static void test_firmware_boot_starts_in_warmup_and_the_output_follows_it(void)
     TEST_ASSERT_TRUE(hal_gpio_fake_level(HAL_GPIO_PIN_RELAY));
 }
 
-/* @verifies REQ-ALM-001 */
+/* @verifies REQ-ALM-001 REQ-ALM-007 */
 static void test_firmware_alarm_1_after_warmup_and_three_samples(void)
 {
     uint8_t i;
     eventlog_entry_t entry;
 
     boot_defaults();
-    /* Above its zero, one raw LSB is 0.1 %LEL: both channels at 15 %LEL. */
+    /* Above its zero, one raw LSB is 0.1 %LEL: both channels at 15 %LEL. The first
+     * sample after the 120 s warm-up sees gas above AL1, so the warm-up is extended
+     * by 60 s (REQ-ALM-007); ALARM_1 comes 3 samples after its end. */
     set_gas_level(ALARM_1_RAW);
     TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, 130000u));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
     for (i = 0u; i < 3u; i++) {
-        TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, 130000u + (uint32_t)i * 100u));
+        TEST_ASSERT_EQUAL_INT(GG_OK, firmware_sample(&fw, 190000u + (uint32_t)i * 100u));
     }
     TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
     TEST_ASSERT_EQUAL_INT(GG_OK, eventlog_read_slot(2u, &entry));
@@ -1748,6 +1751,192 @@ static void test_firmware_touch_with_gas_between_the_clear_level_and_al1_is_refu
     TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
 }
 
+/** @brief Loop passes of the default 120 s warm-up: the next pass is the first one at its end. */
+#define WARMUP_TICKS 1200u
+/** @brief Loop passes of the 60 s warm-up extension (REQ-ALM-007). */
+#define WARMUP_EXTRA_TICKS 600u
+/** @brief Gas level just above AL1 (10.4 %LEL), as read on the board after two days unpowered. */
+#define COLD_SENSOR_LEVEL 104u
+/** @brief Loop passes that are enough for the filter to follow a step of the input. */
+#define FILTER_SETTLE_TICKS 20u
+
+/**
+ * @brief Boot on the given gas level and run the whole default warm-up, up to its last pass.
+ * @param level  Gas level on both channels, in 0.1 %LEL above each zero offset.
+ */
+static void warmup_on_gas(uint16_t level)
+{
+    TEST_ASSERT_EQUAL_UINT32((uint32_t)CONFIG_WARMUP_DEFAULT_S * FIRMWARE_MS_PER_S, WARMUP_TICKS * TICK_MS);
+    TEST_ASSERT_EQUAL_UINT32(FIRMWARE_WARMUP_EXTRA_MS, WARMUP_EXTRA_TICKS * TICK_MS);
+    boot_defaults();
+    set_gas_level(level);
+    fw_ticks(WARMUP_TICKS, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+    TEST_ASSERT_FALSE(firmware_warmup_extended(&fw));
+}
+
+/* @verifies REQ-ALM-007 REQ-ALM-006 */
+static void test_firmware_gas_above_al1_at_warmup_end_extends_it_by_one_minute(void)
+{
+    /* The bench case: a cold sensor still reads 10.4 %LEL at the end of the warm-up.
+     * The warm-up goes on for 60 s, alarms still inhibited, and the display is told. */
+    uint32_t i;
+
+    warmup_on_gas(COLD_SENSOR_LEVEL);
+    for (i = 0u; i < WARMUP_EXTRA_TICKS; i++) {
+        fw_tick(false, false);
+        TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+        TEST_ASSERT_TRUE(firmware_warmup_extended(&fw));
+    }
+    /* Still above AL1 when the minute is over: the warm-up ends and ALARM_1 follows after 3 samples. */
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    TEST_ASSERT_FALSE(firmware_warmup_extended(&fw));
+    fw_ticks(DETECTOR_ENTER_SAMPLES - 1u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
+}
+
+/* @verifies REQ-ALM-007 */
+static void test_firmware_warmup_extension_ends_as_soon_as_the_gas_falls_below_al1(void)
+{
+    uint32_t i;
+
+    warmup_on_gas(COLD_SENSOR_LEVEL);
+    fw_tick(false, false);
+    TEST_ASSERT_TRUE(firmware_warmup_extended(&fw));
+    set_gas_raw(CLEAN_RAW);
+    fw_ticks(FILTER_SETTLE_TICKS, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    TEST_ASSERT_FALSE(firmware_warmup_extended(&fw));
+    /* Alarms work again: no alarm on clean air, ALARM_1 on gas after 3 samples. */
+    for (i = 0u; i < 50u; i++) {
+        fw_tick(false, false);
+        TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    }
+    set_gas_level(ALARM_1_RAW);
+    fw_ticks(FILTER_SETTLE_TICKS, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
+}
+
+/* @verifies REQ-ALM-007 */
+static void test_firmware_warmup_is_extended_only_once(void)
+{
+    /* Gas falls below AL1 during the extension, then rises again: the warm-up has
+     * ended and is not extended a second time, so ALARM_1 follows. */
+    warmup_on_gas(COLD_SENSOR_LEVEL);
+    fw_tick(false, false);
+    set_gas_raw(CLEAN_RAW);
+    fw_ticks(FILTER_SETTLE_TICKS, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    set_gas_level(COLD_SENSOR_LEVEL);
+    fw_ticks(FILTER_SETTLE_TICKS, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_1, firmware_state(&fw));
+    TEST_ASSERT_FALSE(firmware_warmup_extended(&fw));
+}
+
+/* @verifies REQ-ALM-007 REQ-ALM-006 */
+static void test_firmware_clean_air_at_warmup_end_is_no_extension(void)
+{
+    warmup_on_gas(10u);   /* 1 %LEL, above the open-circuit limit. */
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    TEST_ASSERT_FALSE(firmware_warmup_extended(&fw));
+}
+
+/* @verifies REQ-ALM-007 */
+static void test_firmware_warmup_extension_starts_at_al1_not_below(void)
+{
+    /* Limits: 9.9 %LEL ends the warm-up on time, 10.0 %LEL (AL1) extends it. */
+    warmup_on_gas((uint16_t)CONFIG_AL1_DEFAULT - 1u);
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    TEST_ASSERT_FALSE(firmware_warmup_extended(&fw));
+
+    hal_eeprom_fake_reset();
+    warmup_on_gas((uint16_t)CONFIG_AL1_DEFAULT);
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+    TEST_ASSERT_TRUE(firmware_warmup_extended(&fw));
+}
+
+/* @verifies REQ-ALM-007 REQ-ALM-002 */
+static void test_firmware_gas_at_al2_at_warmup_end_alarms_without_extension(void)
+{
+    /* A strong leak at power-on is never delayed: at AL2 the warm-up ends on time
+     * and ALARM_2 follows after 3 samples. Just below AL2 the warm-up is extended. */
+    warmup_on_gas((uint16_t)CONFIG_AL2_DEFAULT);
+    fw_tick(false, false);
+    TEST_ASSERT_FALSE(firmware_warmup_extended(&fw));
+    fw_ticks(DETECTOR_ENTER_SAMPLES - 1u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, firmware_state(&fw));
+
+    hal_eeprom_fake_reset();
+    warmup_on_gas((uint16_t)CONFIG_AL2_DEFAULT - 1u);
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+    TEST_ASSERT_TRUE(firmware_warmup_extended(&fw));
+}
+
+/* @verifies REQ-ALM-007 REQ-ALM-002 */
+static void test_firmware_gas_rising_to_al2_during_the_extension_ends_it(void)
+{
+    /* False negative guarded: a leak that grows during the extension is not hidden
+     * until its end; at AL2 the warm-up ends and ALARM_2 follows. */
+    warmup_on_gas(ALARM_1_RAW);
+    fw_tick(false, false);
+    TEST_ASSERT_TRUE(firmware_warmup_extended(&fw));
+    set_gas_level(ALARM_2_RAW);
+    fw_ticks(FILTER_SETTLE_TICKS, false, false);
+    TEST_ASSERT_FALSE(firmware_warmup_extended(&fw));
+    TEST_ASSERT_EQUAL_INT(DET_STATE_ALARM_2, firmware_state(&fw));
+}
+
+/* @verifies REQ-ALM-007 */
+static void test_firmware_warmup_extension_follows_the_stored_thresholds(void)
+{
+    /* AL1 set to 15.0 %LEL: 12.0 %LEL is below it (no extension), 16.0 %LEL is above. */
+    config_t cfg;
+
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_defaults(&cfg));
+    cfg.al1 = 150;
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_store(&cfg));
+    boot_defaults();
+    set_gas_level(120u);
+    fw_ticks(WARMUP_TICKS + 1u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_NORMAL, firmware_state(&fw));
+    TEST_ASSERT_FALSE(firmware_warmup_extended(&fw));
+
+    hal_eeprom_fake_reset();
+    TEST_ASSERT_EQUAL_INT(GG_OK, config_store(&cfg));
+    boot_defaults();
+    set_gas_level(160u);
+    fw_ticks(WARMUP_TICKS + 1u, false, false);
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+    TEST_ASSERT_TRUE(firmware_warmup_extended(&fw));
+}
+
+/* @verifies REQ-ALM-007 REQ-SAF-011 */
+static void test_firmware_start_count_clear_waits_for_the_extended_warmup(void)
+{
+    /* Two short starts, then a start whose warm-up is extended to 180 s: the
+     * counter is cleared 60 s after the real end (240 s), not after 180 s. */
+    short_starts(FIRMWARE_SHORT_STARTS_MAX - 1u);
+    warmup_on_gas(COLD_SENSOR_LEVEL);
+    fw_tick(false, false);
+    TEST_ASSERT_TRUE(firmware_warmup_extended(&fw));
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, START_CLEAR_MS + FIRMWARE_WARMUP_EXTRA_MS - 1u));
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_FAULT, firmware_state(&fw));
+
+    hal_eeprom_fake_reset();
+    short_starts(FIRMWARE_SHORT_STARTS_MAX - 1u);
+    warmup_on_gas(COLD_SENSOR_LEVEL);
+    fw_tick(false, false);
+    TEST_ASSERT_EQUAL_INT(GG_OK, firmware_health(&fw, START_CLEAR_MS + FIRMWARE_WARMUP_EXTRA_MS));
+    short_start();
+    TEST_ASSERT_EQUAL_INT(DET_STATE_WARMUP, firmware_state(&fw));
+}
+
 // DEV-03: Unity runner entry point, called by the test harness; MISRA 8.6 does not apply.
 // cppcheck-suppress misra-c2012-8.6
 int main(void)
@@ -1840,5 +2029,14 @@ int main(void)
     RUN_TEST(test_firmware_four_read_errors_are_no_channel_fault);
     RUN_TEST(test_firmware_read_errors_on_both_channels_latch_the_fault_at_once);
     RUN_TEST(test_firmware_touch_with_gas_between_the_clear_level_and_al1_is_refused);
+    RUN_TEST(test_firmware_gas_above_al1_at_warmup_end_extends_it_by_one_minute);
+    RUN_TEST(test_firmware_warmup_extension_ends_as_soon_as_the_gas_falls_below_al1);
+    RUN_TEST(test_firmware_warmup_is_extended_only_once);
+    RUN_TEST(test_firmware_clean_air_at_warmup_end_is_no_extension);
+    RUN_TEST(test_firmware_warmup_extension_starts_at_al1_not_below);
+    RUN_TEST(test_firmware_gas_at_al2_at_warmup_end_alarms_without_extension);
+    RUN_TEST(test_firmware_gas_rising_to_al2_during_the_extension_ends_it);
+    RUN_TEST(test_firmware_warmup_extension_follows_the_stored_thresholds);
+    RUN_TEST(test_firmware_start_count_clear_waits_for_the_extended_warmup);
     return UNITY_END();
 }

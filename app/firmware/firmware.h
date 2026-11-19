@@ -98,6 +98,9 @@
 /** @brief Running time outside WARMUP after which the start counter is cleared, in milliseconds (REQ-SAF-011). */
 #define FIRMWARE_STABLE_RUN_MS 60000u
 
+/** @brief Extra warm-up when the gas is between AL1 and AL2 at the end of the warm-up, in milliseconds (REQ-ALM-007). */
+#define FIRMWARE_WARMUP_EXTRA_MS 60000u
+
 /** @brief Milliseconds per second, for the uptime stamps of the event log. */
 #define FIRMWARE_MS_PER_S 1000u
 
@@ -125,7 +128,8 @@ typedef struct {
     filter_t filter[FIRMWARE_CHANNELS];      /**< One filter (median of 3, average of 8) per channel. */
     diag_t diag[FIRMWARE_CHANNELS];          /**< One diagnostic per channel. */
     calib_t calib[FIRMWARE_CHANNELS];        /**< One calibration per channel. */
-    uint32_t warmup_end_ms;                  /**< Time at which WARMUP ends. */
+    uint32_t warmup_end_ms;                  /**< Time at which WARMUP ends; moved by the extension, or to its early end (REQ-ALM-007). */
+    bool warmup_extended;                    /**< The warm-up was extended once by FIRMWARE_WARMUP_EXTRA_MS (REQ-ALM-007). */
     uint32_t bandgap_next_ms;                /**< Time of the next bandgap measurement (REQ-SAF-004). */
     bool bandgap_logged;                     /**< An out-of-tolerance bandgap value was logged since boot: log it once only (REQ-LOG-003). */
     bool channel_faulty[FIRMWARE_CHANNELS];  /**< Fault state of each channel at the last sample, to log each change once. */
@@ -275,6 +279,16 @@ gg_status_t firmware_report_display(const firmware_t *fw, bool present, uint32_t
 // DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage
 // cppcheck-suppress misra-c2012-8.7
 gg_conc_t firmware_concentration(const firmware_t *fw);
+
+/**
+ * @brief Whether the warm-up is in its 60 s extension (the display shows it).
+ * @param fw  Firmware state.
+ * @return True while the detector is in WARMUP after an extension; false if fw is NULL.
+ * @req REQ-ALM-007
+ */
+// DEV-05: service/driver/app API, called by app/, main.c and tests; cppcheck sees one caller at this stage
+// cppcheck-suppress misra-c2012-8.7
+bool firmware_warmup_extended(const firmware_t *fw);
 
 /**
  * @brief Whether the functional test is running (the display shows TEST).
