@@ -16,6 +16,7 @@ multimeter or the serial monitor (tools in
 |---|---|---|
 | Watchdog timing | Bench image, `#h` (`tools\bench.ps1 -Command '#h'`), with no `log` dump running: reset about 500 ms after the last kick. Measured value = gap `BENCH HANG` to `BENCH BOOT`, minus the boot time printed; it reads the watchdog timeout plus less than 20 ms (start-up before the timer, about 3 ms of line length, USB and Windows latency). The watchdog oscillator itself is only accurate to about ±10 %. No reset in normal running | REQ-SAF-005 |
 | Stack watermark | Bench image: last number of the `BENCH` line after boot, after a minute, and after an alarm, a `log` dump and a MAINTENANCE; must stay above 64 bytes. The bench image has 109 more bytes of static RAM (810 against 701), so the product image has at least about 109 bytes more free stack than the value read (the bench calls also use some stack) | REQ-SAF-009 |
+| ALARM_2 silence limit | Buzzer connected (it was not on 2026-11-19, waiting for new cables): ALARM_2, a short press silences it, more short presses before 60 s do not extend it, the buzzer sounds again 60 s after the first press while the gas is still there | REQ-HMI-004 |
 | Buzzer patterns | 1 Hz in ALARM_1 (4 Hz in ALARM_2 and one beep every 5 s in FAULT were heard on Day 5) | REQ-HMI-003 |
 | Bandgap | Raw value of the bandgap against AVcc (expected near 0xED at 4.75 V) | REQ-SAF-004 |
 | Watchdog reset cause | Bench image, after `#h`: the `RESET` entry of the log shows the watchdog cause (the bootloader can clear the reset flags first) | REQ-SAF-006 |
@@ -39,9 +40,11 @@ the MQ-5. Each case starts with a reset; the line 2 of the display gives the
 | B, gas stays between AL1 and AL2 | About 15 %LEL from the start, kept | Pass: `WARMUP +1 MIN` up to about 180 s, then ALARM 1 with its slow beep | REQ-ALM-007, REQ-ALM-001 |
 | C, gas at AL2 or above at the end | Above 25 %LEL from the start | Pass: no `WARMUP +1 MIN`, ALARM 2 right after 120 s | REQ-ALM-007, REQ-ALM-002 |
 | D, gas rises to AL2 during the extension | About 15 %LEL, then above 25 %LEL while `WARMUP +1 MIN` was shown | Pass: ALARM 2 at once, without waiting for the end of the minute | REQ-ALM-007, REQ-ALM-002 |
+| Touch refused with gas | NORMAL, about 9 %LEL, touch held 3 s; then below 8.0 %LEL, touch held 3 s | Pass: no `MAINT` at about 9 %LEL, NORMAL kept; `MAINT` entered below 8.0 %LEL | REQ-HMI-008 |
 
-Still open from this session: the refusal of the 3 s touch at about 9 %LEL
-(REQ-HMI-008) and the 60 s limit of the ALARM_2 silence (REQ-HMI-004).
+Still open: the 60 s limit of the ALARM_2 silence (REQ-HMI-004). The buzzer
+was not connected in this session (waiting for new cables); the step is in the
+open list above.
 
 ## Day 5 — relay output D5 at reset (2026-11-17)
 
@@ -199,7 +202,7 @@ Firmware: `main` at `60ac2b2` (button read as active high), flashed with
 | Button short press in ALARM_1 | Pass: the buzzer stops, the display stays on `ALARM 1` | REQ-HMI-004 |
 | Button long press in ALARM_1 | Pass: 3 s press, no change of state or buzzer (by design: the long press acts only in ALARM_2 and NORMAL) | REQ-HMI-005 |
 | Calibrated start (`298db0b`) | Pass: after the warm-up the detector reaches NORMAL with the MQ-5 offset at 113 | REQ-FUN-003 |
-| Touch 3 s in NORMAL | Pass: MAINTENANCE entered, yellow backlight (looks orange on this module), automatic return to NORMAL after 10 min. Run before 2026-11-17: the refusal of the touch from 8.0 %LEL up (REQ-HMI-008) is host-tested and still to run on the board (potentiometer at about 9 %LEL) | REQ-HMI-008, REQ-HMI-010 |
+| Touch 3 s in NORMAL | Pass: MAINTENANCE entered, yellow backlight (looks orange on this module), automatic return to NORMAL after 10 min. Run before 2026-11-17: the refusal of the touch from 8.0 %LEL up (REQ-HMI-008) passed on the board on 2026-11-19, see "Day 5 — warm-up extension" | REQ-HMI-008, REQ-HMI-010 |
 | Button long press in NORMAL | Pass: the functional test runs, the buzzer beeps. Relay step not seen: no relay wired | REQ-HMI-006 |
 | ALARM_2 with lighter gas (unlit) on the MQ-5 | Pass: up to 51.6 %LEL (first try) and 88 %LEL (second try), ALARM_2 entered, red backlight, buzzer 4 beeps per second | REQ-ALM-002, REQ-HMI-002, REQ-HMI-003 |
 | ALARM_2 short press | Pass: the buzzer stops, then sounds again after 60 s. Run with the rule before 2026-11-17 (each press restarted the 60 s); the new rule (60 s per alarm, from the first press) is host-tested and still to run on the board | REQ-HMI-004 |
